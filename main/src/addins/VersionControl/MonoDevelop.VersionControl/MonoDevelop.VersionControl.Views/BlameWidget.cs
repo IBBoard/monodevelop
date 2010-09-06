@@ -499,20 +499,25 @@ namespace MonoDevelop.VersionControl.Views
 				if (initalLength >= revision.Length)
 					return revision;
 				string prefix = revision.Substring (0, initalLength);
+				string truncated = prefix;
 				var history = widget.info.History;
 				if (null != history) {
-					int cnt = 0;
-					foreach (var rev in widget.info.History) {
-						if (rev.ToString ().StartsWith (prefix)) {
-							cnt++;
-							if (cnt > 1)
-								return TruncRevision (revision, initalLength + 1);
+					bool match = false;
+					foreach (var rev in history) {
+						if (rev.ToString ().Equals (revision)){
+							continue;
+						} else if (rev.ToString ().StartsWith (prefix)) {
+							match = true;
+							break;
 						}
 					}
-					if (cnt == 1)
-						return prefix;
-				}
-				return revision;
+					if (match)
+					{
+						truncated = TruncRevision (revision, initalLength + 1);
+					}
+				}				
+				
+				return truncated;
 			}
 
 			void UpdateWidth ()
