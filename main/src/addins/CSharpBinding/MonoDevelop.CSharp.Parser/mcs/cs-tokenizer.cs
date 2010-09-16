@@ -2726,8 +2726,8 @@ namespace Mono.CSharp
 				}
 			} catch (IndexOutOfRangeException) {
 				Report.Error (645, Location, "Identifier too long (limit is 512 chars)");
-				col += pos - 1;
-				return Token.ERROR;
+				--pos;
+				col += pos;
 			}
 
 			col += pos - 1;
@@ -3261,8 +3261,7 @@ namespace Mono.CSharp
 					return consume_identifier (c);
 				}
 
-				error_details = ((char)c).ToString ();
-				return Token.ERROR;
+				Report.Error (1056, Location, "Unexpected character `{0}'", ((char) c).ToString ());
 			}
 
 			if (CompleteOnEOF){

@@ -78,6 +78,7 @@
     <Reference Include="System.Xml" />
     <Reference Include="Mono.Addins, Version=0.4.0.0, Culture=neutral, PublicKeyToken=0738eb9f132ed756">
       <SpecificVersion>False</SpecificVersion>
+      <Private>False</Private>
     </Reference>
     <Reference Include="pango-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f">
       <SpecificVersion>False</SpecificVersion>
@@ -213,6 +214,8 @@
     <Compile Include="MonoDevelop.VersionControl.Views\DiffWidget.cs" />
     <Compile Include="gtk-gui\MonoDevelop.VersionControl.Views.DiffWidget.cs" />
     <Compile Include="MonoDevelop.VersionControl.Views\SubviewAttachmentHandler.cs" />
+    <Compile Include="MonoDevelop.VersionControl.Views\LogWidget.cs" />
+    <Compile Include="gtk-gui\MonoDevelop.VersionControl.Views.LogWidget.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Makefile.am" />

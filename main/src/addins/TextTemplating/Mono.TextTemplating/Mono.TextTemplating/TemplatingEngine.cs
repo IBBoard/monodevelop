@@ -81,6 +81,7 @@ namespace Mono.TextTemplating
 			settings.Name = className;
 			settings.Namespace = classNamespace;
 			settings.IncludePreprocessingHelpers = string.IsNullOrEmpty (settings.Inherits);
+			settings.IsPreprocessed = true;
 			language = settings.Language;
 			
 			var ccu = GenerateCompileUnit (host, content, pt, settings);
@@ -272,9 +273,10 @@ namespace Mono.TextTemplating
 				var hs = kv.Value as IRecognizeHostSpecific;
 				if (hs == null)
 					continue;
-				if (hs.RequiresProcessingRunIsHostSpecific && !settings.HostSpecific)
+				if (hs.RequiresProcessingRunIsHostSpecific && !settings.HostSpecific) {
 					settings.HostSpecific = true;
 					pt.LogWarning ("Directive processor '" + kv.Key + "' requires hostspecific=true, forcing on.");
+				}
 				hs.SetProcessingRunIsHostSpecific (settings.HostSpecific);
 			}
 			
@@ -304,6 +306,37 @@ namespace Mono.TextTemplating
 			}
 			
 			return settings;
+		}
+		
+		public static string IndentSnippetText (string text, string indent)
+		{
+			var builder = new StringBuilder (text.Length);
+			builder.Append (indent);
+			int lastNewline = 0;
+			for (int i = 0; i < text.Length - 1; i++) {
+				char c = text[i];
+				if (c == '\r') {
+					if (text[i + 1] == '\n') {
+						i++;
+						if (i == text.Length - 1)
+							break;
+					}
+				} else if (c != '\n') {
+					continue;
+				}
+				i++;
+				int len = i - lastNewline;
+				if (len > 0) {
+					builder.Append (text, lastNewline, i - lastNewline);
+				}
+				builder.Append (indent);
+				lastNewline = i;
+			}
+			if (lastNewline > 0)
+				builder.Append (text, lastNewline, text.Length - lastNewline);
+			else
+				builder.Append (text);
+			return builder.ToString ();
 		}
 		
 		static void AddDirective (TemplateSettings settings, ITextTemplatingEngineHost host, string processorName, Directive directive)
@@ -390,10 +423,13 @@ namespace Mono.TextTemplating
 			//prep the type
 			var type = new CodeTypeDeclaration (settings.Name);
 			type.IsPartial = true;
-			if (!string.IsNullOrEmpty (settings.Inherits))
+			if (!string.IsNullOrEmpty (settings.Inherits)) {
 				type.BaseTypes.Add (new CodeTypeReference (settings.Inherits));
-			else if (!settings.IncludePreprocessingHelpers)
-				type.BaseTypes.Add (new CodeTypeReference (typeof (TextTransformation)));
+			} else if (!settings.IncludePreprocessingHelpers) {
+				type.BaseTypes.Add (TypeRef<TextTransformation> ());
+			} else {
+				type.BaseTypes.Add (new CodeTypeReference (settings.Name + "Base"));
+			}
 			namespac.Types.Add (type);
 			
 			//prep the transform method
@@ -405,9 +441,21 @@ namespace Mono.TextTemplating
 			if (!settings.IncludePreprocessingHelpers)
 				transformMeth.Attributes |= MemberAttributes.Override;
 			
+			transformMeth.Statements.Add (new CodeAssignStatement (
+				new CodePropertyReferenceExpression (new CodeThisReferenceExpression (), "GenerationEnvironment"),
+				new CodePrimitiveExpression (null)));
+			
+			CodeExpression toStringHelper;
+			if (settings.IsPreprocessed) {
+				toStringHelper = new CodePropertyReferenceExpression (new CodeThisReferenceExpression (), "ToStringHelper");
+			} else {
+				toStringHelper = new CodeTypeReferenceExpression (
+				new CodeTypeReference (typeof (ToStringHelper), CodeTypeReferenceOptions.GlobalReference));
+			}
+			
 			//method references that will need to be used multiple times
 			var writeMeth = new CodeMethodReferenceExpression (new CodeThisReferenceExpression (), "Write");
-			var toStringMeth = new CodeMethodReferenceExpression (new CodeTypeReferenceExpression (typeof (ToStringHelper)), "ToStringWithCulture");
+			var toStringMeth = new CodeMethodReferenceExpression (toStringHelper, "ToStringWithCulture");
 			bool helperMode = false;
 			
 			//build the code from the segments
@@ -475,15 +523,18 @@ namespace Mono.TextTemplating
 			
 			GenerateInitializationMethod (type, settings);
 			
-			if (settings.IncludePreprocessingHelpers)
-				GenerateProcessingHelpers (type, settings);
-			
+			if (settings.IncludePreprocessingHelpers) {
+				var baseClass = new CodeTypeDeclaration (settings.Name + "Base");
+				GenerateProcessingHelpers (baseClass, settings);
+				AddToStringHelper (baseClass, settings);
+				namespac.Types.Add (baseClass);
+			}
 			return ccu;
 		}
 		
 		static void GenerateHostProperty (CodeTypeDeclaration type, TemplateSettings settings)
 		{
-			var hostField = new CodeMemberField (new CodeTypeReference (typeof (ITextTemplatingEngineHost)), "hostValue");
+			var hostField = new CodeMemberField (TypeRef<ITextTemplatingEngineHost> (), "hostValue");
 			hostField.Attributes = (hostField.Attributes & ~MemberAttributes.AccessMask) | MemberAttributes.Private;
 			type.Members.Add (hostField);
 			
@@ -492,42 +543,13 @@ namespace Mono.TextTemplating
 			type.Members.Add (hostProp);
 		}
 		
-		static CodeMemberProperty GenerateGetterSetterProperty (string propertyName, CodeMemberField field)
-		{
-			var prop = new CodeMemberProperty () {
-				Name = propertyName,
-				Attributes = MemberAttributes.Public | MemberAttributes.Final,
-				HasGet = true,
-				HasSet = true,
-				Type = field.Type
-			};
-			var fieldRef = new CodeFieldReferenceExpression (new CodeThisReferenceExpression (), field.Name);
-			prop.SetStatements.Add (new CodeAssignStatement (fieldRef, new CodePropertySetValueReferenceExpression ()));
-			prop.GetStatements.Add (new CodeMethodReturnStatement (fieldRef));
-			return prop;
-		}
-		
-		static CodeMemberProperty GenerateGetterProperty (string propertyName, CodeMemberField field)
-		{
-			var prop = new CodeMemberProperty () {
-				Name = propertyName,
-				Attributes = MemberAttributes.Public | MemberAttributes.Final,
-				HasGet = true,
-				HasSet = false,
-				Type = field.Type
-			};
-			var fieldRef = new CodeFieldReferenceExpression (new CodeThisReferenceExpression (), field.Name);
-			prop.GetStatements.Add (new CodeMethodReturnStatement (fieldRef));
-			return prop;
-		}
-		
 		static void GenerateInitializationMethod (CodeTypeDeclaration type, TemplateSettings settings)
 		{
 			//initialization method
 			var initializeMeth = new CodeMemberMethod () {
 				Name = "Initialize",
-				ReturnType = new CodeTypeReference (typeof (void)),
-				Attributes = MemberAttributes.Family 
+				ReturnType = new CodeTypeReference (typeof (void), CodeTypeReferenceOptions.GlobalReference),
+				Attributes = MemberAttributes.Family
 			};
 			if (!settings.IncludePreprocessingHelpers)
 				initializeMeth.Attributes |= MemberAttributes.Override;
@@ -558,60 +580,45 @@ namespace Mono.TextTemplating
 			type.Members.Add (initializeMeth);
 		}
 		
-		static CodeStatement ArgNullCheck (CodeExpression value, params CodeExpression[] argNullExcArgs)
-		{
-			return new CodeConditionStatement (
-				new CodeBinaryOperatorExpression (value,
-					CodeBinaryOperatorType.ValueEquality, new CodePrimitiveExpression (null)),
-				new CodeThrowExceptionStatement (new CodeObjectCreateExpression (typeof (ArgumentNullException), argNullExcArgs)));
-		}
-		
 		static void GenerateProcessingHelpers (CodeTypeDeclaration type, TemplateSettings settings)
 		{
 			var thisRef = new CodeThisReferenceExpression ();
-			var stringTypeRef = new CodeTypeReference (typeof (string));
-			var intTypeRef = new CodeTypeReference (typeof (int));
-			var nullPrim = new CodePrimitiveExpression (null);
-			var minusOnePrim = new CodePrimitiveExpression (-1);
-			var zeroPrim = new CodePrimitiveExpression (0);
-			var stringEmptyRef = new CodeFieldReferenceExpression (new CodeTypeReferenceExpression (typeof (string)), "Empty");
+			var stringTypeRef = TypeRef<string> ();
+			var sbTypeRef = TypeRef<StringBuilder> ();
 			
-			var indentsFieldName = settings.Provider.CreateValidIdentifier ("__indents");
-			var currentIndentFieldName = settings.Provider.CreateValidIdentifier ("__currentIndent");
-			var errorsFieldName = settings.Provider.CreateValidIdentifier ("__errors");
-			var builderFieldName = settings.Provider.CreateValidIdentifier ("__builder");
-			var sessionFieldName = settings.Provider.CreateValidIdentifier ("__session");
-			
-			var indentsField = new CodeMemberField (new CodeTypeReference (typeof (Stack<int>)), indentsFieldName) {
-				Attributes = MemberAttributes.Private,
-			};
-			var currentIndentField = new CodeMemberField (stringTypeRef, currentIndentFieldName) {
-				Attributes = MemberAttributes.Private,
-			};
-			var errorsField = new CodeMemberField (new CodeTypeReference (typeof (CompilerErrorCollection)), errorsFieldName) {
-				Attributes = MemberAttributes.Private,
-			};
-			var builderField = new CodeMemberField (new CodeTypeReference (typeof (StringBuilder)), builderFieldName) {
-				Attributes = MemberAttributes.Private,
-			};
-			var sessionField = new CodeMemberField (new CodeTypeReference (typeof (IDictionary<string,object>)), sessionFieldName) {
-				Attributes = MemberAttributes.Private,
-			};
-			
-			indentsField.InitExpression = new CodeObjectCreateExpression (indentsField.Type);
-			currentIndentField.InitExpression = stringEmptyRef;
-			errorsField.InitExpression = new CodeObjectCreateExpression (errorsField.Type);
-			builderField.InitExpression = new CodeObjectCreateExpression (builderField.Type);
-			
-			var indentsFieldRef = new CodeFieldReferenceExpression (thisRef, indentsFieldName);
-			var currentIndentFieldRef = new CodeFieldReferenceExpression (thisRef, currentIndentFieldName);
-			var errorsFieldRef = new CodeFieldReferenceExpression (thisRef, errorsFieldName);
-			var builderFieldRef = new CodeFieldReferenceExpression (thisRef, builderFieldName);
-			
+			var sessionField = PrivateField (TypeRef<IDictionary<string,object>> (), "session");
 			var sessionProp = GenerateGetterSetterProperty ("Session", sessionField);
 			sessionProp.Attributes = MemberAttributes.Public;
 			
-			var compilerErrorTypeRef = new CodeTypeReference (typeof (CompilerError));
+			var builderField = PrivateField (sbTypeRef, "builder");
+			var builderFieldRef = new CodeFieldReferenceExpression (thisRef, builderField.Name);
+			
+			var generationEnvironmentProp = GenerateGetterSetterProperty ("GenerationEnvironment", builderField);
+			generationEnvironmentProp.SetStatements.Insert (0, ArgNullCheck (new CodePropertySetValueReferenceExpression ()));
+			var genEnvPropRef = new CodePropertyReferenceExpression (thisRef, generationEnvironmentProp.Name);
+			
+			type.Members.Add (builderField);
+			type.Members.Add (sessionField);
+			type.Members.Add (sessionProp);
+			type.Members.Add (generationEnvironmentProp);
+			
+			AddErrorHelpers (type, settings);
+			AddIndentHelpers (type, settings);
+			AddWriteHelpers (type, settings);
+		}
+		
+		static void AddErrorHelpers (CodeTypeDeclaration type, TemplateSettings settings)
+		{
+			var cecTypeRef = TypeRef<CompilerErrorCollection> ();
+			var thisRef = new CodeThisReferenceExpression ();
+			var stringTypeRef = TypeRef<string> ();
+			var nullPrim = new CodePrimitiveExpression (null);
+			var minusOnePrim = new CodePrimitiveExpression (-1);
+			
+			var errorsField = PrivateField (cecTypeRef, "errors");
+			var errorsFieldRef = new CodeFieldReferenceExpression (thisRef, errorsField.Name);
+			
+			var compilerErrorTypeRef = TypeRef<CompilerError> ();
 			var errorMeth = new CodeMemberMethod () {
 				Name = "Error",
 				Attributes = MemberAttributes.Public | MemberAttributes.Final,
@@ -636,6 +643,28 @@ namespace Mono.TextTemplating
 			
 			var errorsProp = GenerateGetterProperty ("Errors", errorsField);
 			errorsProp.Attributes = MemberAttributes.Family | MemberAttributes.Final;
+			
+			type.Members.Add (errorsField);
+			type.Members.Add (errorMeth);
+			type.Members.Add (warningMeth);
+			type.Members.Add (errorsProp);
+		}
+		
+		static void AddIndentHelpers (CodeTypeDeclaration type, TemplateSettings settings)
+		{
+			var stringTypeRef = TypeRef<string> ();
+			var thisRef = new CodeThisReferenceExpression ();
+			var zeroPrim = new CodePrimitiveExpression (0);
+			var stringEmptyRef = new CodeFieldReferenceExpression (new CodeTypeReferenceExpression (stringTypeRef), "Empty");
+			var intTypeRef = TypeRef<int> ();
+			var stackIntTypeRef = TypeRef<Stack<int>> ();
+			
+			var indentsField = PrivateField (stackIntTypeRef, "indents");
+			var indentsFieldRef = new CodeFieldReferenceExpression (thisRef, indentsField.Name);
+			
+			var currentIndentField = PrivateField (stringTypeRef, "currentIndent");
+			currentIndentField.InitExpression = stringEmptyRef;
+			var currentIndentFieldRef = new CodeFieldReferenceExpression (thisRef, currentIndentField.Name);
 			
 			var popIndentMeth = new CodeMemberMethod () {
 				Name = "PopIndent",
@@ -675,15 +704,25 @@ namespace Mono.TextTemplating
 			clearIndentMeth.Statements.Add (new CodeMethodInvokeExpression (indentsFieldRef, "Clear"));
 			
 			var currentIndentProp = GenerateGetterProperty ("CurrentIndent", currentIndentField);
-			
-			var generationEnvironmentProp = GenerateGetterSetterProperty ("GenerationEnvironment", builderField);
-			generationEnvironmentProp.SetStatements.Insert (0, ArgNullCheck (new CodePropertySetValueReferenceExpression ()));
-			var genEnvPropRef = new CodePropertyReferenceExpression (thisRef, generationEnvironmentProp.Name);
+			type.Members.Add (currentIndentField);
+			type.Members.Add (indentsField);
+			type.Members.Add (popIndentMeth);
+			type.Members.Add (pushIndentMeth);
+			type.Members.Add (clearIndentMeth);
+			type.Members.Add (currentIndentProp);
+		}
+		
+		static void AddWriteHelpers (CodeTypeDeclaration type, TemplateSettings settings)
+		{
+			var stringTypeRef = TypeRef<string> ();
+			var thisRef = new CodeThisReferenceExpression ();
+			var genEnvPropRef = new CodePropertyReferenceExpression (thisRef, "GenerationEnvironment");
+			var currentIndentFieldRef = new CodeFieldReferenceExpression (thisRef, "currentIndent");
 			
 			var textToAppendParam = new CodeParameterDeclarationExpression (stringTypeRef, "textToAppend");
 			var formatParam = new CodeParameterDeclarationExpression (stringTypeRef, "format");
-			var argsParam = new CodeParameterDeclarationExpression (typeof (object[]), "args");
-			argsParam.CustomAttributes.Add (new CodeAttributeDeclaration ("System.ParamArrayAttribute"));
+			var argsParam = new CodeParameterDeclarationExpression (TypeRef<object[]> (), "args");
+			argsParam.CustomAttributes.Add (new CodeAttributeDeclaration (TypeRef<System.ParamArrayAttribute> ()));
 			
 			var textToAppendParamRef = new CodeArgumentReferenceExpression ("textToAppend");
 			var formatParamRef = new CodeArgumentReferenceExpression ("format");
@@ -722,24 +761,182 @@ namespace Mono.TextTemplating
 			writeLineArgsMeth.Statements.Add (new CodeMethodInvokeExpression (genEnvPropRef, "AppendFormat", formatParamRef, argsParamRef));
 			writeLineArgsMeth.Statements.Add (new CodeMethodInvokeExpression (genEnvPropRef, "AppendLine"));
 			
-			type.Members.Add (indentsField);
-			type.Members.Add (currentIndentField);
-			type.Members.Add (errorsField);
-			type.Members.Add (builderField);
-			type.Members.Add (sessionField);
-			type.Members.Add (sessionProp);
-			type.Members.Add (errorMeth);
-			type.Members.Add (warningMeth);
-			type.Members.Add (errorsProp);
-			type.Members.Add (popIndentMeth);
-			type.Members.Add (pushIndentMeth);
-			type.Members.Add (clearIndentMeth);
-			type.Members.Add (currentIndentProp);
-			type.Members.Add (generationEnvironmentProp);
 			type.Members.Add (writeMeth);
 			type.Members.Add (writeArgsMeth);
 			type.Members.Add (writeLineMeth);
 			type.Members.Add (writeLineArgsMeth);
 		}
+		
+		static void AddToStringHelper (CodeTypeDeclaration type, TemplateSettings settings)
+		{
+			var helperCls = new CodeTypeDeclaration ("ToStringInstanceHelper") {
+				IsClass = true,
+				TypeAttributes = System.Reflection.TypeAttributes.NestedPublic,
+			};
+			
+			var formatProviderField = PrivateField (TypeRef<IFormatProvider> (), "formatProvider");
+			formatProviderField.InitExpression = new CodePropertyReferenceExpression (
+				new CodeTypeReferenceExpression (TypeRef<System.Globalization.CultureInfo> ()), "InvariantCulture");
+			var formatProviderFieldRef = new CodeFieldReferenceExpression (new CodeThisReferenceExpression (), formatProviderField.Name);
+			
+			var formatProviderProp = GenerateGetterSetterProperty ("FormatProvider", formatProviderField);
+			AddSetterNullCheck (formatProviderProp, formatProviderFieldRef);
+			
+			helperCls.Members.Add (formatProviderField);
+			helperCls.Members.Add (formatProviderProp);
+			
+			var meth = new CodeMemberMethod () {
+				Name = "ToStringWithCulture",
+				Attributes = MemberAttributes.Public | MemberAttributes.Final,
+				ReturnType = TypeRef<string> (),
+			};
+			meth.Parameters.Add (new CodeParameterDeclarationExpression (TypeRef<object> (), "objectToConvert"));
+			var paramRef = new CodeArgumentReferenceExpression ("objectToConvert");
+			
+			meth.Statements.Add (NullCheck (paramRef, paramRef.ParameterName));
+			
+			var typeLocal = new CodeVariableDeclarationStatement (TypeRef<Type> (), "type", new CodeMethodInvokeExpression (paramRef, "GetType"));
+			var typeLocalRef = new CodeVariableReferenceExpression (typeLocal.Name);
+			meth.Statements.Add (typeLocal);
+			
+			var iConvertibleTypeLocal = new CodeVariableDeclarationStatement (TypeRef<Type> (), "iConvertibleType",
+				new CodeTypeOfExpression (TypeRef<IConvertible> ()));
+			var iConvertibleTypeLocalRef = new CodeVariableReferenceExpression (iConvertibleTypeLocal.Name);
+			meth.Statements.Add (iConvertibleTypeLocal);
+			
+			meth.Statements.Add (new CodeConditionStatement (
+				new CodeMethodInvokeExpression (iConvertibleTypeLocalRef, "IsAssignableFrom", typeLocalRef),
+				new CodeMethodReturnStatement (new CodeMethodInvokeExpression (
+					new CodeCastExpression (TypeRef<IConvertible> (), paramRef), "ToString", formatProviderFieldRef))));
+			
+			var methInfoLocal = new CodeVariableDeclarationStatement (TypeRef<MethodInfo> (), "methInfo",
+				new CodeMethodInvokeExpression (typeLocalRef, "GetMethod",
+					new CodePrimitiveExpression ("ToString"),
+					new CodeArrayCreateExpression (TypeRef<Type> (), new CodeExpression [] { iConvertibleTypeLocalRef })));
+			meth.Statements.Add (methInfoLocal);
+			var methInfoLocalRef = new CodeVariableReferenceExpression (methInfoLocal.Name);
+			meth.Statements.Add (new CodeConditionStatement (NotNull (methInfoLocalRef),
+				new CodeMethodReturnStatement (new CodeCastExpression (TypeRef<string> (),
+					new CodeMethodInvokeExpression (
+					methInfoLocalRef, "Invoke", paramRef,
+					new CodeArrayCreateExpression (TypeRef<object> (), new CodeExpression [] { formatProviderFieldRef } ))))));
+			
+			meth.Statements.Add (new CodeMethodReturnStatement (new CodeMethodInvokeExpression (paramRef, "ToString")));
+			
+			helperCls.Members.Add (meth);
+			
+			
+			var helperFieldName = settings.Provider.CreateValidIdentifier ("_toStringHelper");
+			var helperField = PrivateField (new CodeTypeReference (helperCls.Name), helperFieldName);
+			helperField.InitExpression = new CodeObjectCreateExpression (helperField.Type);
+			type.Members.Add (helperField);
+			type.Members.Add (GenerateGetterProperty ("ToStringHelper", helperField));
+			type.Members.Add (helperCls);
+		}
+		
+		#region CodeDom helpers
+		
+		static CodeTypeReference TypeRef<T> ()
+		{
+			return new CodeTypeReference (typeof (T), CodeTypeReferenceOptions.GlobalReference);
+		}
+		
+		static CodeMemberProperty GenerateGetterSetterProperty (string propertyName, CodeMemberField field)
+		{
+			var prop = new CodeMemberProperty () {
+				Name = propertyName,
+				Attributes = MemberAttributes.Public | MemberAttributes.Final,
+				Type = field.Type
+			};
+			var fieldRef = new CodeFieldReferenceExpression (new CodeThisReferenceExpression (), field.Name);
+			AddGetter (prop, fieldRef);
+			AddSetter (prop, fieldRef);
+			return prop;
+		}
+		
+		static CodeMemberProperty GenerateGetterProperty (string propertyName, CodeMemberField field)
+		{
+			var prop = new CodeMemberProperty () {
+				Name = propertyName,
+				Attributes = MemberAttributes.Public | MemberAttributes.Final,
+				HasSet = false,
+				Type = field.Type
+			};
+			var fieldRef = new CodeFieldReferenceExpression (new CodeThisReferenceExpression (), field.Name);
+			AddGetter (prop, fieldRef);
+			return prop;
+		}
+		
+		static void AddSetter (CodeMemberProperty property, CodeFieldReferenceExpression fieldRef)
+		{
+			property.HasSet = true;
+			property.SetStatements.Add (new CodeAssignStatement (fieldRef, new CodePropertySetValueReferenceExpression ()));
+		}
+		
+		static void AddGetter (CodeMemberProperty property, CodeFieldReferenceExpression fieldRef)
+		{
+			property.HasSet = true;
+			property.GetStatements.Add (new CodeMethodReturnStatement (fieldRef));
+		}
+		
+		static void MakeGetterLazy (CodeMemberProperty property, CodeFieldReferenceExpression fieldRef, CodeExpression initExpression)
+		{
+			property.GetStatements.Insert (0, new CodeConditionStatement (
+				NotNull (fieldRef),
+				new CodeAssignStatement (fieldRef, initExpression))
+			);
+		}
+		
+		static void AddSetterNullCheck (CodeMemberProperty property, CodeFieldReferenceExpression fieldRef)
+		{
+			property.SetStatements.Insert (0, NullCheck (fieldRef, fieldRef.FieldName));
+		}
+		
+		static CodeStatement NullCheck (CodeExpression expr, string exceptionMessage)
+		{
+			return new CodeConditionStatement (
+				IsNull (expr),
+				new CodeThrowExceptionStatement (new CodeObjectCreateExpression (
+				new CodeTypeReference (typeof (ArgumentNullException), CodeTypeReferenceOptions.GlobalReference),
+				new CodePrimitiveExpression (exceptionMessage)))
+			);
+		}
+		
+		static CodeBinaryOperatorExpression NotNull (CodeExpression reference)
+		{
+			return new CodeBinaryOperatorExpression (reference, CodeBinaryOperatorType.IdentityInequality, new CodePrimitiveExpression (null));
+		}
+		
+		static CodeBinaryOperatorExpression IsNull (CodeExpression reference)
+		{
+			return new CodeBinaryOperatorExpression (reference, CodeBinaryOperatorType.ValueEquality, new CodePrimitiveExpression (null));
+		}
+		
+		static CodeBinaryOperatorExpression IsFalse (CodeExpression expr)
+		{
+			return new CodeBinaryOperatorExpression (expr, CodeBinaryOperatorType.ValueEquality, new CodePrimitiveExpression (false));
+		}
+		
+		static CodeBinaryOperatorExpression BooleanAnd (CodeExpression expr1, CodeExpression expr2)
+		{
+			return new CodeBinaryOperatorExpression (expr1, CodeBinaryOperatorType.BooleanAnd, expr2);
+		}
+		
+		static CodeStatement ArgNullCheck (CodeExpression value, params CodeExpression[] argNullExcArgs)
+		{
+			return new CodeConditionStatement (
+				new CodeBinaryOperatorExpression (value,
+					CodeBinaryOperatorType.ValueEquality, new CodePrimitiveExpression (null)),
+				new CodeThrowExceptionStatement (new CodeObjectCreateExpression (typeof (ArgumentNullException), argNullExcArgs)));
+		}
+		
+		static CodeMemberField PrivateField (CodeTypeReference typeRef, string name)
+		{
+			return new CodeMemberField (typeRef, name) {
+				Attributes = MemberAttributes.Private
+			};
+		}
+		
+		#endregion
 	}
 }

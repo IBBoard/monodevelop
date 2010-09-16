@@ -1,21 +1,21 @@
-//
+// 
 // BlameWidget.cs
-//
+//  
 // Author:
 //       Mike Krüger <mkrueger@novell.com>
-//
+// 
 // Copyright (c) 2010 Novell, Inc (http://www.novell.com)
-//
+// 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-//
+// 
 // The above copyright notice and this permission notice shall be included in
 // all copies or substantial portions of the Software.
-//
+// 
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -42,15 +42,15 @@ namespace MonoDevelop.VersionControl.Views
 	{
 		Adjustment vAdjustment;
 		Gtk.VScrollbar vScrollBar;
-
+		
 		Adjustment hAdjustment;
 		Gtk.HScrollbar hScrollBar;
-
+		
 		BlameRenderer overview;
-
+		
 		TextEditor editor;
 		List<ContainerChild> children = new List<ContainerChild> ();
-
+		
 		public Adjustment Vadjustment {
 			get { return this.vAdjustment; }
 		}
@@ -58,7 +58,7 @@ namespace MonoDevelop.VersionControl.Views
 		public Adjustment Hadjustment {
 			get { return this.hAdjustment; }
 		}
-
+		
 		public override ContainerChild this [Widget w] {
 			get {
 				foreach (ContainerChild info in children.ToArray ()) {
@@ -68,14 +68,14 @@ namespace MonoDevelop.VersionControl.Views
 				return null;
 			}
 		}
-
+		
 		public TextEditor Editor {
 			get {
 				return this.editor;
 			}
 		}
 		VersionControlDocumentInfo info;
-
+		
 		public Ide.Gui.Document Document {
 			get {
 				return info.Document;
@@ -94,26 +94,26 @@ namespace MonoDevelop.VersionControl.Views
 		public BlameWidget (VersionControlDocumentInfo info)
 		{
 			this.info = info;
-
+			
 			vAdjustment = new Adjustment (0, 0, 0, 0, 0, 0);
 			vAdjustment.Changed += HandleAdjustmentChanged;
-
+			
 			vScrollBar = new VScrollbar (vAdjustment);
 			AddChild (vScrollBar);
-
+			
 			hAdjustment = new Adjustment (0, 0, 0, 0, 0, 0);
 			hAdjustment.Changed += HandleAdjustmentChanged;
-
+			
 			hScrollBar = new HScrollbar (hAdjustment);
 			AddChild (hScrollBar);
-
+			
 			editor = new TextEditor (info.Document.Editor.Document, info.Document.Editor.Options);
 			AddChild (editor);
 			editor.SetScrollAdjustments (hAdjustment, vAdjustment);
-
+			
 			overview = new BlameRenderer (this);
 			AddChild (overview);
-
+			
 			this.DoubleBuffered = true;
 			editor.Painted += HandleEditorExposeEvent;
 			editor.EditorOptionsChanged += delegate {
@@ -140,34 +140,34 @@ namespace MonoDevelop.VersionControl.Views
 				QueueResize ();
 			}
 		}
-
+		
 		public override GLib.GType ChildType ()
 		{
 			return Gtk.Widget.GType;
 		}
-
+		
 		protected override void ForAll (bool include_internals, Gtk.Callback callback)
 		{
 			base.ForAll (include_internals, callback);
-
+			
 			if (include_internals)
 				children.ForEach (child => callback (child.Child));
 		}
-
+		
 		public void AddChild (Gtk.Widget child)
 		{
 			child.Parent = this;
 			children.Add (new ContainerChild (this, child));
 			child.Show ();
 		}
-
+		
 		protected override void OnAdded (Widget widget)
 		{
 			base.OnAdded (widget);
 			if (widget == Child)
 				widget.SetScrollAdjustments (hAdjustment, vAdjustment);
 		}
-
+		
 		protected override void OnRemoved (Widget widget)
 		{
 			widget.Unparent ();
@@ -178,21 +178,21 @@ namespace MonoDevelop.VersionControl.Views
 				}
 			}
 		}
-
+		
 		protected override void OnDestroyed ()
 		{
 			base.OnDestroyed ();
 			children.ForEach (child => child.Child.Destroy ());
 			children.Clear ();
 		}
-
+		 
 		protected override void OnSizeAllocated (Rectangle allocation)
 		{
 			base.OnSizeAllocated (allocation);
 			int vwidth = vScrollBar.Visible ? vScrollBar.Requisition.Width : 0;
-			int hheight = hScrollBar.Visible ? hScrollBar.Requisition.Height : 0;
+			int hheight = hScrollBar.Visible ? hScrollBar.Requisition.Height : 0; 
 			Rectangle childRectangle = new Rectangle (allocation.X + 1, allocation.Y + 1, allocation.Width - vwidth - 1, allocation.Height - hheight - 1);
-
+			
 			if (vScrollBar.Visible) {
 				int right = childRectangle.Right;
 				int vChildTopHeight = -1;
@@ -203,13 +203,13 @@ namespace MonoDevelop.VersionControl.Views
 			int overviewWidth = overview.WidthRequest;
 			overview.SizeAllocate (new Rectangle (childRectangle.Right - overviewWidth, childRectangle.Top, overviewWidth, childRectangle.Height));
 			editor.SizeAllocate (new Rectangle (childRectangle.X, childRectangle.Top, childRectangle.Width - overviewWidth, childRectangle.Height));
-
+		
 			if (hScrollBar.Visible) {
 				hScrollBar.SizeAllocate (new Rectangle (childRectangle.X, childRectangle.Bottom, childRectangle.Width, hheight));
 				hScrollBar.Value = System.Math.Max (System.Math.Min (hAdjustment.Upper - hAdjustment.PageSize, hScrollBar.Value), hAdjustment.Lower);
 			}
 		}
-
+		
 		static double GetWheelDelta (Scrollbar scrollbar, ScrollDirection direction)
 		{
 			double delta = System.Math.Pow (scrollbar.Adjustment.PageSize, 2.0 / 3.0);
@@ -219,7 +219,7 @@ namespace MonoDevelop.VersionControl.Views
 				delta = -delta;
 			return delta;
 		}
-
+		
 		protected override bool OnScrollEvent (EventScroll evnt)
 		{
 			Scrollbar scrollWidget = (evnt.Direction == ScrollDirection.Up || evnt.Direction == ScrollDirection.Down) ? (Scrollbar)vScrollBar : hScrollBar;
@@ -230,13 +230,13 @@ namespace MonoDevelop.VersionControl.Views
 			}
 			return base.OnScrollEvent (evnt);
 		}
-
+		
 		protected override void OnSizeRequested (ref Gtk.Requisition requisition)
 		{
 			base.OnSizeRequested (ref requisition);
 			children.ForEach (child => child.Child.SizeRequest ());
 		}
-
+		
 		void HandleEditorExposeEvent (object o, PaintEventArgs args)
 		{
 			var cr = args.Context;
@@ -247,19 +247,19 @@ namespace MonoDevelop.VersionControl.Views
 			JumpOverFoldings (ref line);
 			while (curY < editor.Allocation.Bottom) {
 				Annotation ann = line <= overview.annotations.Count ? overview.annotations[line - 1] : null;
-
+				
 				do {
 					double lineHeight = Editor.GetLineHeight (line);
 					curY += lineHeight;
 					line++;
 					JumpOverFoldings (ref  line);
 				} while (line + 1 <= overview.annotations.Count && ann != null && overview.annotations[line - 1] != null && overview.annotations[line - 1].Revision == ann.Revision);
-
+				
 				if (ann != null) {
 					cr.MoveTo (Editor.TextViewMargin.XOffset, curY + 0.5);
 					cr.LineTo (Editor.Allocation.Width, curY + 0.5);
 					var color = Style.Dark (State);
-					cr.Color = new Cairo.Color (color.Red / (double)ushort.MaxValue,
+					cr.Color = new Cairo.Color (color.Red / (double)ushort.MaxValue, 
 					                            color.Green / (double)ushort.MaxValue,
 					                            color.Blue / (double)ushort.MaxValue,
 					                            0.2);
@@ -267,34 +267,63 @@ namespace MonoDevelop.VersionControl.Views
 				}
 			}
 		}
-
+		
 		protected override bool OnExposeEvent (EventExpose evnt)
 		{
 			Gdk.GC gc = Style.DarkGC (State);
 			evnt.Window.DrawLine (gc, Allocation.X, Allocation.Top, Allocation.X, Allocation.Bottom);
 			evnt.Window.DrawLine (gc, Allocation.Right, Allocation.Top, Allocation.Right, Allocation.Bottom);
-
+			
 			evnt.Window.DrawLine (gc, Allocation.Left, Allocation.Y, Allocation.Right, Allocation.Y);
 			evnt.Window.DrawLine (gc, Allocation.Left, Allocation.Bottom, Allocation.Right, Allocation.Bottom);
-
-
+			
+			
 			return base.OnExposeEvent (evnt);
 		}
-
+		
 		void JumpOverFoldings (ref int line)
 		{
 			int lastFold = -1;
 			foreach (FoldSegment fs in Editor.Document.GetStartFoldings (line).Where (fs => fs.IsFolded)) {
 				lastFold = System.Math.Max (fs.EndOffset, lastFold);
 			}
-			if (lastFold > 0)
+			if (lastFold > 0) 
 				line = Editor.Document.OffsetToLineNumber (lastFold);
 		}
 
-		class BlameRenderer : DrawingArea
+		internal static string FormatMessage (string msg)
+		{
+			StringBuilder sb = new StringBuilder ();
+			bool wasWs = false;
+			foreach (char ch in msg) {
+				if (ch == ' ' || ch == '\t') {
+					if (!wasWs)
+						sb.Append (' ');
+					wasWs = true;
+					continue;
+				}
+				wasWs = false;
+				sb.Append (ch);
+			}
+			
+			Document doc = new Document ();
+			doc.Text = sb.ToString ();
+			for (int i = 1; i <= doc.LineCount; i++) {
+				string text = doc.GetLineText (i).Trim ();
+				int idx = text.IndexOf (':');
+				if (text.StartsWith ("*") && idx >= 0 && idx < text.Length - 1) {
+					int offset = doc.GetLine (i).EndOffset;
+					msg = text.Substring (idx + 1) + doc.GetTextAt (offset, doc.Length - offset);
+					break;
+				}
+			}
+			return msg.TrimStart (' ', '\t');
+		}
+
+		class BlameRenderer : DrawingArea 
 		{
 			static readonly Annotation locallyModified = new Annotation ("", "?", DateTime.MinValue);
-
+			
 			BlameWidget widget;
 			internal List<Annotation> annotations;
 			Pango.Layout layout;
@@ -312,20 +341,20 @@ namespace MonoDevelop.VersionControl.Views
 				widget.vScrollBar.ValueChanged += delegate {
 					QueueDraw ();
 				};
-
+				
 				layout = new Pango.Layout (PangoContext);
 				Events |= EventMask.ButtonPressMask | EventMask.ButtonReleaseMask | EventMask.ButtonMotionMask;
 				OptionsChanged ();
 				Show ();
 			}
-
+			
 			public void OptionsChanged ()
 			{
 				var description = Pango.FontDescription.FromString ("Tahoma " + (int)(10 * widget.Editor.Options.Zoom));
 				layout.FontDescription = description;
 				UpdateWidth ();
 			}
-
+			
 			protected override void OnDestroyed ()
 			{
 				base.OnDestroyed ();
@@ -337,7 +366,7 @@ namespace MonoDevelop.VersionControl.Views
 					layout = null;
 				}
 			}
-
+			
 			protected override bool OnMotionNotifyEvent (EventMotion evnt)
 			{
 				TooltipText = null;
@@ -346,7 +375,7 @@ namespace MonoDevelop.VersionControl.Views
 					widget.GetPointer (out x, out y);
 					int newWidthRequest = widget.Allocation.Width - x;
 					newWidthRequest = Math.Min (widget.Allocation.Width - (int)widget.Editor.TextViewMargin.XOffset, Math.Max (leftSpacer, newWidthRequest));
-
+					
 					WidthRequest = newWidthRequest;
 					QueueResize ();
 				} else {
@@ -355,10 +384,10 @@ namespace MonoDevelop.VersionControl.Views
 					if (ann != null)
 						TooltipText = GetCommitMessage (startLine);
 				}
-
+				
 				return base.OnMotionNotifyEvent (evnt);
 			}
-
+			
 			uint grabTime;
 			protected override bool OnButtonPressEvent (EventButton evnt)
 			{
@@ -371,7 +400,7 @@ namespace MonoDevelop.VersionControl.Views
 				}
 				return base.OnButtonPressEvent (evnt);
 			}
-
+			
 			protected override bool OnButtonReleaseEvent (EventButton evnt)
 			{
 				if (dragPosition >= 0) {
@@ -389,7 +418,7 @@ namespace MonoDevelop.VersionControl.Views
 				StatusBarContext ctx = IdeApp.Workbench.StatusBar.CreateContext ();
 				ctx.AutoPulse = true;
 				ctx.ShowMessage (ImageService.GetImage ("md-version-control", IconSize.Menu), GettextCatalog.GetString ("Retrieving history"));
-
+				
 				ThreadPool.QueueUserWorkItem (delegate {
 					try {
 						annotations = new List<Annotation> (widget.VersionControlItem.Repository.GetAnnotations (widget.Document.FileName));
@@ -398,7 +427,7 @@ namespace MonoDevelop.VersionControl.Views
 					} catch (Exception ex) {
 						LoggingService.LogError ("Error retrieving history", ex);
 					}
-
+					
 					DispatchService.GuiDispatch (delegate {
 						ctx.Dispose ();
 						UpdateWidth ();
@@ -406,7 +435,7 @@ namespace MonoDevelop.VersionControl.Views
 					});
 				});
 			}
-
+	
 			/// <summary>
 			/// Marks a line as locally modified
 			/// </summary>
@@ -415,7 +444,7 @@ namespace MonoDevelop.VersionControl.Views
 				int startLine = widget.Editor.Document.OffsetToLineNumber (e.Line.Offset);
 				SetAnnotation (startLine, locallyModified);
 			}
-
+			
 			/// <summary>
 			/// Marks necessary lines modified when text is replaced
 			/// </summary>
@@ -425,13 +454,13 @@ namespace MonoDevelop.VersionControl.Views
 				     endLine = widget.Editor.Document.OffsetToLineNumber (e.Offset + Math.Max (e.Count, e.Value != null ? e.Value.Length : 0)),
 				     lineCount = 0;
 				string[] tokens = null;
-
+				
 				if (startLine < endLine) {
 					// change crosses line boundary
-
+					
 					lineCount = endLine - startLine;
 					lineCount = Math.Min (lineCount, annotations.Count - startLine);
-
+					
 					if (lineCount > 0)
 						annotations.RemoveRange (startLine - 1, lineCount);
 					if (!string.IsNullOrEmpty (e.Value)) {
@@ -451,10 +480,10 @@ namespace MonoDevelop.VersionControl.Views
 					UpdateAnnotations (null, null);
 					return;
 				}
-
+				
 				SetAnnotation (startLine, locallyModified);
 			}
-
+			
 			void SetAnnotation (int index, Annotation text)
 			{
 				if (index < 0)
@@ -463,7 +492,7 @@ namespace MonoDevelop.VersionControl.Views
 					annotations.Add (locallyModified);
 				annotations[index] = text;
 			}
-
+	
 			/// <summary>
 			/// Gets the commit message matching a given annotation index.
 			/// </summary>
@@ -480,12 +509,12 @@ namespace MonoDevelop.VersionControl.Views
 				}
 				return null;
 			}
-
+			
 			string TruncRevision (string revision)
 			{
 				return TruncRevision (revision, 8);
 			}
-
+			
 			/// <summary>
 			/// Truncates the revision. This is done by trying to find the shortest matching number.
 			/// </summary>
@@ -497,7 +526,7 @@ namespace MonoDevelop.VersionControl.Views
 			/// </param>
 			/// <param name='initalLength'>
 			/// Inital length.
-			/// </param>
+			/// </param> 
 			string TruncRevision (string revision, int initalLength)
 			{
 				if (initalLength >= revision.Length)
@@ -511,13 +540,13 @@ namespace MonoDevelop.VersionControl.Views
 				}
 				return truncated;
 			}
-
+			
 			void UpdateWidth ()
 			{
 				int tmpwidth, height, width = 120;
 				int dateTimeLength = -1;
 				foreach (Annotation note in annotations) {
-					if (!string.IsNullOrEmpty (note.Author)) {
+					if (!string.IsNullOrEmpty (note.Author)) { 
 						if (dateTimeLength < 0 && note.HasDate) {
 							layout.SetText (note.Date.ToShortDateString ());
 							layout.GetPixelSize (out dateTimeLength, out height);
@@ -531,27 +560,27 @@ namespace MonoDevelop.VersionControl.Views
 				QueueResize ();
 			}
 
-			Regex regex = new Regex (@"[\s+\*[^:]*\:\s*]*(?<msg>[^:\s*](.)*)$");
 			const int leftSpacer = 4;
 			const int margin = 4;
 
+			
 			protected override bool OnExposeEvent (Gdk.EventExpose e)
 			{
 				using (Cairo.Context cr = Gdk.CairoHelper.Create (e.Window)) {
 					cr.LineWidth = Math.Max (1.0, widget.Editor.Options.Zoom);
-
+					
 					cr.Rectangle (leftSpacer, 0, Allocation.Width, Allocation.Height);
 					cr.Color = new Cairo.Color (0.95, 0.95, 0.95);
 					cr.Fill ();
-
+					
 					int startLine = widget.Editor.YToLine ((int)widget.Editor.VAdjustment.Value);
 					double startY = widget.Editor.LineToY (startLine);
-
+					
 					while (startLine > 1 && startLine < annotations.Count && annotations[startLine - 1] != null && annotations[startLine] != null && annotations[startLine - 1].Revision == annotations[startLine].Revision) {
 						startLine--;
 						startY -= widget.Editor.GetLineHeight (widget.Editor.Document.GetLine (startLine));
 					}
-
+					
 					double curY = startY - widget.Editor.VAdjustment.Value;
 					int line = startLine;
 					while (curY < Allocation.Bottom) {
@@ -564,8 +593,8 @@ namespace MonoDevelop.VersionControl.Views
 							layout.SetText (ann.Author);
 							layout.GetPixelSize (out w, out h);
 							e.Window.DrawLayout (Style.BlackGC, leftSpacer + margin, (int)(curY + (widget.Editor.LineHeight - h) / 2), layout);
-
-
+							
+							
 							layout.SetText (TruncRevision (ann.Revision));
 							layout.GetPixelSize (out w2, out h);
 							e.Window.DrawLayout (Style.BlackGC, Allocation.Width - w2 - margin, (int)(curY + (widget.Editor.LineHeight - h) / 2), layout);
@@ -577,7 +606,7 @@ namespace MonoDevelop.VersionControl.Views
 								layout.GetPixelSize (out w, out h);
 								e.Window.DrawLayout (Style.BlackGC, leftSpacer + margin + middle - w / 2, (int)(curY + (widget.Editor.LineHeight - h) / 2), layout);
 							}
-
+						
 							do {
 								double lineHeight = widget.Editor.GetLineHeight (line);
 								curY += lineHeight;
@@ -589,25 +618,11 @@ namespace MonoDevelop.VersionControl.Views
 							line++;
 							widget.JumpOverFoldings (ref line);
 						}
-
+						
 						if (ann != null && line - lineStart > 1) {
 							string msg = GetCommitMessage (lineStart);
 							if (!string.IsNullOrEmpty (msg)) {
-								StringBuilder sb = new StringBuilder ();
-								bool wasWs = false;
-								foreach (char ch in msg) {
-									if (char.IsWhiteSpace (ch)) {
-										if (!wasWs)
-											sb.Append (' ');
-										wasWs = true;
-										continue;
-									}
-									wasWs = false;
-									sb.Append (ch);
-								}
-								var match = regex.Match (sb.ToString ());
-								if (match.Success)
-									msg = match.Result ("${msg}").Trim ();
+								msg = FormatMessage (msg);
 								layout.SetText (msg);
 								layout.Width = (int)(Allocation.Width * Pango.Scale.PangoScale);
 								using (var gc = new Gdk.GC (e.Window)) {
@@ -617,18 +632,18 @@ namespace MonoDevelop.VersionControl.Views
 								}
 							}
 						}
-
+						
 						cr.Rectangle (0, curStart, leftSpacer, curY - curStart);
-
+						
 						if (ann != null && ann != locallyModified && !string.IsNullOrEmpty (ann.Author)) {
 							double a;
-
+							
 							if (ann != null && (maxDate - minDate).TotalHours > 0) {
 								a = 1 - (ann.Date  - minDate).TotalHours / (maxDate - minDate).TotalHours;
 							} else {
 								a = 1;
 							}
-
+							
 							HslColor color = new Cairo.Color (0.90, 0.90, 1);
 							color.L = 0.4 + a / 2;
 							color.S = 1 - a / 2;
@@ -648,8 +663,8 @@ namespace MonoDevelop.VersionControl.Views
 				}
 				return true;
 			}
-
-		}
+			
+		}	
 	}
 }
 

@@ -89,6 +89,7 @@
     <Reference Include="Mono.Posix" />
     <Reference Include="Mono.Addins, Version=0.4.0.0, Culture=neutral, PublicKeyToken=0738eb9f132ed756">
       <SpecificVersion>False</SpecificVersion>
+      <Private>False</Private>
     </Reference>
     <Reference Include="glib-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f">
       <SpecificVersion>False</SpecificVersion>
@@ -345,6 +346,12 @@
     <Compile Include="MonoDevelop.CSharp.Refactoring\CreateMethod\CreateMethodCodeGenerator.cs" />
     <Compile Include="MonoDevelop.CSharp.Refactoring\CreateMethod\CreateMethodHandler.cs" />
     <Compile Include="MonoDevelop.CSharp.Parser\McsParser.cs" />
+    <Compile Include="MonoDevelop.CSharp.Refactoring\ExtractMethod\ExtractMethodAstTransformer.cs" />
+    <Compile Include="MonoDevelop.CSharp.Refactoring\ExtractMethod\ExtractMethodDialog.cs" />
+    <Compile Include="MonoDevelop.CSharp.Refactoring\ExtractMethod\ExtractMethodHandler.cs" />
+    <Compile Include="MonoDevelop.CSharp.Refactoring\ExtractMethod\ExtractMethodRefactoring.cs" />
+    <Compile Include="MonoDevelop.CSharp.Refactoring\ExtractMethod\VariableLookupVisitor.cs" />
+    <Compile Include="gtk-gui\MonoDevelop.CSharp.Refactoring.ExtractMethod.ExtractMethodDialog.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="ChangeLog" />
@@ -383,5 +390,6 @@
     <Folder Include="MonoDevelop.CSharp.Completion\" />
     <Folder Include="MonoDevelop.CSharp.Parser\mcs\" />
     <Folder Include="MonoDevelop.CSharp.Refactoring\CreateMethod\" />
+    <Folder Include="MonoDevelop.CSharp.Refactoring\ExtractMethod\" />
   </ItemGroup>
 </Project>
