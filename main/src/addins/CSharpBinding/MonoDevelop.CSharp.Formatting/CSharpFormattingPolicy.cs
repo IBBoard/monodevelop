@@ -28,6 +28,9 @@ using System;
 using MonoDevelop.Core;
 using MonoDevelop.Core.Serialization;
 using System.Reflection;
+using System.Xml;
+using System.Text;
+using System.Linq;
 
 namespace MonoDevelop.CSharp.Formatting
 {
@@ -63,6 +66,16 @@ namespace MonoDevelop.CSharp.Formatting
 	
 	public class CSharpFormattingPolicy : IEquatable<CSharpFormattingPolicy>
 	{
+		public string Name {
+			get;
+			set;
+		}
+		
+		public bool IsBuiltIn {
+			get;
+			set;
+		}
+		
 		public CSharpFormattingPolicy Clone ()
 		{
 			return (CSharpFormattingPolicy)MemberwiseClone ();
@@ -367,6 +380,39 @@ namespace MonoDevelop.CSharp.Formatting
 		#endregion
 		
 		#region Spaces
+		
+		// Methods
+		[ItemProperty]
+		public bool BeforeMethodDeclarationParentheses { // tested
+			get;
+			set;
+		}
+		
+		[ItemProperty]
+		public bool BetweenEmptyMethodDeclarationParentheses {
+			get;
+			set;
+		}
+		
+		[ItemProperty]
+		public bool BeforeMethodDeclarationParameterComma { // tested
+			get;
+			set;
+		}
+		
+		[ItemProperty]
+		public bool AfterMethodDeclarationParameterComma { // tested
+			get;
+			set;
+		}
+		
+		[ItemProperty]
+		public bool WithinMethodDeclarationParentheses { // tested
+			get;
+			set;
+		}
+		
+		// Method calls
 		[ItemProperty]
 		public bool BeforeMethodCallParentheses { // tested
 			get;
@@ -374,10 +420,58 @@ namespace MonoDevelop.CSharp.Formatting
 		}
 		
 		[ItemProperty]
-		public bool BeforeMethodDeclarationParentheses { // tested
+		public bool BetweenEmptyMethodCallParentheses { // tested
 			get;
 			set;
 		}
+		
+		[ItemProperty]
+		public bool BeforeMethodCallParameterComma { // tested
+			get;
+			set;
+		}
+		
+		[ItemProperty]
+		public bool AfterMethodCallParameterComma { // tested
+			get;
+			set;
+		}
+		
+		[ItemProperty]
+		public bool WithinMethodCallParentheses { // tested
+			get;
+			set;
+		}
+		
+		// fields
+		
+		[ItemProperty]
+		public bool BeforeFieldDeclarationComma { // tested
+			get;
+			set;
+		}
+		
+		[ItemProperty]
+		public bool AfterFieldDeclarationComma { // tested
+			get;
+			set;
+		}
+		
+		// local variables
+		
+		[ItemProperty]
+		public bool BeforeLocalVariableDeclarationComma { // tested
+			get;
+			set;
+		}
+		
+		[ItemProperty]
+		public bool AfterLocalVariableDeclarationComma { // tested
+			get;
+			set;
+		}
+		
+		// constructors
 		
 		[ItemProperty]
 		public bool BeforeConstructorDeclarationParentheses { // tested
@@ -386,10 +480,61 @@ namespace MonoDevelop.CSharp.Formatting
 		}
 		
 		[ItemProperty]
-		public bool BeforeDelegateDeclarationParentheses { // tested
+		public bool BetweenEmptyConstructorDeclarationParentheses { // tested
 			get;
 			set;
 		}
+		
+		[ItemProperty]
+		public bool BeforeConstructorDeclarationParameterComma { // tested
+			get;
+			set;
+		}
+		
+		[ItemProperty]
+		public bool AfterConstructorDeclarationParameterComma { // tested
+			get;
+			set;
+		}
+		
+		[ItemProperty]
+		public bool WithinConstructorDeclarationParentheses { // tested
+			get;
+			set;
+		}
+		
+		// delegates
+		
+		[ItemProperty]
+		public bool BeforeDelegateDeclarationParentheses {
+			get;
+			set;
+		}
+		
+		[ItemProperty]
+		public bool BetweenEmptyDelegateDeclarationParentheses {
+			get;
+			set;
+		}
+		
+		[ItemProperty]
+		public bool BeforeDelegateDeclarationParameterComma {
+			get;
+			set;
+		}
+		
+		[ItemProperty]
+		public bool AfterDelegateDeclarationParameterComma {
+			get;
+			set;
+		}
+		
+		[ItemProperty]
+		public bool WithinDelegateDeclarationParentheses {
+			get;
+			set;
+		}
+		
 		
 		[ItemProperty]
 		public bool NewParentheses { // tested
@@ -499,17 +644,6 @@ namespace MonoDevelop.CSharp.Formatting
 			set;
 		}
 		
-		[ItemProperty]
-		public bool WithinMethodCallParentheses { // tested
-			get;
-			set;
-		}
-		
-		[ItemProperty]
-		public bool WithinMethodDeclarationParentheses { // tested
-			get;
-			set;
-		}
 		
 		[ItemProperty]
 		public bool WithinIfParentheses { // tested
@@ -572,7 +706,19 @@ namespace MonoDevelop.CSharp.Formatting
 		}
 		
 		[ItemProperty]
+		public bool BeforeSizeOfParentheses { // tested
+			get;
+			set;
+		}
+		
+		[ItemProperty]
 		public bool WithinTypeOfParentheses { // tested
+			get;
+			set;
+		}
+		
+		[ItemProperty]
+		public bool BeforeTypeOfParentheses { // tested
 			get;
 			set;
 		}
@@ -614,19 +760,13 @@ namespace MonoDevelop.CSharp.Formatting
 		}
 		
 		[ItemProperty]
-		public bool SpacesAfterComma { // tested
+		public bool SpacesBeforeForSemicolon { // tested
 			get;
 			set;
 		}
 		
 		[ItemProperty]
-		public bool SpacesBeforeComma { // tested
-			get;
-			set;
-		}
-		
-		[ItemProperty]
-		public bool SpacesAfterSemicolon { // tested
+		public bool SpacesAfterForSemicolon { // tested
 			get;
 			set;
 		}
@@ -708,24 +848,93 @@ namespace MonoDevelop.CSharp.Formatting
 			ConditionalOperatorAfterSeparatorSpace = true;
 
 			SpacesWithinBrackets = false;
-			SpacesAfterComma = true;
-			SpacesBeforeComma = false;
-			SpacesAfterSemicolon = true;
+			SpacesBeforeForSemicolon = false;
+			SpacesAfterForSemicolon = true;
 			SpacesAfterTypecast = false;
 			
 			AlignEmbeddedIfStatements = true;
 			AlignEmbeddedUsingStatements = true;
 			PropertyFormatting = PropertyFormatting.AllowOneLine;
+			BeforeMethodDeclarationParameterComma = false;
+			AfterMethodDeclarationParameterComma = true;
+			BeforeFieldDeclarationComma = false;
+			AfterFieldDeclarationComma = true;
+			BeforeLocalVariableDeclarationComma = false;
+			AfterLocalVariableDeclarationComma = true;
+			
+		}
+		
+		public static CSharpFormattingPolicy Load (FilePath selectedFile)
+		{
+			using (var stream = System.IO.File.OpenRead (selectedFile)) {
+				return Load (stream);
+			}
+		}
+		
+		public static CSharpFormattingPolicy Load (System.IO.Stream input)
+		{
+			CSharpFormattingPolicy result = new CSharpFormattingPolicy ();
+			result.Name = "noname";
+			using (XmlTextReader reader = new XmlTextReader (input)) {
+				while (reader.Read ()) {
+					if (reader.NodeType == XmlNodeType.Element) {
+						if (reader.LocalName == "Property") {
+							var info = typeof (CSharpFormattingPolicy).GetProperty (reader.GetAttribute ("name"));
+							string valString = reader.GetAttribute ("value");
+							object value;
+							if (info.PropertyType == typeof (bool)) {
+								value = Boolean.Parse (valString);
+							} else {
+								value = Enum.Parse (info.PropertyType, valString);
+							}
+							info.SetValue (result, value, null);
+						} else if (reader.LocalName == "FormattingProfile") {
+							result.Name = reader.GetAttribute ("name");
+						}
+					} else if (reader.NodeType == XmlNodeType.EndElement && reader.LocalName == "FormattingProfile") {
+						Console.WriteLine ("result:" + result.Name);
+						return result;
+					}
+				}
+			}
+			return result;
+		}
+		
+		public void Save (string fileName)
+		{
+			using (var writer = new XmlTextWriter (fileName, Encoding.Default)) {
+				writer.Formatting = System.Xml.Formatting.Indented;
+				writer.Indentation = 1;
+				writer.IndentChar = '\t';
+				writer.WriteStartElement ("FormattingProfile");
+				writer.WriteAttributeString ("name", Name);
+				foreach (PropertyInfo info in typeof (CSharpFormattingPolicy).GetProperties ()) {
+					if (info.GetCustomAttributes (false).Any (o => o.GetType () == typeof(ItemPropertyAttribute))) {
+						writer.WriteStartElement ("Property");
+						writer.WriteAttributeString ("name", info.Name);
+						writer.WriteAttributeString ("value", info.GetValue (this, null).ToString ());
+						writer.WriteEndElement ();
+					}
+				}
+				writer.WriteEndElement ();
+			}
 		}
 		
 		public bool Equals (CSharpFormattingPolicy other)
 		{
 			foreach (PropertyInfo info in typeof (CSharpFormattingPolicy).GetProperties ()) {
-				object val = info.GetValue (this, null);
-				object otherVal = info.GetValue (other, null);
-				if (!val.Equals (otherVal)) {
-					//Console.WriteLine ("!equal");
-					return false;
+				if (info.GetCustomAttributes (false).Any (o => o.GetType () == typeof(ItemPropertyAttribute))) {
+					object val = info.GetValue (this, null);
+					object otherVal = info.GetValue (other, null);
+					if (val == null) {
+						if (otherVal == null)
+							continue;
+						return false;
+					}
+					if (!val.Equals (otherVal)) {
+						//Console.WriteLine ("!equal");
+						return false;
+					}
 				}
 			}
 			//Console.WriteLine ("== equal");

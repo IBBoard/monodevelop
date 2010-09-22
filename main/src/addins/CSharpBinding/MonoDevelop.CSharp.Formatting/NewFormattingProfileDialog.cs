@@ -1,10 +1,10 @@
 // 
-// CSharpFormattingPolicyPanel.cs
+// NewFormattingProfileDialog.cs
 //  
 // Author:
 //       Mike Krüger <mkrueger@novell.com>
 // 
-// Copyright (c) 2009 Novell, Inc (http://www.novell.com)
+// Copyright (c) 2010 Novell, Inc (http://www.novell.com)
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -23,42 +23,43 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-
-using Gtk;
-using MonoDevelop.Ide.CodeFormatting;
-using MonoDevelop.Projects.Text;
-using System.Xml;
-using MonoDevelop.Ide.Gui.Dialogs;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace MonoDevelop.CSharp.Formatting
 {
-	class CSharpFormattingPolicyPanel : MimeTypePolicyOptionsPanel<CSharpFormattingPolicy>
+	public partial class NewFormattingProfileDialog  : Gtk.Dialog
 	{
-		CSharpFormattingPolicyPanelWidget panel;
+		public string NewProfileName {
+			get;
+			private set;
+		}
 		
-		public static CodeFormatDescription CodeFormatDescription {
+		
+		public CSharpFormattingPolicy InitializeFrom {
 			get {
-				XmlReaderSettings settings = new XmlReaderSettings ();
-				settings.CloseInput = true;
-				using (XmlReader reader = XmlTextReader.Create (typeof (CSharpFormattingPolicy).Assembly.GetManifestResourceStream ("CSharpFormattingPolicy.xml"), settings)) {
-					return CodeFormatDescription.Read (reader);
-				}
+				return policies[comboboxInitFrom.Active];
 			}
 		}
 		
-		public override Widget CreatePanelWidget ()
+		List<CSharpFormattingPolicy> policies;
+		public NewFormattingProfileDialog (List<CSharpFormattingPolicy> policies)
 		{
-			return panel = new CSharpFormattingPolicyPanelWidget ();
-		}
-		
-		protected override void LoadFrom (CSharpFormattingPolicy policy)
-		{
-			panel.Policy = policy.Clone ();
-		}
-		
-		protected override CSharpFormattingPolicy GetPolicy ()
-		{
-			return panel.Policy;
+			this.Build ();
+			this.policies = policies;
+			this.entryProfileName.Changed += delegate {
+				NewProfileName = entryProfileName.Text;
+				buttonOk.Sensitive = !string.IsNullOrEmpty (NewProfileName) && !this.policies.Any (p => p.Name == NewProfileName);
+			};
+			
+			Gtk.ListStore model = new Gtk.ListStore (typeof(string));
+			foreach (var p in policies) {
+				model.AppendValues (p.Name);
+			}
+			comboboxInitFrom.Model = model;
+			comboboxInitFrom.Active = 0;
 		}
 	}
 }
+

@@ -5,45 +5,45 @@ namespace MonoDevelop.CSharp.Refactoring.ExtractMethod
 	public partial class ExtractMethodDialog
 	{
 		private global::Gtk.VBox vbox2;
-
+		
 		private global::Gtk.Table table1;
-
+		
 		private global::Gtk.ComboBox comboboxModifiers;
-
+		
 		private global::Gtk.Entry entry;
-
+		
 		private global::Gtk.Label label1;
-
+		
 		private global::Gtk.Label labelNewName;
-
+		
 		private global::Gtk.Label label2;
-
+		
 		private global::Gtk.HBox hbox2;
-
+		
 		private global::Gtk.ScrolledWindow GtkScrolledWindow;
-
+		
 		private global::Gtk.TreeView treeviewParameters;
-
+		
 		private global::Gtk.VBox vbox3;
-
+		
 		private global::Gtk.Button buttonUp;
-
+		
 		private global::Gtk.Button buttonDown;
-
+		
 		private global::Gtk.CheckButton checkbuttonGenerateComment;
-
+		
 		private global::Gtk.HBox hbox3;
-
+		
 		private global::Gtk.Image imageWarning;
-
+		
 		private global::Gtk.Label labelWarning;
-
+		
 		private global::Gtk.Button buttonCancel;
-
+		
 		private global::Gtk.Button buttonPreview;
-
+		
 		private global::Gtk.Button buttonOk;
-
+		
 		protected virtual void Build ()
 		{
 			global::Stetic.Gui.Initialize (this);
@@ -91,7 +91,7 @@ namespace MonoDevelop.CSharp.Refactoring.ExtractMethod
 			// Container child table1.Gtk.Table+TableChild
 			this.label1 = new global::Gtk.Label ();
 			this.label1.Name = "label1";
-			this.label1.Xalign = 0f;
+			this.label1.Xalign = 0F;
 			this.label1.LabelProp = global::Mono.Unix.Catalog.GetString ("_Access modifier:");
 			this.label1.UseUnderline = true;
 			this.table1.Add (this.label1);
@@ -103,7 +103,7 @@ namespace MonoDevelop.CSharp.Refactoring.ExtractMethod
 			// Container child table1.Gtk.Table+TableChild
 			this.labelNewName = new global::Gtk.Label ();
 			this.labelNewName.Name = "labelNewName";
-			this.labelNewName.Xalign = 0f;
+			this.labelNewName.Xalign = 0F;
 			this.labelNewName.LabelProp = global::Mono.Unix.Catalog.GetString ("_Method name:");
 			this.labelNewName.UseUnderline = true;
 			this.table1.Add (this.labelNewName);
@@ -118,7 +118,7 @@ namespace MonoDevelop.CSharp.Refactoring.ExtractMethod
 			// Container child vbox2.Gtk.Box+BoxChild
 			this.label2 = new global::Gtk.Label ();
 			this.label2.Name = "label2";
-			this.label2.Xalign = 0f;
+			this.label2.Xalign = 0F;
 			this.label2.LabelProp = global::Mono.Unix.Catalog.GetString ("_Parameters:");
 			this.label2.UseUnderline = true;
 			this.vbox2.Add (this.label2);
@@ -195,7 +195,7 @@ namespace MonoDevelop.CSharp.Refactoring.ExtractMethod
 			// Container child hbox3.Gtk.Box+BoxChild
 			this.imageWarning = new global::Gtk.Image ();
 			this.imageWarning.Name = "imageWarning";
-			this.imageWarning.Pixbuf = global::Stetic.IconLoader.LoadIcon (this, "gtk-apply", global::Gtk.IconSize.Button);
+			this.imageWarning.Pixbuf = global::Stetic.IconLoader.LoadIcon (this,"gtk-apply",global::Gtk.IconSize.Button);
 			this.hbox3.Add (this.imageWarning);
 			global::Gtk.Box.BoxChild w15 = ((global::Gtk.Box.BoxChild)(this.hbox3[this.imageWarning]));
 			w15.Position = 0;
@@ -231,7 +231,7 @@ namespace MonoDevelop.CSharp.Refactoring.ExtractMethod
 			this.buttonCancel.UseStock = true;
 			this.buttonCancel.UseUnderline = true;
 			this.buttonCancel.Label = "gtk-cancel";
-			this.AddActionWidget (this.buttonCancel, -6);
+			this.AddActionWidget (this.buttonCancel,-6);
 			global::Gtk.ButtonBox.ButtonBoxChild w20 = ((global::Gtk.ButtonBox.ButtonBoxChild)(w19[this.buttonCancel]));
 			w20.Expand = false;
 			w20.Fill = false;
@@ -241,7 +241,7 @@ namespace MonoDevelop.CSharp.Refactoring.ExtractMethod
 			this.buttonPreview.Name = "buttonPreview";
 			this.buttonPreview.UseUnderline = true;
 			this.buttonPreview.Label = global::Mono.Unix.Catalog.GetString ("_Preview");
-			this.AddActionWidget (this.buttonPreview, 0);
+			this.AddActionWidget (this.buttonPreview,0);
 			global::Gtk.ButtonBox.ButtonBoxChild w21 = ((global::Gtk.ButtonBox.ButtonBoxChild)(w19[this.buttonPreview]));
 			w21.Position = 1;
 			w21.Expand = false;
@@ -254,7 +254,7 @@ namespace MonoDevelop.CSharp.Refactoring.ExtractMethod
 			this.buttonOk.UseStock = true;
 			this.buttonOk.UseUnderline = true;
 			this.buttonOk.Label = "gtk-ok";
-			this.AddActionWidget (this.buttonOk, -5);
+			this.AddActionWidget (this.buttonOk,-5);
 			global::Gtk.ButtonBox.ButtonBoxChild w22 = ((global::Gtk.ButtonBox.ButtonBoxChild)(w19[this.buttonOk]));
 			w22.Position = 2;
 			w22.Expand = false;
