@@ -64,7 +64,7 @@ namespace MonoDevelop.Refactoring.Tests
 			Assert.IsTrue (refactoring.IsValid (options));
 			
 			if (returnWholeFile) {
-				refactoring.SetInsertionPoint (MonoDevelop.Refactoring.HelperMethods.GetInsertionPoints (options.GetTextEditorData ().Document, refactoring.DeclaringType).First ());
+				refactoring.SetInsertionPoint (MonoDevelop.Refactoring.HelperMethods.GetInsertionPoints (options.Document, refactoring.DeclaringType).First ());
 			} else {
 				DocumentLocation loc = new DocumentLocation (1, 1);
 				refactoring.SetInsertionPoint (new InsertionPoint (loc, NewLineInsertion.Eol, NewLineInsertion.Eol));
@@ -243,6 +243,40 @@ class TestClass
 	void TestMethod ()
 	{
 		var fb = new FooBar ();
+		fb.NonExistantMethod ();
+	}
+}
+", true);
+		}
+		
+		[Test()]
+		public void TestCreateInterfaceMethod ()
+		{
+			TestCreateMethod (
+@"
+interface FooBar
+{
+}
+
+class TestClass
+{
+	void TestMethod ()
+	{
+		FooBar fb;
+		fb.$NonExistantMethod ();
+	}
+}
+", @"
+interface FooBar
+{
+	void NonExistantMethod ();
+}
+
+class TestClass
+{
+	void TestMethod ()
+	{
+		FooBar fb;
 		fb.NonExistantMethod ();
 	}
 }
