@@ -256,7 +256,7 @@ namespace MonoDevelop.CSharp.Formatting
 		
 		#endregion
 		
-		const int propertyColumn   = 0;
+		const int propertyColumn = 0;
 		const int displayTextColumn = 1;
 		const int exampleTextColumn = 2;
 		const int toggleVisibleColumn = 3;
@@ -300,7 +300,7 @@ namespace MonoDevelop.CSharp.Formatting
 			ShowAll ();
 			
 			#region Indent options
-			indentOptions = new Gtk.TreeStore (typeof (string), typeof (string), typeof (string), typeof(bool), typeof(bool));
+			indentOptions = new Gtk.TreeStore (typeof (string), typeof (string), typeof (string), typeof (bool), typeof (bool));
 			
 			TreeViewColumn column = new TreeViewColumn ();
 			// pixbuf column
@@ -313,7 +313,7 @@ namespace MonoDevelop.CSharp.Formatting
 			cellRendererText.Ypad = 1;
 			column.PackStart (cellRendererText, true);
 			column.SetAttributes (cellRendererText, "text", 1);
-			 
+				
 			treeviewIndentOptions.Model = indentOptions;
 			treeviewIndentOptions.HeadersVisible = false;
 			treeviewIndentOptions.Selection.Changed += TreeSelectionChanged;
@@ -328,7 +328,7 @@ namespace MonoDevelop.CSharp.Formatting
 			cellRendererCombo.HasEntry = false;
 			cellRendererCombo.Editable = !profile.IsBuiltIn;
 
-			cellRendererCombo.Edited +=  new ComboboxEditedHandler (this, indentOptions).ComboboxEdited;
+			cellRendererCombo.Edited += new ComboboxEditedHandler (this, indentOptions).ComboboxEdited;
 			
 			column.PackStart (cellRendererCombo, false);
 			column.SetAttributes (cellRendererCombo, "visible", comboVisibleColumn);
@@ -366,7 +366,7 @@ namespace MonoDevelop.CSharp.Formatting
 			#endregion
 			
 			#region Brace options
-			bacePositionOptions = new Gtk.TreeStore (typeof (string), typeof (string), typeof (string), typeof(bool), typeof(bool));
+			bacePositionOptions = new Gtk.TreeStore (typeof (string), typeof (string), typeof (string), typeof (bool), typeof (bool));
 			
 			column = new TreeViewColumn ();
 			// pixbuf column
@@ -473,7 +473,7 @@ namespace MonoDevelop.CSharp.Formatting
 			#endregion
 			
 			#region New line options
-			newLineOptions = new Gtk.TreeStore (typeof (string), typeof (string), typeof (string), typeof(bool), typeof(bool));
+			newLineOptions = new Gtk.TreeStore (typeof (string), typeof (string), typeof (string), typeof (bool), typeof (bool));
 			
 			column = new TreeViewColumn ();
 			// pixbuf column
@@ -635,6 +635,7 @@ delegate void BarFoo ();
 		{
 			Console.WriteLine();
 			Console.WriteLine(""{0} {1}!"", ""Hello"", ""World"");
+			object obj = new object();
 		}
 }";
 			whiteSpaceCategory.AppendValues (category, GettextCatalog.GetString ("Method invocations"), new Category (example,
@@ -642,7 +643,8 @@ delegate void BarFoo ();
 				new Option ("WithinMethodCallParentheses", GettextCatalog.GetString ("within parenthesis")),
 				new Option ("BetweenEmptyMethodCallParentheses", GettextCatalog.GetString ("between empty parenthesis")),
 				new Option ("BeforeMethodCallParameterComma", GettextCatalog.GetString ("before comma in parenthesis")),
-				new Option ("AfterMethodCallParameterComma", GettextCatalog.GetString ("after comma in parenthesis"))
+				new Option ("AfterMethodCallParameterComma", GettextCatalog.GetString ("after comma in parenthesis")),
+				new Option ("NewParentheses", GettextCatalog.GetString ("before opening constructor parenthesis"))
 			));
 			
 			whiteSpaceCategory.AppendValues (category, GettextCatalog.GetString ("Parentheses"), new Category (operatorExample,
@@ -701,7 +703,7 @@ delegate void BarFoo ();
 				new Option ("ConditionalOperatorAfterSeparatorSpace", GettextCatalog.GetString ("after ':'"))
 			));
 			
-			whiteSpaceOptions= new ListStore (typeof (Option), typeof (bool), typeof (bool)); 
+			whiteSpaceOptions = new ListStore (typeof (Option), typeof (bool), typeof (bool)); 
 			column = new TreeViewColumn ();
 			// text column
 			column.PackStart (cellRendererText, true);
@@ -735,7 +737,7 @@ delegate void BarFoo ();
 			
 			column.PackStart (cellRendererCombo, false);
 			column.SetAttributes (cellRendererCombo, "visible", 2);
-			column.SetCellDataFunc (cellRendererCombo,  delegate (TreeViewColumn col, CellRenderer cell, TreeModel model, TreeIter iter) {
+			column.SetCellDataFunc (cellRendererCombo, delegate (TreeViewColumn col, CellRenderer cell, TreeModel model, TreeIter iter) {
 				((CellRendererCombo)cell).Text = GetValue (((Option)model.GetValue (iter, 0)).PropertyName).ToString ();
 			});
 			
@@ -748,7 +750,7 @@ delegate void BarFoo ();
 				if (model.GetIterFromString (out iter, args.Path)) {
 					var option = (Option)model.GetValue (iter, 0);
 					PropertyInfo info = GetPropertyByName (option.PropertyName);
-					if (info == null || info.PropertyType != typeof(bool))
+					if (info == null || info.PropertyType != typeof (bool))
 						return;
 					bool value = (bool)info.GetValue (this.profile, null);
 					info.SetValue (profile, !value, null);
@@ -758,7 +760,7 @@ delegate void BarFoo ();
 			
 			column.PackStart (cellRendererToggle, false);
 			column.SetAttributes (cellRendererToggle, "visible", 1);
-			column.SetCellDataFunc (cellRendererToggle,  delegate (TreeViewColumn col, CellRenderer cell, TreeModel model, TreeIter iter) {
+			column.SetCellDataFunc (cellRendererToggle, delegate (TreeViewColumn col, CellRenderer cell, TreeModel model, TreeIter iter) {
 				((CellRendererToggle)cell).Active = (bool)GetValue (((Option)model.GetValue (iter, 0)).PropertyName);
 			});
 			
@@ -791,7 +793,7 @@ delegate void BarFoo ();
 		
 		static PropertyInfo GetPropertyByName (string name)
 		{
-			PropertyInfo info = typeof(CSharpFormattingPolicy).GetProperty (name);
+			PropertyInfo info = typeof (CSharpFormattingPolicy).GetProperty (name);
 			if (info == null)
 				throw new Exception (name + " property not found");
 			return info;
@@ -850,7 +852,7 @@ delegate void BarFoo ();
 			CSharpFormatter formatter = new CSharpFormatter ();
 			var parent = new MonoDevelop.Projects.DotNetAssemblyProject ();
 			parent.Policies.Set<CSharpFormattingPolicy> (profile, CSharpFormatter.MimeType);
-			texteditor.Document.Text  = formatter.FormatText (parent.Policies, CSharpFormatter.MimeType, example);
+			texteditor.Document.Text = formatter.FormatText (parent.Policies, CSharpFormatter.MimeType, example);
 		}
 		
 		static PropertyInfo GetProperty (TreeModel model, TreeIter iter)
@@ -867,7 +869,7 @@ delegate void BarFoo ();
 			return info.GetValue (this.profile, null);
 		}
 		
-		void RenderIcon (TreeViewColumn col, CellRenderer cell, TreeModel model, TreeIter iter) 
+		void RenderIcon (TreeViewColumn col, CellRenderer cell, TreeModel model, TreeIter iter)
 		{
 			var pixbufCellRenderer = (CellRendererPixbuf)cell;
 			if (model.IterHasChild (iter)) {
@@ -877,7 +879,7 @@ delegate void BarFoo ();
 			}
 		}
 		
-		void ComboboxDataFunc (TreeViewColumn col, CellRenderer cell, TreeModel model, TreeIter iter) 
+		void ComboboxDataFunc (TreeViewColumn col, CellRenderer cell, TreeModel model, TreeIter iter)
 		{
 			var cellRenderer = (CellRendererCombo)cell;
 			var info = GetProperty (model, iter);
@@ -889,11 +891,11 @@ delegate void BarFoo ();
 			cellRenderer.Text = value.ToString ();
 		}
 		
-		void ToggleDataFunc (TreeViewColumn col, CellRenderer cell, TreeModel model, TreeIter iter) 
+		void ToggleDataFunc (TreeViewColumn col, CellRenderer cell, TreeModel model, TreeIter iter)
 		{
 			var cellRenderer = (CellRendererToggle)cell;
 			var info = GetProperty (model, iter);
-			if (info == null || info.PropertyType != typeof(bool)) 
+			if (info == null || info.PropertyType != typeof (bool)) 
 				return;
 			bool value = (bool)info.GetValue (this.profile, null);
 			cellRenderer.Active = value;
