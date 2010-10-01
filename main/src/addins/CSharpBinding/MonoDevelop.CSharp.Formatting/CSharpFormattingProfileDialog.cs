@@ -252,8 +252,30 @@ namespace MonoDevelop.CSharp.Formatting
 			}
 		}
 	}";
-//		const string  = @"";
-		
+		const string blankLineExample = @"// Example
+using System;
+using System.Collections;
+namespace TestSpace {
+	using MyNamespace;
+	class Test
+	{
+		int a;
+		string b;
+		public Test (int a, string b)
+		{
+			this.a = a;
+			this.b = b;
+		}
+		void Print ()
+		{
+			Console.WriteLine (""a: {0} b : {1}"", a, b);
+		}
+	}
+	class MyTest 
+	{
+	}
+}
+";
 		#endregion
 		
 		const int propertyColumn = 0;
@@ -274,7 +296,34 @@ namespace MonoDevelop.CSharp.Formatting
 			entryName.Changed += delegate {
 				profile.Name = entryName.Text;
 			};
-			
+			notebookCategories.SwitchPage += delegate {
+				TreeView treeView;
+				Console.WriteLine (notebookCategories.Page);
+				switch (notebookCategories.Page) {
+				case 0:
+					treeView = treeviewIndentOptions;
+					break;
+				case 1:
+					treeView = treeviewBracePositions;
+					break;
+				case 2: // Blank lines
+					UpdateExample (blankLineExample);
+					return;
+				case 3: // white spaces
+					WhitespaceCategoryChanged (treeviewInsertWhiteSpaceCategory.Selection, EventArgs.Empty);
+					return;
+				case 4:
+					treeView = treeviewNewLines;
+					break;
+				default:
+					return;
+				}
+				
+				var model = treeView.Model;
+				Gtk.TreeIter iter;
+				if (treeView.Selection.GetSelected (out model, out iter))
+					UpdateExample (model, iter);
+			};
 			notebookCategories.ShowTabs = false;
 			comboboxCategories.AppendText (GettextCatalog.GetString ("Indentation"));
 			comboboxCategories.AppendText (GettextCatalog.GetString ("Braces"));
@@ -363,6 +412,7 @@ namespace MonoDevelop.CSharp.Formatting
 			
 			AddOption (indentOptions, category, "AlignEmbeddedIfStatements", GettextCatalog.GetString ("Align embedded 'if' statements"), "class AClass { void AMethod () { if (a) if (b) { int c; } } } ");
 			AddOption (indentOptions, category, "AlignEmbeddedUsingStatements", GettextCatalog.GetString ("Align embedded 'using' statements"), "class AClass { void AMethod () {using (IDisposable a = null) using (IDisposable b = null) { int c; } } }");
+			treeviewIndentOptions.ExpandAll ();
 			#endregion
 			
 			#region Brace options
@@ -469,7 +519,7 @@ namespace MonoDevelop.CSharp.Formatting
 	}");
 			AddOption (bacePositionOptions, category, "UsingBraceForcement", GettextCatalog.GetString ("'using' statement"), simpleUsingStatement);
 			AddOption (bacePositionOptions, category, "FixedBraceForcement", GettextCatalog.GetString ("'fixed' statement"), simpleFixedStatement);
-			
+			treeviewBracePositions.ExpandAll ();
 			#endregion
 			
 			#region New line options
@@ -520,8 +570,8 @@ namespace MonoDevelop.CSharp.Formatting
 			AddOption (newLineOptions, "PlaceFinallyOnNewLine", GettextCatalog.GetString ("Place 'finally' on new line"), simpleCatch);
 			AddOption (newLineOptions, "PlaceWhileOnNewLine", GettextCatalog.GetString ("Place 'while' on new line"), simpleDoWhile);
 			AddOption (newLineOptions, "PlaceArrayInitializersOnNewLine", GettextCatalog.GetString ("Place array initializers on new line"), simpleArrayInitializer);
+			treeviewNewLines.ExpandAll ();
 			#endregion
-			
 			
 			#region White space options
 			whiteSpaceCategory = new TreeStore (typeof (string), typeof (Category));
@@ -586,6 +636,20 @@ namespace MonoDevelop.CSharp.Formatting
 				new Option ("AfterConstructorDeclarationParameterComma", GettextCatalog.GetString ("after comma in parenthesis"))
 			));
 			
+			example = @"class Example {
+	public int this[int a, int b] {
+		get {
+			return a + b;
+		}
+	}
+}";
+			whiteSpaceCategory.AppendValues (category, GettextCatalog.GetString ("Indexer"), new Category (example,
+				new Option ("BeforeIndexerDeclarationBracket", GettextCatalog.GetString ("before opening bracket")),
+				new Option ("WithinIndexerDeclarationBracket", GettextCatalog.GetString ("within brackets")),
+				new Option ("BeforeIndexerDeclarationParameterComma", GettextCatalog.GetString ("before comma in brackets")),
+				new Option ("AfterIndexerDeclarationParameterComma", GettextCatalog.GetString ("after comma in brackets"))
+			));
+			
 			example = @"delegate void FooBar (int a, int b, int c);
 delegate void BarFoo ();
 ";
@@ -613,7 +677,7 @@ delegate void BarFoo ();
 				new Option ("SpacesAfterForSemicolon", GettextCatalog.GetString ("after semicolon"))
 			));
 			
-			whiteSpaceCategory.AppendValues (category, GettextCatalog.GetString ("'foreach'"), new Category (simpleFor,
+			whiteSpaceCategory.AppendValues (category, GettextCatalog.GetString ("'foreach'"), new Category (simpleForeach,
 				new Option ("ForeachParentheses", GettextCatalog.GetString ("before opening parenthesis"))
 			));
 			
@@ -645,6 +709,19 @@ delegate void BarFoo ();
 				new Option ("BeforeMethodCallParameterComma", GettextCatalog.GetString ("before comma in parenthesis")),
 				new Option ("AfterMethodCallParameterComma", GettextCatalog.GetString ("after comma in parenthesis")),
 				new Option ("NewParentheses", GettextCatalog.GetString ("before opening constructor parenthesis"))
+			));
+			
+			example = @"class Example {
+		void Test ()
+		{
+			a[1,2] = b[3];
+		}
+}";
+			whiteSpaceCategory.AppendValues (category, GettextCatalog.GetString ("Element access"), new Category (example,
+				new Option ("SpacesBeforeBrackets", GettextCatalog.GetString ("before opening bracket")),
+				new Option ("SpacesWithinBrackets", GettextCatalog.GetString ("within brackets")),
+				new Option ("BeforeBracketComma", GettextCatalog.GetString ("before comma in brackets")),
+				new Option ("AfterBracketComma", GettextCatalog.GetString ("after comma in brackets"))
 			));
 			
 			whiteSpaceCategory.AppendValues (category, GettextCatalog.GetString ("Parentheses"), new Category (operatorExample,
@@ -703,7 +780,15 @@ delegate void BarFoo ();
 				new Option ("ConditionalOperatorAfterSeparatorSpace", GettextCatalog.GetString ("after ':'"))
 			));
 			
-			whiteSpaceOptions = new ListStore (typeof (Option), typeof (bool), typeof (bool)); 
+			example = @"class ClassDeclaration { 
+		string[][] field;
+		int[] test;
+	}";
+			whiteSpaceCategory.AppendValues (GettextCatalog.GetString ("Array Declarations"), new Category (example,
+				new Option ("SpacesBeforeArrayDeclarationBrackets", GettextCatalog.GetString ("before opening bracket"))
+			));
+			
+			whiteSpaceOptions= new ListStore (typeof (Option), typeof (bool), typeof (bool)); 
 			column = new TreeViewColumn ();
 			// text column
 			column.PackStart (cellRendererText, true);
@@ -767,8 +852,47 @@ delegate void BarFoo ();
 			treeviewInsertWhiteSpaceOptions.AppendColumn (column);
 			
 			treeviewInsertWhiteSpaceOptions.Model = whiteSpaceOptions;
+			treeviewInsertWhiteSpaceCategory.ExpandAll ();
+			#endregion
+			
+			#region Blank line options
+			entryBeforUsings.Text = profile.BlankLinesBeforeUsings.ToString ();
+			entryAfterUsings.Text = profile.BlankLinesAfterUsings.ToString ();
+			
+			entryBeforeFirstDeclaration.Text = profile.BlankLinesBeforeFirstDeclaration.ToString ();
+			entryBetweenTypes.Text = profile.BlankLinesBetweenTypes.ToString ();
+			
+			entryBetweenFields.Text = profile.BlankLinesBetweenFields.ToString ();
+			entryBetweenMembers.Text = profile.BlankLinesBetweenMembers.ToString ();
+			
+			entryBeforUsings.Changed += HandleEntryBeforUsingsChanged;
+			entryAfterUsings.Changed += HandleEntryBeforUsingsChanged;
+			entryBeforeFirstDeclaration.Changed += HandleEntryBeforUsingsChanged;
+			entryBetweenTypes.Changed += HandleEntryBeforUsingsChanged;
+			entryBetweenFields.Changed += HandleEntryBeforUsingsChanged;
+			entryBetweenMembers.Changed += HandleEntryBeforUsingsChanged;
 			
 			#endregion
+		}
+		
+		int SetFlag (Gtk.Entry entry, int oldValue)
+		{
+			int newValue;
+			if (int.TryParse (entry.Text, out newValue)) 
+				return newValue;
+			return oldValue;
+		}
+
+		void HandleEntryBeforUsingsChanged (object sender, EventArgs e)
+		{
+			profile.BlankLinesBeforeUsings = SetFlag (entryBeforUsings, profile.BlankLinesBeforeUsings);
+			profile.BlankLinesAfterUsings = SetFlag (entryAfterUsings, profile.BlankLinesAfterUsings);
+			profile.BlankLinesBeforeFirstDeclaration = SetFlag (entryBeforeFirstDeclaration, profile.BlankLinesBeforeFirstDeclaration);
+			profile.BlankLinesBetweenTypes = SetFlag (entryBetweenTypes, profile.BlankLinesBetweenTypes);
+			profile.BlankLinesBetweenFields = SetFlag (entryBetweenFields, profile.BlankLinesBetweenFields);
+			profile.BlankLinesBetweenMembers = SetFlag (entryBetweenMembers, profile.BlankLinesBetweenMembers);
+			
+			UpdateExample (blankLineExample);
 		}
 
 		void WhitespaceCategoryChanged (object sender, EventArgs e)

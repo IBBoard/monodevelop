@@ -382,7 +382,6 @@ namespace MonoDevelop.CSharp.Formatting
 		#endregion
 		
 		#region Spaces
-		
 		// Methods
 		[ItemProperty]
 		public bool BeforeMethodDeclarationParentheses { // tested
@@ -501,6 +500,31 @@ namespace MonoDevelop.CSharp.Formatting
 		
 		[ItemProperty]
 		public bool WithinConstructorDeclarationParentheses { // tested
+			get;
+			set;
+		}
+		
+		// indexer
+		[ItemProperty]
+		public bool BeforeIndexerDeclarationBracket { // tested
+			get;
+			set;
+		}
+		
+		[ItemProperty]
+		public bool WithinIndexerDeclarationBracket { // tested
+			get;
+			set;
+		}
+		
+		[ItemProperty]
+		public bool BeforeIndexerDeclarationParameterComma {
+			get;
+			set;
+		}
+		
+		[ItemProperty]
+		public bool AfterIndexerDeclarationParameterComma {
 			get;
 			set;
 		}
@@ -755,11 +779,28 @@ namespace MonoDevelop.CSharp.Formatting
 			set;
 		}
 		
+		// brackets
 		[ItemProperty]
 		public bool SpacesWithinBrackets { // tested
 			get;
 			set;
 		}
+		[ItemProperty]
+		public bool SpacesBeforeBrackets { // tested
+			get;
+			set;
+		}
+		[ItemProperty]
+		public bool BeforeBracketComma { // tested
+			get;
+			set;
+		}
+		[ItemProperty]
+		public bool AfterBracketComma { // tested
+			get;
+			set;
+		}
+		
 		
 		[ItemProperty]
 		public bool SpacesBeforeForSemicolon { // tested
@@ -775,6 +816,50 @@ namespace MonoDevelop.CSharp.Formatting
 		
 		[ItemProperty]
 		public bool SpacesAfterTypecast { // tested
+			get;
+			set;
+		}
+		
+		[ItemProperty]
+		public bool SpacesBeforeArrayDeclarationBrackets { // tested
+			get;
+			set;
+		}
+		#endregion
+		
+		#region Blank Lines
+		[ItemProperty]
+		public int BlankLinesBeforeUsings {
+			get;
+			set;
+		}
+		
+		[ItemProperty]
+		public int BlankLinesAfterUsings {
+			get;
+			set;
+		}
+		
+		[ItemProperty]
+		public int BlankLinesBeforeFirstDeclaration {
+			get;
+			set;
+		}
+		
+		[ItemProperty]
+		public int BlankLinesBetweenTypes {
+			get;
+			set;
+		}
+		
+		[ItemProperty]
+		public int BlankLinesBetweenFields {
+			get;
+			set;
+		}
+		
+		[ItemProperty]
+		public int BlankLinesBetweenMembers {
 			get;
 			set;
 		}
@@ -850,6 +935,10 @@ namespace MonoDevelop.CSharp.Formatting
 			ConditionalOperatorAfterSeparatorSpace = true;
 
 			SpacesWithinBrackets = false;
+			SpacesBeforeBrackets = true;
+			BeforeBracketComma = false;
+			AfterBracketComma = true;
+					
 			SpacesBeforeForSemicolon = false;
 			SpacesAfterForSemicolon = true;
 			SpacesAfterTypecast = false;
@@ -864,6 +953,21 @@ namespace MonoDevelop.CSharp.Formatting
 			BeforeLocalVariableDeclarationComma = false;
 			AfterLocalVariableDeclarationComma = true;
 			
+			BeforeIndexerDeclarationBracket = true;
+			WithinIndexerDeclarationBracket = false;
+			BeforeIndexerDeclarationParameterComma = false;
+		
+		
+			AfterIndexerDeclarationParameterComma = true;
+			
+			BlankLinesBeforeUsings = 0;
+			BlankLinesAfterUsings = 1;
+			
+			
+			BlankLinesBeforeFirstDeclaration = 0;
+			BlankLinesBetweenTypes = 1;
+			BlankLinesBetweenFields = 0;
+			BlankLinesBetweenMembers = 1;
 		}
 		
 		public static ICollection<CSharpFormattingPolicy> Load (FilePath selectedFile)

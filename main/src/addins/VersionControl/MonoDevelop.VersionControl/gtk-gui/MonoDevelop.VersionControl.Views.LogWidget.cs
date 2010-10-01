@@ -26,13 +26,7 @@ namespace MonoDevelop.VersionControl.Views
 		
 		private global::Gtk.TextView textviewDetails;
 		
-		private global::Gtk.HPaned hpaned2;
-		
-		private global::Gtk.ScrolledWindow GtkScrolledWindow1;
-		
-		private global::Gtk.TreeView treeviewFiles;
-		
-		private global::Gtk.VBox vboxCompareView;
+		private global::Gtk.ScrolledWindow scrolledwindowFiles;
 		
 		protected virtual void Build ()
 		{
@@ -55,7 +49,7 @@ namespace MonoDevelop.VersionControl.Views
 			this.commandBar.ToolbarStyle = ((global::Gtk.ToolbarStyle)(3));
 			this.commandBar.IconSize = ((global::Gtk.IconSize)(1));
 			this.vbox1.Add (this.commandBar);
-			global::Gtk.Box.BoxChild w3 = ((global::Gtk.Box.BoxChild)(this.vbox1[this.commandBar]));
+			global::Gtk.Box.BoxChild w3 = ((global::Gtk.Box.BoxChild)(this.vbox1 [this.commandBar]));
 			w3.Position = 0;
 			w3.Expand = false;
 			w3.Fill = false;
@@ -63,7 +57,7 @@ namespace MonoDevelop.VersionControl.Views
 			this.vpaned1 = new global::Gtk.VPaned ();
 			this.vpaned1.CanFocus = true;
 			this.vpaned1.Name = "vpaned1";
-			this.vpaned1.Position = 212;
+			this.vpaned1.Position = 204;
 			// Container child vpaned1.Gtk.Paned+PanedChild
 			this.hpaned1 = new global::Gtk.HPaned ();
 			this.hpaned1.CanFocus = true;
@@ -79,7 +73,7 @@ namespace MonoDevelop.VersionControl.Views
 			this.treeviewLog.Name = "treeviewLog";
 			this.GtkScrolledWindow.Add (this.treeviewLog);
 			this.hpaned1.Add (this.GtkScrolledWindow);
-			global::Gtk.Paned.PanedChild w5 = ((global::Gtk.Paned.PanedChild)(this.hpaned1[this.GtkScrolledWindow]));
+			global::Gtk.Paned.PanedChild w5 = ((global::Gtk.Paned.PanedChild)(this.hpaned1 [this.GtkScrolledWindow]));
 			w5.Resize = false;
 			// Container child hpaned1.Gtk.Paned+PanedChild
 			this.vbox2 = new global::Gtk.VBox ();
@@ -91,7 +85,7 @@ namespace MonoDevelop.VersionControl.Views
 			this.label1.Xalign = 0F;
 			this.label1.LabelProp = global::Mono.Unix.Catalog.GetString ("Details");
 			this.vbox2.Add (this.label1);
-			global::Gtk.Box.BoxChild w6 = ((global::Gtk.Box.BoxChild)(this.vbox2[this.label1]));
+			global::Gtk.Box.BoxChild w6 = ((global::Gtk.Box.BoxChild)(this.vbox2 [this.label1]));
 			w6.Position = 0;
 			w6.Expand = false;
 			w6.Fill = false;
@@ -106,38 +100,21 @@ namespace MonoDevelop.VersionControl.Views
 			this.textviewDetails.Name = "textviewDetails";
 			this.scrolledwindow1.Add (this.textviewDetails);
 			this.vbox2.Add (this.scrolledwindow1);
-			global::Gtk.Box.BoxChild w8 = ((global::Gtk.Box.BoxChild)(this.vbox2[this.scrolledwindow1]));
+			global::Gtk.Box.BoxChild w8 = ((global::Gtk.Box.BoxChild)(this.vbox2 [this.scrolledwindow1]));
 			w8.Position = 1;
 			this.hpaned1.Add (this.vbox2);
 			this.vpaned1.Add (this.hpaned1);
-			global::Gtk.Paned.PanedChild w10 = ((global::Gtk.Paned.PanedChild)(this.vpaned1[this.hpaned1]));
+			global::Gtk.Paned.PanedChild w10 = ((global::Gtk.Paned.PanedChild)(this.vpaned1 [this.hpaned1]));
 			w10.Resize = false;
 			// Container child vpaned1.Gtk.Paned+PanedChild
-			this.hpaned2 = new global::Gtk.HPaned ();
-			this.hpaned2.CanFocus = true;
-			this.hpaned2.Name = "hpaned2";
-			this.hpaned2.Position = 237;
-			// Container child hpaned2.Gtk.Paned+PanedChild
-			this.GtkScrolledWindow1 = new global::Gtk.ScrolledWindow ();
-			this.GtkScrolledWindow1.Name = "GtkScrolledWindow1";
-			this.GtkScrolledWindow1.ShadowType = ((global::Gtk.ShadowType)(1));
-			// Container child GtkScrolledWindow1.Gtk.Container+ContainerChild
-			this.treeviewFiles = new global::Gtk.TreeView ();
-			this.treeviewFiles.CanFocus = true;
-			this.treeviewFiles.Name = "treeviewFiles";
-			this.GtkScrolledWindow1.Add (this.treeviewFiles);
-			this.hpaned2.Add (this.GtkScrolledWindow1);
-			global::Gtk.Paned.PanedChild w12 = ((global::Gtk.Paned.PanedChild)(this.hpaned2[this.GtkScrolledWindow1]));
-			w12.Resize = false;
-			// Container child hpaned2.Gtk.Paned+PanedChild
-			this.vboxCompareView = new global::Gtk.VBox ();
-			this.vboxCompareView.Name = "vboxCompareView";
-			this.vboxCompareView.Spacing = 6;
-			this.hpaned2.Add (this.vboxCompareView);
-			this.vpaned1.Add (this.hpaned2);
+			this.scrolledwindowFiles = new global::Gtk.ScrolledWindow ();
+			this.scrolledwindowFiles.CanFocus = true;
+			this.scrolledwindowFiles.Name = "scrolledwindowFiles";
+			this.scrolledwindowFiles.ShadowType = ((global::Gtk.ShadowType)(1));
+			this.vpaned1.Add (this.scrolledwindowFiles);
 			this.vbox1.Add (this.vpaned1);
-			global::Gtk.Box.BoxChild w15 = ((global::Gtk.Box.BoxChild)(this.vbox1[this.vpaned1]));
-			w15.Position = 1;
+			global::Gtk.Box.BoxChild w12 = ((global::Gtk.Box.BoxChild)(this.vbox1 [this.vpaned1]));
+			w12.Position = 1;
 			this.Add (this.vbox1);
 			if ((this.Child != null)) {
 				this.Child.ShowAll ();

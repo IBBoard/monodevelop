@@ -1020,59 +1020,6 @@ return (Test)null;
 		}
 		
 		[Test()]
-		public void TestSpacesWithinBrackets ()
-		{
-			TextEditorData data = new TextEditorData ();
-			data.Document.FileName = "a.cs";
-			data.Document.Text = @"class Test {
-	Test this[int i] {
-		get {}
-		set {}
-	}
-	
-	void TestMe ()
-	{
-		this[0] = 5;
-	}
-}";
-			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
-			policy.SpacesWithinBrackets = true;
-			
-			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new DomSpacingVisitor (policy, data), null);
-			
-			Assert.AreEqual (@"class Test {
-	Test this[ int i ] {
-		get {}
-		set {}
-	}
-	
-	void TestMe ()
-	{
-		this[ 0 ] = 5;
-	}
-}", data.Document.Text);
-			
-			policy.SpacesWithinBrackets = false;
-			
-			compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new DomSpacingVisitor (policy, data), null);
-			
-			Assert.AreEqual (@"class Test {
-	Test this[int i] {
-		get {}
-		set {}
-	}
-	
-	void TestMe ()
-	{
-		this[0] = 5;
-	}
-}", data.Document.Text);
-		}
-		
-		
-		[Test()]
 		public void TestSpaceBeforeNewParentheses ()
 		{
 			TextEditorData data = new TextEditorData ();
@@ -1601,5 +1548,235 @@ return (Test)null;
 		}
 		
 		#endregion
+		
+		#region Indexer declarations
+		[Test()]
+		public void TestBeforeIndexerDeclarationBracket ()
+		{
+			TextEditorData data = new TextEditorData ();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = @"class FooBar
+{
+	public int this[int a, int b] {
+		get {
+			return a + b;	
+		}
+	}
+}";
+			
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
+			policy.BeforeIndexerDeclarationBracket = true;
+			
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomSpacingVisitor (policy, data), null);
+			Assert.AreEqual (@"class FooBar
+{
+	public int this [int a, int b] {
+		get {
+			return a + b;	
+		}
+	}
+}", data.Document.Text);
+		}
+		
+		[Test()]
+		public void TestBeforeIndexerDeclarationParameterComma ()
+		{
+			TextEditorData data = new TextEditorData ();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = @"class FooBar
+{
+	public int this[int a,int b] {
+		get {
+			return a + b;	
+		}
+	}
+}";
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
+			policy.BeforeIndexerDeclarationParameterComma = true;
+			policy.AfterIndexerDeclarationParameterComma = false;
+			
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomSpacingVisitor (policy, data), null);
+			int i1 = data.Document.Text.LastIndexOf ("[");
+			int i2 = data.Document.Text.LastIndexOf ("]") + "]".Length;
+			Assert.AreEqual (@"[int a ,int b]", data.Document.GetTextBetween (i1, i2));
+
+		}
+		
+		[Test()]
+		public void TestAfterIndexerDeclarationParameterComma ()
+		{
+			TextEditorData data = new TextEditorData ();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = @"class FooBar
+{
+	public int this[int a,int b] {
+		get {
+			return a + b;	
+		}
+	}
+}";
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
+			policy.AfterIndexerDeclarationParameterComma = true;
+			
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomSpacingVisitor (policy, data), null);
+			int i1 = data.Document.Text.LastIndexOf ("[");
+			int i2 = data.Document.Text.LastIndexOf ("]") + "]".Length;
+			Assert.AreEqual (@"[int a, int b]", data.Document.GetTextBetween (i1, i2));
+		}
+		
+		[Test()]
+		public void TestWithinIndexerDeclarationBracket ()
+		{
+			TextEditorData data = new TextEditorData ();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = @"class FooBar
+{
+	public int this[int a, int b] {
+		get {
+			return a + b;	
+		}
+	}
+}";
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
+			policy.WithinIndexerDeclarationBracket = true;
+			
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomSpacingVisitor (policy, data), null);
+			int i1 = data.Document.Text.LastIndexOf ("[");
+			int i2 = data.Document.Text.LastIndexOf ("]") + "]".Length;
+			Assert.AreEqual (@"[ int a, int b ]", data.Document.GetTextBetween (i1, i2));
+		}
+		
+		
+		#endregion
+
+		#region Brackets
+		
+		[Test()]
+		public void TestSpacesWithinBrackets ()
+		{
+			TextEditorData data = new TextEditorData ();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = @"class Test {
+	void TestMe ()
+	{
+		this[0] = 5;
+	}
+}";
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
+			policy.SpacesWithinBrackets = true;
+			policy.SpacesBeforeBrackets = false;
+			
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomSpacingVisitor (policy, data), null);
+			
+			Assert.AreEqual (@"class Test {
+	void TestMe ()
+	{
+		this[ 0 ] = 5;
+	}
+}", data.Document.Text);
+			
+			
+		}
+		[Test()]
+		public void TestSpacesBeforeBrackets ()
+		{
+			TextEditorData data = new TextEditorData ();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = @"class Test {
+	void TestMe ()
+	{
+		this[0] = 5;
+	}
+}";
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
+			policy.SpacesBeforeBrackets = true;
+			
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomSpacingVisitor (policy, data), null);
+			
+			Assert.AreEqual (@"class Test {
+	void TestMe ()
+	{
+		this [0] = 5;
+	}
+}", data.Document.Text);
+			
+			
+		}
+		
+		[Test()]
+		public void TestBeforeBracketComma ()
+		{
+			TextEditorData data = new TextEditorData ();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = @"class Test {
+	void TestMe ()
+	{
+		this[1,2,3] = 5;
+	}
+}";
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
+			policy.BeforeBracketComma = true;
+			policy.AfterBracketComma = false;
+			
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomSpacingVisitor (policy, data), null);
+			
+			int i1 = data.Document.Text.LastIndexOf ("[");
+			int i2 = data.Document.Text.LastIndexOf ("]") + "]".Length;
+			Assert.AreEqual (@"[1 ,2 ,3]", data.Document.GetTextBetween (i1, i2));
+		}
+		
+		[Test()]
+		public void TestAfterBracketComma ()
+		{
+			TextEditorData data = new TextEditorData ();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = @"class Test {
+	void TestMe ()
+	{
+		this[1,2,3] = 5;
+	}
+}";
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
+			policy.AfterBracketComma = true;
+			
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomSpacingVisitor (policy, data), null);
+			
+			int i1 = data.Document.Text.LastIndexOf ("[");
+			int i2 = data.Document.Text.LastIndexOf ("]") + "]".Length;
+			Assert.AreEqual (@"[1, 2, 3]", data.Document.GetTextBetween (i1, i2));
+		}
+		
+		#endregion
+		
+		[Test()]
+		public void TestSpacesBeforeArrayDeclarationBrackets ()
+		{
+			TextEditorData data = new TextEditorData ();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = @"class Test {
+	int[] a;
+	int[][] b;
+}";
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
+			policy.SpacesBeforeArrayDeclarationBrackets = true;
+			
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomSpacingVisitor (policy, data), null);
+			
+			Assert.AreEqual (@"class Test {
+	int [] a;
+	int [][] b;
+}", data.Document.Text);
+			
+			
+		}		
 	}
 }
