@@ -66,21 +66,42 @@ namespace MonoDevelop.Ide.Fonts
 		
 		static FontDescription LoadFont (string name)
 		{
-			if (name == "_DEFAULT_MONOSPACE")
-				return Pango.FontDescription.FromString (DesktopService.DefaultMonospaceFont);
-			return Pango.FontDescription.FromString (name);
+			return Pango.FontDescription.FromString (FilterFontName (name));
 		}
 		
-		public static string GetFontDescriptionName (string name)
+		public static string FilterFontName (string name)
 		{
-			return fontProperties.Get<string> (name) ?? GetFont (name).FontDescription;
+			if (name == "_DEFAULT_MONOSPACE")
+				return DesktopService.DefaultMonospaceFont;
+			if (name == "_DEFAULT_SANS") {
+				var label = new Gtk.Label ("");
+				string result = label.Style.FontDescription.Family + " " + ((int)label.Style.FontDesc.Size / Pango.Scale.PangoScale);
+				label.Destroy ();
+				Console.WriteLine (result);
+				return result;
+			}
+			
+			return name;
+		}
+		
+		public static string GetUnderlyingFontName (string name)
+		{
+			var result = fontProperties.Get<string> (name);
+			
+			if (result == null) {
+				var font = GetFont (name);
+				if (font == null)
+					throw new InvalidOperationException ("Font " + name + " not found.");
+				return font.FontDescription;
+			}
+			return result;
 		}
 		
 		public static FontDescription GetFontDescription (string name)
 		{
 			if (loadedFonts.ContainsKey (name))
 				return loadedFonts [name];
-			return loadedFonts [name] = LoadFont (GetFontDescriptionName (name));
+			return loadedFonts [name] = LoadFont (GetUnderlyingFontName (name));
 		}
 		
 		public static FontDescriptionCodon GetFont (string name)
@@ -98,6 +119,24 @@ namespace MonoDevelop.Ide.Fonts
 			if (loadedFonts.ContainsKey (name)) 
 				loadedFonts.Remove (name);
 			fontProperties.Set (name, value);
+			
+			Console.WriteLine (fontChangeCallbacks.ContainsKey (name));
+			if (fontChangeCallbacks.ContainsKey (name)) 
+				fontChangeCallbacks [name].ForEach (c => c ());
+		}
+		
+		static Dictionary<string, List<Action>> fontChangeCallbacks = new Dictionary<string, List<Action>> ();
+		public static void RegisterFontChangedCallback (string fontName, Action callback)
+		{
+			if (!fontChangeCallbacks.ContainsKey (fontName))
+				fontChangeCallbacks [fontName] = new List<Action> ();
+			fontChangeCallbacks [fontName].Add (callback);
+		}
+		
+		public static void RemoveCallback (Action callback)
+		{
+			foreach (var list in fontChangeCallbacks.Values)
+				list.Remove (callback);
 		}
 	}
 }

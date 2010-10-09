@@ -1,5 +1,5 @@
 // 
-// Indent.cs
+// DirectionExpression.cs
 //  
 // Author:
 //       Mike Krüger <mkrueger@novell.com>
@@ -23,67 +23,44 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-using System;
 
-namespace MonoDevelop.CSharp.Formatting
+using System;
+using MonoDevelop.Projects.Dom;
+
+namespace MonoDevelop.CSharp.Dom
 {
-	public class Indent
+	public enum FieldDirection
 	{
-		public int Level {
-			get;
-			set;
-		}
-		
-		public int ExtraSpaces {
-			get;
-			set;
-		}
-		
-		public bool TabsToSpaces {
-			get;
-			set;
-		}
-		
-		public int TabSize {
-			get;
-			set;
-		}
-		
-		public Indent ()
-		{
-		}
-		
-		public Indent (int level, int extraSpaces)
-		{
-			this.Level = level;
-			this.ExtraSpaces = extraSpaces;
-		}
-		
-		public static Indent operator+(Indent left, Indent right)
-		{
-			return new Indent (left.Level + right.Level, left.ExtraSpaces + right.ExtraSpaces);
-		}
-		
-		public static Indent operator-(Indent left, Indent right)
-		{
-			return new Indent (left.Level - right.Level, left.ExtraSpaces - right.ExtraSpaces);
-		}
-		
-		public string IndentString {
+		None,
+		Out,
+		Ref
+	}
+	
+	public class DirectionExpression  : AbstractCSharpNode
+	{
+		public override NodeType NodeType {
 			get {
-				return (TabsToSpaces ? new string (' ', Level * TabSize) : new string ('\t', Level)) + new string (' ', ExtraSpaces);
+				return NodeType.Expression;
 			}
 		}
 		
-		public string SingleIndent {
-			get {
-				return TabsToSpaces ? new string (' ', TabSize) : "\t";
-			}
+		public FieldDirection FieldDirection {
+			get;
+			set;
 		}
 		
-		public override string ToString ()
+		
+		public CSharpTokenNode Keyword {
+			get { return (CSharpTokenNode)GetChildByRole (Roles.Keyword); }
+		}
+		
+		public ICSharpNode Expression {
+			get { return (ICSharpNode)GetChildByRole (Roles.Expression); }
+		}
+		
+		public override S AcceptVisitor<T, S> (ICSharpDomVisitor<T, S> visitor, T data)
 		{
-			return string.Format ("[Indent: Level={0}, ExtraSpaces={1}]", Level, ExtraSpaces);
+			return visitor.VisitDirectionExpression (this, data);
 		}
 	}
 }

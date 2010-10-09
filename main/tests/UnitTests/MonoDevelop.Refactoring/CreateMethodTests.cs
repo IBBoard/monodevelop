@@ -93,7 +93,7 @@ namespace MonoDevelop.Refactoring.Tests
 		}
 
 		[Test()]
-		public void TestPrivadeSimpleCreateMethod ()
+		public void TestPrivateSimpleCreateMethod ()
 		{
 			TestCreateMethod (@"class TestClass
 {
@@ -281,6 +281,45 @@ class TestClass
 	}
 }
 ", true);
+		}
+		
+		[Test()]
+		public void TestCreateInStaticClassMethod ()
+		{
+			TestCreateMethod (
+@"
+static class FooBar
+{
+}
+
+class TestClass
+{
+	void TestMethod ()
+	{
+		FooBar.$NonExistantMethod ();
+	}
+}
+", @"public static void NonExistantMethod ()
+{
+	throw new System.NotImplementedException ();
+}");
+		}
+		
+		[Test()]
+		public void TestRefOutCreateMethod ()
+		{
+			TestCreateMethod (@"class TestClass
+{
+	void TestMethod ()
+	{
+		int a, b;
+		$NonExistantMethod (ref a, out b);
+	}
+}
+", @"void NonExistantMethod (ref int a, out int b)
+{
+	throw new System.NotImplementedException ();
+}");
 		}
 		
 		
