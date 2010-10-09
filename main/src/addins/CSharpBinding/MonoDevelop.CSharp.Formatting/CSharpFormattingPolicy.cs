@@ -23,7 +23,6 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-
 using System;
 using MonoDevelop.Core;
 using MonoDevelop.Core.Serialization;
@@ -45,135 +44,135 @@ namespace MonoDevelop.CSharp.Formatting
 		NextLineShifted,
 		NextLineShifted2
 	}
-	
+
 	public enum BraceForcement
 	{
 		DoNotChange,
 		RemoveBraces,
 		AddBraces
 	}
-	
+
 	public enum ArrayInitializerPlacement
 	{
 		AlwaysNewLine,
 		AlwaysSameLine
 	}
-	
+
 	public enum PropertyFormatting
 	{
 		AllowOneLine,
 		ForceOneLine,
 		ForceNewLine
 	}
-	
+
 	public class CSharpFormattingPolicy : IEquatable<CSharpFormattingPolicy>
 	{
 		public string Name {
 			get;
 			set;
 		}
-		
+
 		public bool IsBuiltIn {
 			get;
 			set;
 		}
-		
+
 		public CSharpFormattingPolicy Clone ()
 		{
 			return (CSharpFormattingPolicy)MemberwiseClone ();
 		}
-		
+
 		#region Indentation
 		[ItemProperty]
 		public bool IndentNamespaceBody { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool IndentClassBody { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool IndentInterfaceBody { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool IndentStructBody { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool IndentEnumBody { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool IndentMethodBody { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool IndentPropertyBody { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool IndentEventBody { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool IndentBlocks { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool IndentSwitchBody { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool IndentCaseBody { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool IndentBreakStatements { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool AlignEmbeddedUsingStatements { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool AlignEmbeddedIfStatements { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public PropertyFormatting PropertyFormatting { // tested
 			get;
 			set;
 		}
-		
+
 		#endregion
 		
 		#region Braces
@@ -182,127 +181,127 @@ namespace MonoDevelop.CSharp.Formatting
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public BraceStyle ClassBraceStyle { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public BraceStyle InterfaceBraceStyle { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public BraceStyle StructBraceStyle { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public BraceStyle EnumBraceStyle { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public BraceStyle MethodBraceStyle { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public BraceStyle AnonymousMethodBraceStyle {
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public BraceStyle ConstructorBraceStyle {  // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public BraceStyle DestructorBraceStyle { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public BraceStyle PropertyBraceStyle { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public BraceStyle PropertyGetBraceStyle { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public BraceStyle PropertySetBraceStyle { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool AllowPropertyGetBlockInline { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool AllowPropertySetBlockInline { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public BraceStyle EventBraceStyle { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public BraceStyle EventAddBraceStyle { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public BraceStyle EventRemoveBraceStyle { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool AllowEventAddBlockInline { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool AllowEventRemoveBlockInline { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public BraceStyle StatementBraceStyle { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool AllowIfBlockInline {
 			get;
 			set;
 		}
-		
+
 		#endregion
 		
 		#region Force Braces
@@ -311,36 +310,37 @@ namespace MonoDevelop.CSharp.Formatting
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public BraceForcement ForBraceForcement { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public BraceForcement ForEachBraceForcement { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public BraceForcement WhileBraceForcement { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public BraceForcement UsingBraceForcement { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public BraceForcement FixedBraceForcement { // tested
 			get;
 			set;
 		}
+
 		#endregion
 		
 		#region NewLines
@@ -349,36 +349,37 @@ namespace MonoDevelop.CSharp.Formatting
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool PlaceElseIfOnNewLine { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool PlaceCatchOnNewLine { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool PlaceFinallyOnNewLine { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool PlaceWhileOnNewLine { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public ArrayInitializerPlacement PlaceArrayInitializersOnNewLine {
 			get;
 			set;
 		}
+
 		#endregion
 		
 		#region Spaces
@@ -388,62 +389,62 @@ namespace MonoDevelop.CSharp.Formatting
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool BetweenEmptyMethodDeclarationParentheses {
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool BeforeMethodDeclarationParameterComma { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool AfterMethodDeclarationParameterComma { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool WithinMethodDeclarationParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		// Method calls
 		[ItemProperty]
 		public bool BeforeMethodCallParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool BetweenEmptyMethodCallParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool BeforeMethodCallParameterComma { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool AfterMethodCallParameterComma { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool WithinMethodCallParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		// fields
 		
 		[ItemProperty]
@@ -451,13 +452,13 @@ namespace MonoDevelop.CSharp.Formatting
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool AfterFieldDeclarationComma { // tested
 			get;
 			set;
 		}
-		
+
 		// local variables
 		
 		[ItemProperty]
@@ -465,13 +466,13 @@ namespace MonoDevelop.CSharp.Formatting
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool AfterLocalVariableDeclarationComma { // tested
 			get;
 			set;
 		}
-		
+
 		// constructors
 		
 		[ItemProperty]
@@ -479,56 +480,56 @@ namespace MonoDevelop.CSharp.Formatting
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool BetweenEmptyConstructorDeclarationParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool BeforeConstructorDeclarationParameterComma { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool AfterConstructorDeclarationParameterComma { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool WithinConstructorDeclarationParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		// indexer
 		[ItemProperty]
 		public bool BeforeIndexerDeclarationBracket { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool WithinIndexerDeclarationBracket { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool BeforeIndexerDeclarationParameterComma {
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool AfterIndexerDeclarationParameterComma {
 			get;
 			set;
 		}
-		
+
 		// delegates
 		
 		[ItemProperty]
@@ -536,295 +537,296 @@ namespace MonoDevelop.CSharp.Formatting
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool BetweenEmptyDelegateDeclarationParentheses {
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool BeforeDelegateDeclarationParameterComma {
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool AfterDelegateDeclarationParameterComma {
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool WithinDelegateDeclarationParentheses {
 			get;
 			set;
 		}
-		
-		
+
 		[ItemProperty]
 		public bool NewParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool IfParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool WhileParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool ForParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool ForeachParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool CatchParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool SwitchParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool LockParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool UsingParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool AroundAssignmentParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool AroundLogicalOperatorParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool AroundEqualityOperatorParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool AroundRelationalOperatorParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool AroundBitwiseOperatorParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool AroundAdditiveOperatorParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool AroundMultiplicativeOperatorParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool AroundShiftOperatorParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool WithinParentheses { // tested
 			get;
 			set;
 		}
-		
-		
+
 		[ItemProperty]
 		public bool WithinIfParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool WithinWhileParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool WithinForParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool WithinForEachParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool WithinCatchParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool WithinSwitchParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool WithinLockParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool WithinUsingParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool WithinCastParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool WithinSizeOfParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool BeforeSizeOfParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool WithinTypeOfParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool BeforeTypeOfParentheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool WithinCheckedExpressionParantheses { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool ConditionalOperatorBeforeConditionSpace { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool ConditionalOperatorAfterConditionSpace { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool ConditionalOperatorBeforeSeparatorSpace { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool ConditionalOperatorAfterSeparatorSpace { // tested
 			get;
 			set;
 		}
-		
+
 		// brackets
 		[ItemProperty]
 		public bool SpacesWithinBrackets { // tested
 			get;
 			set;
 		}
+
 		[ItemProperty]
 		public bool SpacesBeforeBrackets { // tested
 			get;
 			set;
 		}
+
 		[ItemProperty]
 		public bool BeforeBracketComma { // tested
 			get;
 			set;
 		}
+
 		[ItemProperty]
 		public bool AfterBracketComma { // tested
 			get;
 			set;
 		}
-		
-		
+
 		[ItemProperty]
 		public bool SpacesBeforeForSemicolon { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool SpacesAfterForSemicolon { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool SpacesAfterTypecast { // tested
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public bool SpacesBeforeArrayDeclarationBrackets { // tested
 			get;
 			set;
 		}
+
 		#endregion
 		
 		#region Blank Lines
@@ -833,36 +835,37 @@ namespace MonoDevelop.CSharp.Formatting
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public int BlankLinesAfterUsings {
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public int BlankLinesBeforeFirstDeclaration {
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public int BlankLinesBetweenTypes {
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public int BlankLinesBetweenFields {
 			get;
 			set;
 		}
-		
+
 		[ItemProperty]
 		public int BlankLinesBetweenMembers {
 			get;
 			set;
 		}
+
 		#endregion
 		
 		public CSharpFormattingPolicy ()
@@ -970,14 +973,14 @@ namespace MonoDevelop.CSharp.Formatting
 			BlankLinesBetweenFields = 0;
 			BlankLinesBetweenMembers = 1;
 		}
-		
+
 		public static ICollection<CSharpFormattingPolicy> Load (FilePath selectedFile)
 		{
 			using (var stream = System.IO.File.OpenRead (selectedFile)) {
 				return Load (stream);
 			}
 		}
-		
+
 		public static ICollection<CSharpFormattingPolicy> Load (System.IO.Stream input)
 		{
 			XmlDocument doc = CreateXmlDocumentFromStream (input);
@@ -1002,16 +1005,18 @@ namespace MonoDevelop.CSharp.Formatting
 					object value;
 					if (info.PropertyType == typeof(bool)) {
 						value = Boolean.Parse (valString);
+					} else if (info.PropertyType == typeof(int)) {
+						value = Int32.Parse (valString);
 					} else {
-						value = Enum.Parse (info.PropertyType,valString);
+						value = Enum.Parse (info.PropertyType, valString);
 					}
-					info.SetValue (profile,value,null);
+					info.SetValue (profile, value, null);
 				}
-				policies.Add(profile);
+				policies.Add (profile);
 			}			
 			return policies;
 		}
-		
+
 		private static XmlDocument CreateXmlDocumentFromStream (Stream stream)
 		{
 			XmlDocument doc = new XmlDocument ();
@@ -1024,7 +1029,7 @@ namespace MonoDevelop.CSharp.Formatting
 			}
 			return doc;
 		}
-		
+
 		public static XmlNodeList GetProfileNodes (XmlDocument doc)
 		{
 			return doc.SelectNodes ("/Profiles/FormattingProfile");
@@ -1043,8 +1048,9 @@ namespace MonoDevelop.CSharp.Formatting
 				writer.IndentChar = '\t';
 				writer.WriteStartElement ("FormattingProfile");
 				writer.WriteAttributeString ("name", Name);
-				foreach (PropertyInfo info in typeof (CSharpFormattingPolicy).GetProperties ()) {
-					if (info.GetCustomAttributes (false).Any (o => o.GetType () == typeof(ItemPropertyAttribute))) {
+				foreach (PropertyInfo info in typeof(CSharpFormattingPolicy).GetProperties ()) {
+					if (info.GetCustomAttributes (false).Any (o => o.GetType ()
+							== typeof(ItemPropertyAttribute))) {
 						writer.WriteStartElement ("Property");
 						writer.WriteAttributeString ("name", info.Name);
 						writer.WriteAttributeString ("value", info.GetValue (this, null).ToString ());
@@ -1054,11 +1060,12 @@ namespace MonoDevelop.CSharp.Formatting
 				writer.WriteEndElement ();
 			}
 		}
-		
+
 		public bool Equals (CSharpFormattingPolicy other)
 		{
-			foreach (PropertyInfo info in typeof (CSharpFormattingPolicy).GetProperties ()) {
-				if (info.GetCustomAttributes (false).Any (o => o.GetType () == typeof(ItemPropertyAttribute))) {
+			foreach (PropertyInfo info in typeof(CSharpFormattingPolicy).GetProperties ()) {
+				if (info.GetCustomAttributes (false).Any (o => o.GetType ()
+						== typeof(ItemPropertyAttribute))) {
 					object val = info.GetValue (this, null);
 					object otherVal = info.GetValue (other, null);
 					if (val == null) {
