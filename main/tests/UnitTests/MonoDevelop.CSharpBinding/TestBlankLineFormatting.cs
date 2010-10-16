@@ -23,7 +23,6 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-
 using System;
 using NUnit.Framework;
 using MonoDevelop.Ide.Gui;
@@ -66,16 +65,16 @@ namespace Test
 {
 }", data.Document.Text);
 			
-		policy.BlankLinesAfterUsings = 0;
-		compilationUnit = new CSharpParser ().Parse (data);
-		compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
-		Assert.AreEqual (@"using System;
+			policy.BlankLinesAfterUsings = 0;
+			compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Assert.AreEqual (@"using System;
 using System.Text;
 namespace Test
 {
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestBlankLinesBeforeUsings ()
 		{
@@ -100,16 +99,16 @@ namespace Test
 {
 }", data.Document.Text);
 			
-		policy.BlankLinesBeforeUsings = 0;
-		compilationUnit = new CSharpParser ().Parse (data);
-		compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
-		Assert.AreEqual (@"using System;
+			policy.BlankLinesBeforeUsings = 0;
+			compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Assert.AreEqual (@"using System;
 using System.Text;
 namespace Test
 {
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestBlankLinesBeforeFirstDeclaration ()
 		{
@@ -135,18 +134,17 @@ namespace Test
 	}
 }", data.Document.Text);
 			
-		policy.BlankLinesBeforeFirstDeclaration = 0;
-		compilationUnit = new CSharpParser ().Parse (data);
-		compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
-		Assert.AreEqual (@"namespace Test
+			policy.BlankLinesBeforeFirstDeclaration = 0;
+			compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Assert.AreEqual (@"namespace Test
 {
 	class Test
 	{
 	}
 }", data.Document.Text);
 		}
-		
-		
+
 		[Test()]
 		public void TestBlankLinesBetweenTypes ()
 		{
@@ -184,10 +182,10 @@ namespace Test
 	}
 }", data.Document.Text);
 			
-		policy.BlankLinesBetweenTypes = 0;
-		compilationUnit = new CSharpParser ().Parse (data);
-		compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
-		Assert.AreEqual (@"namespace Test
+			policy.BlankLinesBetweenTypes = 0;
+			compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Assert.AreEqual (@"namespace Test
 {
 	class Test1
 	{
@@ -200,7 +198,7 @@ namespace Test
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestBlankLinesBetweenFields ()
 		{
@@ -226,17 +224,17 @@ namespace Test
 	int c;
 }", data.Document.Text);
 			
-		policy.BlankLinesBetweenFields = 0;
-		compilationUnit = new CSharpParser ().Parse (data);
-		compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
-		Assert.AreEqual (@"class Test
+			policy.BlankLinesBetweenFields = 0;
+			compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Assert.AreEqual (@"class Test
 {
 	int a;
 	int b;
 	int c;
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestBlankLinesBetweenMembers ()
 		{
@@ -275,10 +273,10 @@ namespace Test
 	}
 }", data.Document.Text);
 			
-		policy.BlankLinesBetweenMembers = 0;
-		compilationUnit = new CSharpParser ().Parse (data);
-		compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
-		Assert.AreEqual (@"class Test
+			policy.BlankLinesBetweenMembers = 0;
+			compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Assert.AreEqual (@"class Test
 {
 	void AMethod ()
 	{
@@ -291,9 +289,78 @@ namespace Test
 	}
 }", data.Document.Text);
 		}
-		
-		
-		
+
+		[Test()]
+		public void TestBlankLinesBetweenFieldAndMember ()
+		{
+			TextEditorData data = new TextEditorData ();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = @"class Test
+{
+	int a;
+	void AMethod ()
+	{
+	}
+}";
+			
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
+			policy.BlankLinesBetweenMembers = 1;
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Console.WriteLine (data.Text);
+			Assert.AreEqual (@"class Test
+{
+	int a;
+
+	void AMethod ()
+	{
+	}
+}", data.Document.Text);
+			
+			policy.BlankLinesBetweenMembers = 0;
+			compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Assert.AreEqual (@"class Test
+{
+	int a;
+	void AMethod ()
+	{
+	}
+}", data.Document.Text);
+		}
+
+		[Test()]
+		public void TestBlankLinesBetweenFieldAndMemberExample ()
+		{
+			TextEditorData data = new TextEditorData ();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = @"class Test{ int a; void AMethod () { } }";
+			
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
+			policy.BlankLinesBetweenMembers = 1;
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Console.WriteLine (data.Text);
+			Assert.AreEqual (@"class Test
+{
+	int a;
+
+	void AMethod ()
+	{
+	}
+}", data.Document.Text);
+			
+			policy.BlankLinesBetweenMembers = 0;
+			compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Assert.AreEqual (@"class Test
+{
+	int a;
+	void AMethod ()
+	{
+	}
+}", data.Document.Text);
+		}
 	}
 }
 
