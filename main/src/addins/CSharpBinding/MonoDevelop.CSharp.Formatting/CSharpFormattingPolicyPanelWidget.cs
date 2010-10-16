@@ -99,7 +99,7 @@ namespace Example {
 				CSharpFormatter formatter = new CSharpFormatter ();
 				var parent = new MonoDevelop.Projects.DotNetAssemblyProject ();
 				parent.Policies.Set<CSharpFormattingPolicy> (profile, CSharpFormatter.MimeType);
-				texteditor.Document.Text  = formatter.FormatText (parent.Policies, CSharpFormatter.MimeType, example);
+				texteditor.Document.Text = formatter.FormatText (parent.Policies, CSharpFormatter.MimeType, example);
 			};
 			ShowAll ();
 			InitComboBox ();
@@ -119,7 +119,7 @@ namespace Example {
 			if (comboboxProfiles.Active < 0)
 				return;
 			var p = policies[comboboxProfiles.Active];
-			bool isFromService =!p.IsBuiltIn && FormattingProfileService.Profiles.Contains (p);
+			bool isFromService = !p.IsBuiltIn && FormattingProfileService.Profiles.Contains (p);
 			if (isFromService)
 				FormattingProfileService.Remove (p);
 			var editDialog = new CSharpFormattingProfileDialog (p);
@@ -139,9 +139,10 @@ namespace Example {
 			if (!dialog.Run ())
 				return;
 			int selection = comboboxProfiles.Active;
-			var p = CSharpFormattingPolicy.Load (dialog.SelectedFile);
-			FormattingProfileService.AddProfile (p);
-			policies.Add (p);
+			foreach (CSharpFormattingPolicy p in CSharpFormattingPolicy.Load (dialog.SelectedFile)) {
+				FormattingProfileService.AddProfile (p);
+				policies.Add (p);
+			}
 			InitComboBox ();
 			comboboxProfiles.Active = selection;
 		}
