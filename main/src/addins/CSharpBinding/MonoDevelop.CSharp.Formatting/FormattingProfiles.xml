@@ -66,12 +66,12 @@
 		<Property name="BeforeConstructorDeclarationParentheses" value="True" />
 		<Property name="BetweenEmptyConstructorDeclarationParentheses" value="False" />
 		<Property name="BeforeConstructorDeclarationParameterComma" value="False" />
-		<Property name="AfterConstructorDeclarationParameterComma" value="False" />
+		<Property name="AfterConstructorDeclarationParameterComma" value="True" />
 		<Property name="WithinConstructorDeclarationParentheses" value="False" />
 		<Property name="BeforeDelegateDeclarationParentheses" value="True" />
 		<Property name="BetweenEmptyDelegateDeclarationParentheses" value="False" />
 		<Property name="BeforeDelegateDeclarationParameterComma" value="False" />
-		<Property name="AfterDelegateDeclarationParameterComma" value="False" />
+		<Property name="AfterDelegateDeclarationParameterComma" value="True" />
 		<Property name="WithinDelegateDeclarationParentheses" value="False" />
 		<Property name="NewParentheses" value="True" />
 		<Property name="IfParentheses" value="True" />
@@ -103,7 +103,7 @@
 		<Property name="WithinSizeOfParentheses" value="False" />
 		<Property name="BeforeSizeOfParentheses" value="False" />
 		<Property name="WithinTypeOfParentheses" value="False" />
-		<Property name="BeforeTypeOfParentheses" value="False" />
+		<Property name="BeforeTypeOfParentheses" value="True" />
 		<Property name="WithinCheckedExpressionParantheses" value="False" />
 		<Property name="ConditionalOperatorBeforeConditionSpace" value="True" />
 		<Property name="ConditionalOperatorAfterConditionSpace" value="True" />
