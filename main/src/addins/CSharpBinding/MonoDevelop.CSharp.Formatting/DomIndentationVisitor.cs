@@ -23,7 +23,6 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-
 using System;
 using MonoDevelop.CSharp.Dom;
 using System.Text;
@@ -60,9 +59,10 @@ namespace MonoDevelop.CSharp.Formatting
 			get { return this.changes; }
 		}
 		
-		public bool AutoAcceptChanges { get; set;
+		public bool AutoAcceptChanges {
+			get;
+			set;
 		}
-		
 		
 		public DomIndentationVisitor (CSharpFormattingPolicy policy, TextEditorData data)
 		{
@@ -89,12 +89,13 @@ namespace MonoDevelop.CSharp.Formatting
 			do {
 				line++;
 				lineSegment = data.Document.GetLine (line);
-			} while (lineSegment.EditableLength == lineSegment.GetIndentation (data.Document).Length);
+			} while (lineSegment != null && lineSegment.EditableLength == lineSegment.GetIndentation (data.Document).Length);
 			int start = data.Document.GetLine (loc.Line).EndOffset;
 			StringBuilder sb = new StringBuilder ();
 			for (int i = 0; i < blankLines; i++)
 				sb.Append (data.EolMarker);
-			AddChange (start, lineSegment.Offset - start, sb.ToString ());
+			int removedChars = lineSegment != null ? lineSegment.Offset - start : 0;
+			AddChange (start, removedChars, sb.ToString ());
 		}
 		
 		public void EnsureBlankLinesBefore (ICSharpNode node, int blankLines)
@@ -337,7 +338,6 @@ namespace MonoDevelop.CSharp.Formatting
 			return null;
 		}
 		
-
 		public override object VisitEventDeclaration (EventDeclaration eventDeclaration, object data)
 		{
 			FixIndentationForceNewLine (eventDeclaration.StartLocation);
@@ -376,7 +376,6 @@ namespace MonoDevelop.CSharp.Formatting
 				EnsureBlankLinesAfter (eventDeclaration, policy.BlankLinesBetweenMembers);
 			return null;
 		}
-		
 		
 		public override object VisitAccessorDeclaration (Accessor accessorDeclaration, object data)
 		{
@@ -790,7 +789,6 @@ namespace MonoDevelop.CSharp.Formatting
 			return null;
 		}
 
-		
 		public override object VisitLabelStatement (LabelStatement labelStatement, object data)
 		{
 			// TODO
@@ -935,6 +933,7 @@ namespace MonoDevelop.CSharp.Formatting
 		}
 		
 		string nextStatementIndent = null;
+
 		void FixStatementIndentation (MonoDevelop.Projects.Dom.DomLocation location)
 		{
 			int offset = data.Document.LocationToOffset (location.Line, location.Column);
