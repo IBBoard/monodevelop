@@ -390,10 +390,10 @@
 		<Property name="FixedBraceForcement" value="AddBraces" />
 		<Property name="PlaceElseOnNewLine" value="True" />
 		<Property name="PlaceElseIfOnNewLine" value="False" />
-		<Property name="PlaceCatchOnNewLine" value="False" />
-		<Property name="PlaceFinallyOnNewLine" value="False" />
-		<Property name="PlaceWhileOnNewLine" value="False" />
-		<Property name="PlaceArrayInitializersOnNewLine" value="AlwaysSameLine" />
+		<Property name="PlaceCatchOnNewLine" value="True" />
+		<Property name="PlaceFinallyOnNewLine" value="True" />
+		<Property name="PlaceWhileOnNewLine" value="True" />
+		<Property name="PlaceArrayInitializersOnNewLine" value="AlwaysNewLine" />
 		<Property name="BeforeMethodDeclarationParentheses" value="False" />
 		<Property name="BetweenEmptyMethodDeclarationParentheses" value="False" />
 		<Property name="BeforeMethodDeclarationParameterComma" value="False" />
@@ -411,12 +411,16 @@
 		<Property name="BeforeConstructorDeclarationParentheses" value="False" />
 		<Property name="BetweenEmptyConstructorDeclarationParentheses" value="False" />
 		<Property name="BeforeConstructorDeclarationParameterComma" value="False" />
-		<Property name="AfterConstructorDeclarationParameterComma" value="False" />
+		<Property name="AfterConstructorDeclarationParameterComma" value="True" />
 		<Property name="WithinConstructorDeclarationParentheses" value="False" />
+		<Property name="BeforeIndexerDeclarationBracket" value="False" />
+		<Property name="WithinIndexerDeclarationBracket" value="False" />
+		<Property name="BeforeIndexerDeclarationParameterComma" value="False" />
+		<Property name="AfterIndexerDeclarationParameterComma" value="True" />
 		<Property name="BeforeDelegateDeclarationParentheses" value="False" />
 		<Property name="BetweenEmptyDelegateDeclarationParentheses" value="False" />
 		<Property name="BeforeDelegateDeclarationParameterComma" value="False" />
-		<Property name="AfterDelegateDeclarationParameterComma" value="False" />
+		<Property name="AfterDelegateDeclarationParameterComma" value="True" />
 		<Property name="WithinDelegateDeclarationParentheses" value="False" />
 		<Property name="NewParentheses" value="False" />
 		<Property name="IfParentheses" value="True" />
@@ -455,8 +459,18 @@
 		<Property name="ConditionalOperatorBeforeSeparatorSpace" value="True" />
 		<Property name="ConditionalOperatorAfterSeparatorSpace" value="True" />
 		<Property name="SpacesWithinBrackets" value="False" />
+		<Property name="SpacesBeforeBrackets" value="False" />
+		<Property name="BeforeBracketComma" value="False" />
+		<Property name="AfterBracketComma" value="True" />
 		<Property name="SpacesBeforeForSemicolon" value="False" />
 		<Property name="SpacesAfterForSemicolon" value="True" />
 		<Property name="SpacesAfterTypecast" value="False" />
+		<Property name="SpacesBeforeArrayDeclarationBrackets" value="False" />
+		<Property name="BlankLinesBeforeUsings" value="1" />
+		<Property name="BlankLinesAfterUsings" value="1" />
+		<Property name="BlankLinesBeforeFirstDeclaration" value="0" />
+		<Property name="BlankLinesBetweenTypes" value="1" />
+		<Property name="BlankLinesBetweenFields" value="0" />
+		<Property name="BlankLinesBetweenMembers" value="1" />
 	</FormattingProfile>
 </Profiles>
