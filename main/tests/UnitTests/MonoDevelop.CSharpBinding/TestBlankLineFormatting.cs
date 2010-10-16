@@ -291,6 +291,41 @@ namespace Test
 		}
 
 		[Test()]
+		public void TestExcessBlankLinesBetweenMembers ()
+		{
+			TextEditorData data = new TextEditorData ();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = @"class Test
+{
+	void AMethod ()
+	{
+	}
+
+
+
+	void BMethod ()
+	{
+	}
+}";
+			
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
+			policy.BlankLinesBetweenMembers = 1;
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Console.WriteLine (data.Text);
+			Assert.AreEqual (@"class Test
+{
+	void AMethod ()
+	{
+	}
+
+	void BMethod ()
+	{
+	}
+}", data.Document.Text);
+		}
+
+		[Test()]
 		public void TestBlankLinesBetweenFieldAndMember ()
 		{
 			TextEditorData data = new TextEditorData ();
