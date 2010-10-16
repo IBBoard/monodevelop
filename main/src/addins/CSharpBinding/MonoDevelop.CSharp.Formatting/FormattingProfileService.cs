@@ -44,12 +44,13 @@ namespace MonoDevelop.CSharp.Formatting
 		
 		static void LoadBuiltInProfiles ()
 		{
-			var asm = typeof (FormattingProfileService).Assembly;
+			var asm = typeof(FormattingProfileService).Assembly;
 			foreach (string str in asm.GetManifestResourceNames ()) {
 				if (str.EndsWith ("FormattingProfiles.xml")) {
-					var p = CSharpFormattingPolicy.Load (asm.GetManifestResourceStream (str));
-					p.IsBuiltIn = true;
-					profiles.Add (p);
+					foreach (CSharpFormattingPolicy p in CSharpFormattingPolicy.Load (asm.GetManifestResourceStream (str))) {
+						p.IsBuiltIn = true;
+						profiles.Add (p);
+					}
 				}
 			}
 		}
@@ -57,8 +58,10 @@ namespace MonoDevelop.CSharp.Formatting
 		static void LoadCustomProfiles ()
 		{
 			if (Directory.Exists (ProfilePath)) {
-				foreach (string file in Directory.GetFiles (ProfilePath, "*.xml")) {
-					profiles.Add (CSharpFormattingPolicy.Load (file));
+				foreach (string file in Directory.GetFiles (ProfilePath,"*.xml")) {
+					foreach (CSharpFormattingPolicy p in CSharpFormattingPolicy.Load (file)) {
+						profiles.Add (p);
+					}
 				}
 			}
 		}
