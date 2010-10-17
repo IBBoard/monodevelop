@@ -64,7 +64,7 @@ namespace MonoDevelop.CSharp.Formatting
 			set;
 		}
 
-		public DomIndentationVisitor (CSharpFormattingPolicy policy,TextEditorData data)
+		public DomIndentationVisitor (CSharpFormattingPolicy policy, TextEditorData data)
 		{
 			this.policy = policy;
 			this.data = data;
@@ -91,7 +91,6 @@ namespace MonoDevelop.CSharp.Formatting
 			int removeCount = 0;
 			if (currentIndent != this.curIndent.IndentString) {
 				removeCount += currentIndent.Length;
-				System.Console.WriteLine ("Indent differed - was {0} expected {1}", currentIndent.Replace ("\t", "\\t"), curIndent.IndentString.Replace ("\t", "\\t"));
 				extraText += this.curIndent.IndentString;
 			}
 			int currentLines = CountCurrentLines (editLocation);
@@ -99,10 +98,8 @@ namespace MonoDevelop.CSharp.Formatting
 			if (node.PrevSibling != null)
 				reqdLines++;
 			int lineCountDiff = reqdLines - currentLines;
-			System.Console.WriteLine ("Line count diff {0} for {1} ({2} - {3})", lineCountDiff, node.GetType ().Name, reqdLines, currentLines);
 			if (lineCountDiff < 0) {
 				int newLineRemoveCharCount = GetExcessLineCharCount (editLocation, -lineCountDiff);
-				System.Console.WriteLine ("Remove {0} chars", newLineRemoveCharCount);
 				removeCount += newLineRemoveCharCount;
 				editLocation -= newLineRemoveCharCount;
 			} else if (lineCountDiff > 0) {
@@ -154,45 +151,6 @@ namespace MonoDevelop.CSharp.Formatting
 			return chars;
 		}
 
-		public void EnsureBlankLinesAfter (ICSharpNode node, int blankLines)
-		{
-			/*var loc = node.EndLocation;
-			int line = loc.Line;
-			LineSegment lineSegment;
-			do {
-				line++;
-				lineSegment = data.Document.GetLine (line);
-			} while (lineSegment != null && lineSegment.EditableLength == lineSegment.GetIndentation (data.Document).Length);
-			int start = data.Document.GetLine (loc.Line).EndOffset;
-			StringBuilder sb = new StringBuilder ();
-			for (int i = 0; i < blankLines; i++)
-				sb.Append (data.EolMarker);
-			int removedChars = lineSegment != null ? lineSegment.Offset - start : 0;
-			AddChange (start, removedChars, sb.ToString ());*/
-		}
-
-		public void EnsureBlankLinesBefore (ICSharpNode node, int blankLines)
-		{
-			EnsureBlankLinesBefore (node);
-		}
-
-		public void EnsureBlankLinesBefore (ICSharpNode node)
-		{
-			EnsureCorrectWhiteSpaceBefore (node);
-			return;
-			DomLocation loc = node.StartLocation;
-			System.Console.WriteLine (loc);
-			int whiteSpaceEnd = data.Document.LocationToOffset (loc.Line, loc.Column);
-			System.Console.WriteLine ("White space: {0}", whiteSpaceEnd);
-			int start = SearchWhitespaceStart (whiteSpaceEnd);
-			StringBuilder sb = new StringBuilder ();
-			int blankLines = GetRequiredBlankLineCount (node);
-			System.Console.WriteLine ("Before {0}: {1}", node.GetType ().Name, blankLines);
-			for (int i = 0; i < blankLines; i++)
-				sb.Append (data.EolMarker);
-			AddChange (start, whiteSpaceEnd - start, sb.ToString ());
-		}
-
 		LineSegment GetLineSegment (DomLocation loc)
 		{
 			int line = loc.Line;
@@ -218,8 +176,7 @@ namespace MonoDevelop.CSharp.Formatting
 			int lineCount = 0;			
 			if (firstNode is UsingDeclaration && !(secondNode is UsingDeclaration)) {
 				lineCount = policy.BlankLinesAfterUsings;
-			}			
-			System.Console.WriteLine ("After: {0}", lineCount);
+			}
 			return lineCount;
 		}
 
@@ -228,9 +185,9 @@ namespace MonoDevelop.CSharp.Formatting
 			int lineCount = 0;
 			if (!(firstNode is UsingDeclaration) && secondNode is UsingDeclaration) {
 				lineCount = policy.BlankLinesBeforeUsings;
-			} else if (secondNode.Parent is NamespaceDeclaration && GetPreviousMemberSibling (secondNode) == null)
+			} else if (secondNode.Parent is NamespaceDeclaration && GetPreviousMemberSibling (secondNode) == null) {
 				lineCount = policy.BlankLinesBeforeFirstDeclaration;
-			System.Console.WriteLine ("Before: {0}", lineCount);
+			}
 			return lineCount;
 		}
 
@@ -264,31 +221,25 @@ namespace MonoDevelop.CSharp.Formatting
 			} else if (IsMember (secondNode)) {
 				lineCount = policy.BlankLinesBetweenMembers;
 			}
-			System.Console.WriteLine ("Repeat: {0}", lineCount);
+			
 			return lineCount;
 		}
 
 		public override object VisitUsingDeclaration (UsingDeclaration usingDeclaration, object data)
 		{
-			EnsureBlankLinesBefore (usingDeclaration);
-			FixIndentationForceNewLine (usingDeclaration.StartLocation);
+			EnsureCorrectWhiteSpaceBefore (usingDeclaration);
 			return null;
 		}
 
 		public override object VisitUsingAliasDeclaration (UsingAliasDeclaration usingDeclaration, object data)
 		{
-			EnsureBlankLinesBefore (usingDeclaration);
-			FixIndentationForceNewLine (usingDeclaration.StartLocation);
+			EnsureCorrectWhiteSpaceBefore (usingDeclaration);
 			return null;
 		}
 
 		public override object VisitNamespaceDeclaration (NamespaceDeclaration namespaceDeclaration, object data)
 		{
-			//var firstNsMember = namespaceDeclaration.GetChildByRole (NamespaceDeclaration.Roles.Member);
-			//if (firstNsMember != null)
-				//EnsureBlankLinesBefore ((ICSharpNode)firstNsMember, policy.BlankLinesBeforeFirstDeclaration);
-			EnsureBlankLinesBefore (namespaceDeclaration);
-			FixIndentationForceNewLine (namespaceDeclaration.StartLocation);
+			EnsureCorrectWhiteSpaceBefore (namespaceDeclaration);
 			EnforceBraceStyle (policy.NamespaceBraceStyle, namespaceDeclaration.LBrace, namespaceDeclaration.RBrace);
 			if (policy.IndentNamespaceBody)
 				IndentLevel++;
@@ -301,8 +252,7 @@ namespace MonoDevelop.CSharp.Formatting
 
 		public override object VisitTypeDeclaration (TypeDeclaration typeDeclaration, object data)
 		{
-			EnsureBlankLinesBefore (typeDeclaration);
-			FixIndentationForceNewLine (typeDeclaration.StartLocation);
+			EnsureCorrectWhiteSpaceBefore (typeDeclaration);
 			
 			BraceStyle braceStyle;
 			bool indentBody = false;
@@ -352,7 +302,8 @@ namespace MonoDevelop.CSharp.Formatting
 
 		public override object VisitPropertyDeclaration (PropertyDeclaration propertyDeclaration, object data)
 		{
-			FixIndentationForceNewLine (propertyDeclaration.StartLocation);
+			EnsureCorrectWhiteSpaceBefore (propertyDeclaration);
+			
 			bool oneLine = false;
 			switch (policy.PropertyFormatting) {
 			case PropertyFormatting.AllowOneLine:
@@ -445,13 +396,12 @@ namespace MonoDevelop.CSharp.Formatting
 			
 			if (policy.IndentPropertyBody)
 				IndentLevel--;
-			EnsureBlankLinesBefore (propertyDeclaration);
 			return null;
 		}
 
 		public override object VisitIndexerDeclaration (IndexerDeclaration indexerDeclaration, object data)
 		{
-			FixIndentationForceNewLine (indexerDeclaration.StartLocation);
+			EnsureCorrectWhiteSpaceBefore (indexerDeclaration);
 			EnforceBraceStyle (policy.PropertyBraceStyle, indexerDeclaration.LBrace, indexerDeclaration.RBrace);
 			if (policy.IndentPropertyBody)
 				IndentLevel++;
@@ -481,13 +431,12 @@ namespace MonoDevelop.CSharp.Formatting
 			}
 			if (policy.IndentPropertyBody)
 				IndentLevel--;
-			EnsureBlankLinesBefore (indexerDeclaration);
 			return null;
 		}
 
 		public override object VisitEventDeclaration (EventDeclaration eventDeclaration, object data)
 		{
-			FixIndentationForceNewLine (eventDeclaration.StartLocation);
+			EnsureCorrectWhiteSpaceBefore (eventDeclaration);
 			EnforceBraceStyle (policy.EventBraceStyle, eventDeclaration.LBrace, eventDeclaration.RBrace);
 			if (policy.IndentEventBody)
 				IndentLevel++;
@@ -519,28 +468,26 @@ namespace MonoDevelop.CSharp.Formatting
 			
 			if (policy.IndentEventBody)
 				IndentLevel--;
-			EnsureBlankLinesBefore (eventDeclaration);
 			return null;
 		}
 
 		public override object VisitAccessorDeclaration (Accessor accessorDeclaration, object data)
 		{
-			FixIndentationForceNewLine (accessorDeclaration.StartLocation);
+			//TODO: Test me - had "FixIndentationForceNewLine" call, but didn't cause failures when function did nothing
 			object result = base.VisitAccessorDeclaration (accessorDeclaration, data);
 			return result;
 		}
 
 		public override object VisitFieldDeclaration (FieldDeclaration fieldDeclaration, object data)
 		{
-			FixIndentationForceNewLine (fieldDeclaration.StartLocation);
-			EnsureBlankLinesBefore (fieldDeclaration);
+			EnsureCorrectWhiteSpaceBefore (fieldDeclaration);
 			return base.VisitFieldDeclaration (fieldDeclaration, data);
 		}
 
 		public override object VisitDelegateDeclaration (DelegateDeclaration delegateDeclaration, object data)
 		{
 			FixIndentation (delegateDeclaration.StartLocation);
-			EnsureBlankLinesBefore (delegateDeclaration);
+			EnsureCorrectWhiteSpaceBefore (delegateDeclaration);
 			return base.VisitDelegateDeclaration (delegateDeclaration, data);
 		}
 
@@ -551,8 +498,7 @@ namespace MonoDevelop.CSharp.Formatting
 
 		public override object VisitMethodDeclaration (MethodDeclaration methodDeclaration, object data)
 		{
-			EnsureBlankLinesBefore (methodDeclaration);
-			FixIndentationForceNewLine (methodDeclaration.StartLocation);
+			EnsureCorrectWhiteSpaceBefore (methodDeclaration);
 			if (methodDeclaration.Body != null) {
 				EnforceBraceStyle (policy.MethodBraceStyle, methodDeclaration.Body.LBrace, methodDeclaration.Body.RBrace);
 				if (policy.IndentMethodBody)
@@ -567,7 +513,7 @@ namespace MonoDevelop.CSharp.Formatting
 
 		public override object VisitOperatorDeclaration (OperatorDeclaration operatorDeclaration, object data)
 		{
-			FixIndentationForceNewLine (operatorDeclaration.StartLocation);
+			EnsureCorrectWhiteSpaceBefore (operatorDeclaration);
 			if (operatorDeclaration.Body != null) {
 				EnforceBraceStyle (policy.MethodBraceStyle, operatorDeclaration.Body.LBrace, operatorDeclaration.Body.RBrace);
 				if (policy.IndentMethodBody)
@@ -576,28 +522,25 @@ namespace MonoDevelop.CSharp.Formatting
 				if (policy.IndentMethodBody)
 					IndentLevel--;
 			}
-			EnsureBlankLinesBefore (operatorDeclaration);
 			
 			return null;
 		}
 
 		public override object VisitConstructorDeclaration (ConstructorDeclaration constructorDeclaration, object data)
 		{
-			FixIndentationForceNewLine (constructorDeclaration.StartLocation);
+			EnsureCorrectWhiteSpaceBefore (constructorDeclaration);
 			if (constructorDeclaration.Body != null)
 				EnforceBraceStyle (policy.ConstructorBraceStyle, constructorDeclaration.Body.LBrace, constructorDeclaration.Body.RBrace);
 			object result = base.VisitConstructorDeclaration (constructorDeclaration, data);
-			EnsureBlankLinesBefore (constructorDeclaration);
 			return result;
 		}
 
 		public override object VisitDestructorDeclaration (DestructorDeclaration destructorDeclaration, object data)
 		{
-			FixIndentationForceNewLine (destructorDeclaration.StartLocation);
+			EnsureCorrectWhiteSpaceBefore (destructorDeclaration);
 			if (destructorDeclaration.Body != null)
 				EnforceBraceStyle (policy.DestructorBraceStyle, destructorDeclaration.Body.LBrace, destructorDeclaration.Body.RBrace);
 			object result = base.VisitDestructorDeclaration (destructorDeclaration, data);
-			EnsureBlankLinesBefore (destructorDeclaration);
 			return result;
 		}
 
@@ -833,9 +776,9 @@ namespace MonoDevelop.CSharp.Formatting
 					}
 				}
 			}
-			Console.WriteLine ("offset={0}, removedChars={1}, insertedText={2}", offset, removedChars, insertedText == null ? "null" : insertedText.Replace ("\n", "\\n").Replace ("\t", "\\t").Replace (" ", "."));
-			Console.WriteLine (Environment.StackTrace.Split ('\n') [2]);
-			Console.WriteLine (Environment.StackTrace.Split ('\n') [3]);
+			//Console.WriteLine ("offset={0}, removedChars={1}, insertedText={2}", offset, removedChars, insertedText == null ? "null" : insertedText.Replace ("\n", "\\n").Replace ("\t", "\\t").Replace (" ", "."));
+			//Console.WriteLine (Environment.StackTrace.Split ('\n') [2]);
+			//Console.WriteLine (Environment.StackTrace.Split ('\n') [3]);
 			changes.Add (new DomSpacingVisitor.MyTextReplaceChange (data, offset, removedChars, insertedText));
 		}
 
@@ -1093,31 +1036,6 @@ namespace MonoDevelop.CSharp.Formatting
 			string indentString = this.curIndent.IndentString;
 			if (indentString != lineIndent && location.Column - 1 + relOffset == lineIndent.Length) {
 				AddChange (lineSegment.Offset, lineIndent.Length, indentString);
-			}
-		}
-
-		void FixIndentationForceNewLine (MonoDevelop.Projects.Dom.DomLocation location)
-		{
-			LineSegment lineSegment = data.Document.GetLine (location.Line);
-			string lineIndent = lineSegment.GetIndentation (data.Document);
-			string indentString = this.curIndent.IndentString;
-			if (indentString != lineIndent && location.Column - 1 == lineIndent.Length) {
-				//AddChange (lineSegment.Offset, lineIndent.Length, indentString);
-			} else {
-				int offset = data.Document.LocationToOffset (location.Line, location.Column);
-				int start = SearchWhitespaceLineStart (offset);
-				if (start > 0) { 
-					char ch = data.Document.GetCharAt (start - 1);
-					if (ch == '\n') {
-						start--;
-						if (start > 1 && data.Document.GetCharAt (start - 1) == '\r')
-							start--;
-					} else if (ch == '\r') {
-						start--;
-					}
-					//System.Console.WriteLine ("Add new line at {0} {1} ", start, offset);
-					//AddChange (offset, 0, data.EolMarker + indentString);
-				}
 			}
 		}
 	}
