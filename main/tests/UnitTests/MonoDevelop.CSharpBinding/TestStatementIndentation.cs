@@ -117,7 +117,7 @@ Test TestMethod ()
 			data.Document.Text = @"class Test { Test TestMethod () {} Test OtherTestMethod () {} }";
 			
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
-			
+			policy.BlankLinesBetweenMembers = 0;
 			policy.ClassBraceStyle = BraceStyle.EndOfLine;
 			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
@@ -128,8 +128,7 @@ Test TestMethod ()
 	Test OtherTestMethod ()
 	{
 	}
-}
-", data.Document.Text);
+}", data.Document.Text);
 		}
 
 		[Test()]
