@@ -83,33 +83,33 @@ namespace MonoDevelop.CSharp.Formatting
 
 		public void EnsureCorrectWhiteSpaceBefore (ICSharpNode node)
 		{
-			DomLocation loc = node.StartLocation;
-			int editLocation = data.Document.LocationToOffset (loc.Line, loc.Column);
-			string currentIndent = GetCurrentIndent (editLocation);
-			editLocation -= currentIndent.Length;
+			int editLocation = GetNodeStartOffset (node);
+			string actualIndentString = GetCurrentIndent (editLocation);
+			editLocation -= actualIndentString.Length;
 			string extraText = "";
 			int removeCount = 0;
-			if (currentIndent != this.curIndent.IndentString) {
-				removeCount += currentIndent.Length;
-				extraText += this.curIndent.IndentString;
+			string expectedIndentString = this.curIndent.IndentString;
+			if (actualIndentString != expectedIndentString) {
+				removeCount += actualIndentString.Length;
+				extraText += expectedIndentString;
 			}
-			int currentLines = CountCurrentLines (editLocation);
-			int reqdLines = GetRequiredBlankLineCount (node);
-			if (node.PrevSibling != null)
-				reqdLines++;
-			int lineCountDiff = reqdLines - currentLines;
-			if (lineCountDiff < 0) {
+			int currentNewLines = CountCurrentLines (editLocation);
+			int reqdNewLines = GetRequiredNewLineCount (node);
+			int lineCountDiff = reqdNewLines - currentNewLines;
+			if (HasTooManyLines (lineCountDiff)) {
 				int newLineRemoveCharCount = GetExcessLineCharCount (editLocation, -lineCountDiff);
 				removeCount += newLineRemoveCharCount;
 				editLocation -= newLineRemoveCharCount;
-			} else if (lineCountDiff > 0) {
-				StringBuilder sb = new StringBuilder ();
-				for (int i = 0; i < lineCountDiff; i++)
-					sb.Append (data.EolMarker);
-				extraText = sb.ToString () + extraText;
+			} else if (HasTooFewLines (lineCountDiff)) {
+				extraText = GenerateExtraLines (lineCountDiff) + extraText;
 			}			
-			
 			AddChange (editLocation, removeCount, extraText);
+		}
+
+		int GetNodeStartOffset (ICSharpNode node)
+		{
+			DomLocation loc = node.StartLocation;
+			return data.Document.LocationToOffset (loc.Line, loc.Column);
 		}
 
 		int CountCurrentLines (int startOffset)
@@ -158,17 +158,18 @@ namespace MonoDevelop.CSharp.Formatting
 			do {
 				line--;
 				lineSegment = data.GetLine (line);
-				if (lineSegment == null)
-					break;
-			} while (lineSegment.EditableLength == lineSegment.GetIndentation (data.Document).Length);
+			} while (lineSegment != null && lineSegment.EditableLength == lineSegment.GetIndentation (data.Document).Length);
 			return lineSegment;
 		}
 
-		int GetRequiredBlankLineCount (ICSharpNode node)
+		int GetRequiredNewLineCount (ICSharpNode node)
 		{
 			INode previous = node.PrevSibling;
-			int max = Math.Max (GetBlankLineAfterSectionCount (previous, node), GetBlankLineBeforeSectionCount (previous, node));
-			return Math.Max (max, GetBlankLineRepeatCount (node));
+			int requiredNewLineCount = Math.Max (GetBlankLineAfterSectionCount (previous, node), GetBlankLineBeforeSectionCount (previous, node));
+			requiredNewLineCount = Math.Max (requiredNewLineCount, GetBlankLineRepeatCount (node));
+			if (node.PrevSibling != null)
+				requiredNewLineCount++;
+			return requiredNewLineCount;
 		}
 
 		int GetBlankLineAfterSectionCount (INode firstNode, INode secondNode)
@@ -195,11 +196,10 @@ namespace MonoDevelop.CSharp.Formatting
 		{
 			INode prevNode = null;
 			
-			while (node.PrevSibling != null) {
+			while (node.PrevSibling != null && prevNode == null) {
 				node = node.PrevSibling;
 				if (IsMember (node)) {
 					prevNode = node;
-					break;
 				}
 			}
 			
@@ -223,6 +223,24 @@ namespace MonoDevelop.CSharp.Formatting
 			}
 			
 			return lineCount;
+		}
+
+		bool HasTooManyLines (int lineCountDiff)
+		{
+			return lineCountDiff < 0;
+		}
+
+		bool HasTooFewLines (int lineCountDiff)
+		{
+			return lineCountDiff > 0;
+		}
+
+		string GenerateExtraLines (int newLineCount)
+		{
+			StringBuilder sb = new StringBuilder ();
+			for (int i = 0; i < newLineCount; i++)
+				sb.Append (data.EolMarker);
+			return sb.ToString ();
 		}
 
 		public override object VisitUsingDeclaration (UsingDeclaration usingDeclaration, object data)
