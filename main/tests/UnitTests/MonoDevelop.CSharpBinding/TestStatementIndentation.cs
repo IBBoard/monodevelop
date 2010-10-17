@@ -23,7 +23,6 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-
 using System;
 using NUnit.Framework;
 using MonoDevelop.Ide.Gui;
@@ -67,7 +66,71 @@ this.TestMethod ();
 	}
 }", data.Document.Text);
 		}
-		
+
+		[Test()]
+		public void TestMethodIndentation ()
+		{
+			TextEditorData data = new TextEditorData ();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = @"class Test {
+Test TestMethod ()
+{
+}
+}";
+			
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
+			
+			policy.ClassBraceStyle = BraceStyle.EndOfLine;
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Assert.AreEqual (@"class Test {
+	Test TestMethod ()
+	{
+	}
+}", data.Document.Text);
+		}
+
+		[Test()]
+		public void TestMethodIndentationFromSingleLine ()
+		{
+			TextEditorData data = new TextEditorData ();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = @"class Test { Test TestMethod () {} }";
+			
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
+			
+			policy.ClassBraceStyle = BraceStyle.EndOfLine;
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Assert.AreEqual (@"class Test {
+	Test TestMethod ()
+	{
+	}
+}", data.Document.Text);
+		}
+
+		[Test()]
+		public void TestMethodIndentationMultipleFromSingleLine ()
+		{
+			TextEditorData data = new TextEditorData ();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = @"class Test { Test TestMethod () {} Test OtherTestMethod () {} }";
+			
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
+			policy.BlankLinesBetweenMembers = 0;
+			policy.ClassBraceStyle = BraceStyle.EndOfLine;
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Assert.AreEqual (@"class Test {
+	Test TestMethod ()
+	{
+	}
+	Test OtherTestMethod ()
+	{
+	}
+}", data.Document.Text);
+		}
+
 		[Test()]
 		public void TestIndentBlocks ()
 		{
@@ -111,7 +174,7 @@ this.TestMethod ();
 }", data.Document.Text);
 			policy.IndentBlocks = false;
 		}
-		
+
 		[Test()]
 		public void TestBreakIndentation ()
 		{
@@ -120,7 +183,7 @@ this.TestMethod ();
 			data.Document.Text = @"class Test {
 	Test TestMethod ()
 	{
-                              break;
+							break;
 	}
 }";
 			
@@ -136,7 +199,7 @@ this.TestMethod ();
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestCheckedIndentation ()
 		{
@@ -163,7 +226,7 @@ checked {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestBaseIndentation ()
 		{
@@ -172,7 +235,7 @@ checked {
 			data.Document.Text = @"class Test {
 	Test TestMethod ()
 	{
-                              base.FooBar();
+						base.FooBar();
 	}
 }";
 			
@@ -188,7 +251,7 @@ checked {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestUncheckedIndentation ()
 		{
@@ -215,7 +278,7 @@ unchecked {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestContinueIndentation ()
 		{
@@ -240,7 +303,7 @@ continue;
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestEmptyStatementIndentation ()
 		{
@@ -265,7 +328,7 @@ continue;
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestFixedStatementIndentation ()
 		{
@@ -292,7 +355,7 @@ fixed (object* obj = &obj)
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestFixedForcementAdd ()
 		{
@@ -327,7 +390,7 @@ fixed (object* obj = &obj)
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestForeachIndentation ()
 		{
@@ -356,7 +419,7 @@ foreach (var obj in col) {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestForIndentation ()
 		{
@@ -383,7 +446,7 @@ for (;;) {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestGotoIndentation ()
 		{
@@ -408,7 +471,7 @@ goto label;
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestReturnIndentation ()
 		{
@@ -433,7 +496,7 @@ return;
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestLockIndentation ()
 		{
@@ -460,7 +523,7 @@ lock (this) {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestThrowIndentation ()
 		{
@@ -486,7 +549,7 @@ throw new NotSupportedException ();
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestUnsafeIndentation ()
 		{
@@ -513,7 +576,7 @@ unsafe {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestUsingIndentation ()
 		{
@@ -540,7 +603,7 @@ using (var o = new MyObj()) {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestUsingForcementAdd ()
 		{
@@ -575,7 +638,7 @@ using (var o = new MyObj()) {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestUsingForcementDoNotChange ()
 		{
@@ -609,7 +672,7 @@ using (var o = new MyObj()) {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestUsingAlignment ()
 		{
@@ -649,7 +712,7 @@ using (var o = new MyObj()) {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestVariableDeclarationIndentation ()
 		{
@@ -674,8 +737,7 @@ Test a;
 	}
 }", data.Document.Text);
 		}
-		
-		
+
 		[Test()]
 		public void TestYieldIndentation ()
 		{
@@ -700,7 +762,7 @@ yield return null;
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestWhileIndentation ()
 		{
@@ -727,7 +789,7 @@ while (true)
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestDoWhileIndentation ()
 		{
@@ -754,8 +816,7 @@ do {
 	}
 }", data.Document.Text);
 		}
-		
-		
+
 		[Test()]
 		public void TestForeachBracketPlacement ()
 		{
@@ -783,7 +844,7 @@ do {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestForeachBracketPlacement2 ()
 		{
@@ -813,7 +874,7 @@ do {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestForEachBraceForcementAdd ()
 		{
@@ -853,7 +914,7 @@ do {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestForBraceForcementAdd ()
 		{
@@ -891,7 +952,7 @@ do {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestForEachBraceForcementRemove ()
 		{
@@ -936,8 +997,7 @@ do {
 	}
 }", data.Document.Text);
 		}
-		
-		
+
 		[Test()]
 		public void TestIfBracketPlacement ()
 		{
@@ -965,7 +1025,7 @@ do {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestAllowIfBlockInline ()
 		{
@@ -1054,7 +1114,7 @@ do {
 			
 			
 		}
-		
+
 		[Test()]
 		public void TestIfElseBracketPlacement ()
 		{
@@ -1083,7 +1143,7 @@ do {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestIfForcementRemove ()
 		{
@@ -1128,7 +1188,7 @@ do {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestIfAlignment ()
 		{
@@ -1168,6 +1228,7 @@ if (b) {
 	}
 }", data.Document.Text);
 		}		
+
 		[Test()]
 		public void TestElseOnNewLine ()
 		{
@@ -1205,7 +1266,7 @@ if (b) {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestElseIfOnNewLine ()
 		{
@@ -1241,7 +1302,7 @@ if (b) {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestElseOnNewLineOff ()
 		{
@@ -1279,8 +1340,7 @@ if (b) {
 	}
 }", data.Document.Text);
 		}
-		
-		
+
 		[Test()]
 		public void TestWhileForcementRemove ()
 		{
@@ -1325,7 +1385,7 @@ if (b) {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestFixedBracketPlacement ()
 		{
@@ -1358,7 +1418,7 @@ if (b) {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestForBracketPlacement ()
 		{
@@ -1387,7 +1447,7 @@ if (b) {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestCheckedBracketPlacement ()
 		{
@@ -1416,7 +1476,7 @@ if (b) {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestUncheckedBracketPlacement ()
 		{
@@ -1445,7 +1505,7 @@ if (b) {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestLockBracketPlacement ()
 		{
@@ -1477,7 +1537,7 @@ if (b) {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestUnsafeBracketPlacement ()
 		{
@@ -1509,7 +1569,7 @@ if (b) {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestUsingBracketPlacement ()
 		{
@@ -1541,7 +1601,7 @@ if (b) {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestWhileBracketPlacement ()
 		{
@@ -1573,7 +1633,7 @@ if (b) {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestDoWhileBracketPlacement ()
 		{
@@ -1605,7 +1665,7 @@ if (b) {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestSwitchFormatting1 ()
 		{
@@ -1642,7 +1702,7 @@ if (b) {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestSwitchFormatting2 ()
 		{
@@ -1679,7 +1739,7 @@ if (b) {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestTryCatchBracketPlacement ()
 		{
@@ -1712,7 +1772,7 @@ if (b) {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestPlaceCatchOnNewLine ()
 		{
@@ -1750,7 +1810,7 @@ if (b) {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestPlaceFinallyOnNewLine ()
 		{
@@ -1788,7 +1848,7 @@ if (b) {
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestPlaceWhileOnNewLine ()
 		{
