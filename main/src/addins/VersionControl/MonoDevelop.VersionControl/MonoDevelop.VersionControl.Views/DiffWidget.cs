@@ -50,6 +50,12 @@ namespace MonoDevelop.VersionControl.Views
 			}
 		}
 		
+		public Mono.TextEditor.TextEditor FocusedEditor {
+			get {
+				return comparisonWidget.FocusedEditor;
+			}
+		}
+		
 		public DiffWidget (VersionControlDocumentInfo info) : this (info, false)
 		{
 		}
@@ -118,7 +124,7 @@ namespace MonoDevelop.VersionControl.Views
 				
 				notebook1.Page = 1;
 			} else {
-				buttonDiff.Label = GettextCatalog.GetString ("_Diff");
+				buttonDiff.Label = GettextCatalog.GetString ("_Patch");
 				notebook1.Page = 0;
 			}
 			

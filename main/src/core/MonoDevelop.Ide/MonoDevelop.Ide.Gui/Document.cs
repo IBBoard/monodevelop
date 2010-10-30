@@ -56,9 +56,7 @@ namespace MonoDevelop.Ide.Gui
 		
 		IWorkbenchWindow window;
 		TextEditorExtension editorExtension;
-		bool closed;
 		
-		bool parsing;
 		const int ParseDelay = 600;
 
 		public IWorkbenchWindow Window {
@@ -133,6 +131,10 @@ namespace MonoDevelop.Ide.Gui
 		
 		public Project Project {
 			get { return Window.ViewContent.Project; }
+			set { 
+				Window.ViewContent.Project = value; 
+				dom = null;
+			}
 		}
 		
 		ProjectDom dom;
@@ -373,7 +375,6 @@ namespace MonoDevelop.Ide.Gui
 		
 		void OnClosed (object s, EventArgs a)
 		{
-			closed = true;
 			if (parseTimeout != 0) {
 				GLib.Source.Remove (parseTimeout);
 				parseTimeout = 0;
@@ -555,22 +556,21 @@ namespace MonoDevelop.Ide.Gui
 		/// </returns>
 		public ParsedDocument UpdateParseDocument ()
 		{
-			parsing = true;
 			try {
 				string currentParseFile = FileName;
 				string currentParseText = Editor.Text;
-					Project curentParseProject = Project;
+				Project curentParseProject = Project;
 				this.parsedDocument = ProjectDomService.Parse (curentParseProject, currentParseFile, currentParseText);
 				if (this.parsedDocument != null && !this.parsedDocument.HasErrors)
 					this.lastErrorFreeParsedDocument = parsedDocument;
 			} finally {
-				parsing = false;
 				OnDocumentParsed (EventArgs.Empty);
 			}
 			return this.parsedDocument;
 		}
 		
 		uint parseTimeout = 0;
+		object parseLock = new object ();
 		void OnDocumentChanged (object sender, Mono.TextEditor.ReplaceEventArgs e)
 		{
 			// Don't directly parse the document because doing it at every key press is
@@ -583,12 +583,15 @@ namespace MonoDevelop.Ide.Gui
 				string currentParseText = Editor.Text;
 				Project curentParseProject = Project;
 				ProjectDomService.QueueParseJob (dom, delegate (string name, IProgressMonitor monitor) {
-					this.parsedDocument = ProjectDomService.Parse (curentParseProject, currentParseFile, currentParseText);
-					if (this.parsedDocument != null && !this.parsedDocument.HasErrors)
-						this.lastErrorFreeParsedDocument = parsedDocument;
-					DispatchService.GuiSyncDispatch (delegate {
-						OnDocumentParsed (EventArgs.Empty);
-					});
+					lock (parseLock) {
+						var currentParsedDocument = ProjectDomService.Parse (curentParseProject, currentParseFile, currentParseText);
+						Application.Invoke (delegate {
+							this.parsedDocument = currentParsedDocument;
+							if (this.parsedDocument != null && !this.parsedDocument.HasErrors)
+								this.lastErrorFreeParsedDocument = parsedDocument;
+							OnDocumentParsed (EventArgs.Empty);
+						});
+					}
 				}, FileName);
 				parseTimeout = 0;
 				return false;

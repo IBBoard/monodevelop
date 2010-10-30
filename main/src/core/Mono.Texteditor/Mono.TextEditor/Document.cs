@@ -104,7 +104,7 @@ namespace Mono.TextEditor
 		public static Document CreateImmutableDocument (string text)
 		{
 			return new Document(new StringBuffer(text), new PrimitiveLineSplitter()) {
-				SurpressHighlightUpdate = true,
+				SuppressHighlightUpdate = true,
 				Text = text,
 				ReadOnly = true
 			};
@@ -134,14 +134,14 @@ namespace Mono.TextEditor
 			}
 		}
 
-		public bool SurpressHighlightUpdate { get; set; }
+		public bool SuppressHighlightUpdate { get; set; }
 		
 		public string Text {
 			get {
 				return this.buffer.Text;
 			}
 			set {
-				if (!SurpressHighlightUpdate)
+				if (!SuppressHighlightUpdate)
 					Mono.TextEditor.Highlighting.SyntaxModeService.WaitUpdate (this);
 				ReplaceEventArgs args = new ReplaceEventArgs (0, Length, value);
 				this.OnTextReplacing (args);
@@ -151,12 +151,13 @@ namespace Mono.TextEditor
 				this.OnTextReplaced (args);
 				this.OnTextSet (EventArgs.Empty);
 				this.CommitUpdateAll ();
+				this.ClearUndoBuffer ();
 			}
 		}
 		
 		public void UpdateHighlighting ()
 		{
-			if (this.syntaxMode != null && !SurpressHighlightUpdate)
+			if (this.syntaxMode != null && !SuppressHighlightUpdate)
 				Mono.TextEditor.Highlighting.SyntaxModeService.StartUpdate (this, this.syntaxMode, 0, buffer.Length);
 		}
 		
@@ -183,7 +184,7 @@ namespace Mono.TextEditor
 		void IBuffer.Replace (int offset, int count, string value)
 		{
 			if (atomicUndoLevel == 0) {
-				if (this.syntaxMode != null && !SurpressHighlightUpdate)
+				if (this.syntaxMode != null && !SuppressHighlightUpdate)
 					Mono.TextEditor.Highlighting.SyntaxModeService.WaitUpdate (this);
 			}
 			InterruptFoldWorker ();
@@ -225,7 +226,7 @@ namespace Mono.TextEditor
 			if (operation != null)
 				operation.Setup (this, args);
 			
-			if (this.syntaxMode != null && !SurpressHighlightUpdate) {
+			if (this.syntaxMode != null && !SuppressHighlightUpdate) {
 				Mono.TextEditor.Highlighting.SyntaxModeService.StartUpdate (this, this.syntaxMode, offset, value != null ? offset + value.Length : offset + count);
 			}
 			if (oldLineCount != LineCount)
@@ -827,6 +828,11 @@ namespace Mono.TextEditor
 				BeginUndo (this, EventArgs.Empty);
 		}
 		
+		public void ClearUndoBuffer ()
+		{
+			undoStack.Clear ();
+			redoStack.Clear ();
+		}
 		
 		[Serializable]
 		public sealed class UndoOperationEventArgs : EventArgs
