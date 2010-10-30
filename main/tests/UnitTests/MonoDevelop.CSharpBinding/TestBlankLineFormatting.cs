@@ -1,21 +1,21 @@
-// 
+//
 // TastBlankLineFormatting.cs
-//  
+//
 // Author:
 //       Mike Krüger <mkrueger@novell.com>
-// 
+//
 // Copyright (c) 2010 Novell, Inc (http://www.novell.com)
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in
 // all copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -52,7 +52,7 @@ using System.Text;
 namespace Test
 {
 }";
-			
+
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.BlankLinesAfterUsings = 2;
 			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
@@ -64,7 +64,7 @@ using System.Text;
 namespace Test
 {
 }", data.Document.Text);
-			
+
 			policy.BlankLinesAfterUsings = 0;
 			compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
@@ -85,7 +85,7 @@ using System.Text;
 namespace Test
 {
 }";
-			
+
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.BlankLinesAfterUsings = 0;
 			policy.BlankLinesBeforeUsings = 2;
@@ -98,11 +98,48 @@ using System.Text;
 namespace Test
 {
 }", data.Document.Text);
-			
+
 			policy.BlankLinesBeforeUsings = 0;
 			compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
 			Assert.AreEqual (@"using System;
+using System.Text;
+namespace Test
+{
+}", data.Document.Text);
+		}
+
+		[Test()]
+		public void TestBlankLinesBeforeUsingsWithFileHeaderComment ()
+		{
+			TextEditorData data = new TextEditorData ();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = @"// File headers go here
+using System;
+using System.Text;
+namespace Test
+{
+}";
+
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
+			policy.BlankLinesAfterUsings = 0;
+			policy.BlankLinesBeforeUsings = 2;
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Assert.AreEqual (@"// File headers go here
+
+
+using System;
+using System.Text;
+namespace Test
+{
+}", data.Document.Text);
+
+			policy.BlankLinesBeforeUsings = 0;
+			compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Assert.AreEqual (@"// File headers go here
+using System;
 using System.Text;
 namespace Test
 {
@@ -120,7 +157,7 @@ namespace Test
 	{
 	}
 }";
-			
+
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.BlankLinesBeforeFirstDeclaration = 2;
 			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
@@ -133,7 +170,7 @@ namespace Test
 	{
 	}
 }", data.Document.Text);
-			
+
 			policy.BlankLinesBeforeFirstDeclaration = 0;
 			compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
@@ -162,7 +199,7 @@ namespace Test
 	{
 	}
 }";
-			
+
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.BlankLinesBetweenTypes = 1;
 			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
@@ -181,7 +218,7 @@ namespace Test
 	{
 	}
 }", data.Document.Text);
-			
+
 			policy.BlankLinesBetweenTypes = 0;
 			compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
@@ -210,7 +247,7 @@ namespace Test
 	int b;
 	int c;
 }";
-			
+
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.BlankLinesBetweenFields = 1;
 			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
@@ -223,7 +260,7 @@ namespace Test
 
 	int c;
 }", data.Document.Text);
-			
+
 			policy.BlankLinesBetweenFields = 0;
 			compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
@@ -252,7 +289,7 @@ namespace Test
 	{
 	}
 }";
-			
+
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.BlankLinesBetweenMembers = 1;
 			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
@@ -272,7 +309,7 @@ namespace Test
 	{
 	}
 }", data.Document.Text);
-			
+
 			policy.BlankLinesBetweenMembers = 0;
 			compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
@@ -307,7 +344,7 @@ namespace Test
 	{
 	}
 }";
-			
+
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.BlankLinesBetweenMembers = 1;
 			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
@@ -337,7 +374,7 @@ namespace Test
 	{
 	}
 }";
-			
+
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.BlankLinesBetweenMembers = 1;
 			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
@@ -351,7 +388,7 @@ namespace Test
 	{
 	}
 }", data.Document.Text);
-			
+
 			policy.BlankLinesBetweenMembers = 0;
 			compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
@@ -370,7 +407,7 @@ namespace Test
 			TextEditorData data = new TextEditorData ();
 			data.Document.FileName = "a.cs";
 			data.Document.Text = @"class Test{ int a; void AMethod () { } }";
-			
+
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.BlankLinesBetweenMembers = 1;
 			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
@@ -384,7 +421,7 @@ namespace Test
 	{
 	}
 }", data.Document.Text);
-			
+
 			policy.BlankLinesBetweenMembers = 0;
 			compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);

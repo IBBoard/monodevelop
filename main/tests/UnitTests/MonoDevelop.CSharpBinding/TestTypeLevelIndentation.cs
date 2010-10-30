@@ -1,21 +1,21 @@
-// 
+//
 // TestTypeLevelIndentation.cs
-//  
+//
 // Author:
 //       Mike Krüger <mkrueger@novell.com>
-// 
+//
 // Copyright (c) 2010 Novell, Inc (http://www.novell.com)
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in
 // all copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -23,7 +23,6 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-
 using System;
 using NUnit.Framework;
 using MonoDevelop.Ide.Gui;
@@ -48,63 +47,63 @@ namespace MonoDevelop.CSharpBinding.FormattingTests
 		{
 			TextEditorData data = new TextEditorData ();
 			data.Document.FileName = "a.cs";
-			data.Document.Text = 
+			data.Document.Text =
 @"			class Test {}";
-			
+
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.ClassBraceStyle = BraceStyle.DoNotChange;
-			
+
 			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test {}", data.Document.Text);
 		}
-		
-		
+
+
 		[Test()]
 		public void TestClassIndentationInNamespaces ()
 		{
 			TextEditorData data = new TextEditorData ();
 			data.Document.FileName = "a.cs";
-			data.Document.Text = 
+			data.Document.Text =
 @"namespace A { class Test {} }";
-			
+
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.NamespaceBraceStyle = BraceStyle.EndOfLine;
 			policy.ClassBraceStyle = BraceStyle.DoNotChange;
-			
+
 			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
 			Assert.AreEqual (@"namespace A {
 	class Test {}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestNoIndentationInNamespaces ()
 		{
 			TextEditorData data = new TextEditorData ();
 			data.Document.FileName = "a.cs";
-			data.Document.Text = 
+			data.Document.Text =
 @"namespace A { class Test {} }";
-			
+
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.NamespaceBraceStyle = BraceStyle.EndOfLine;
 			policy.ClassBraceStyle = BraceStyle.DoNotChange;
 			policy.IndentNamespaceBody = false;
-			
+
 			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
 			Assert.AreEqual (@"namespace A {
 class Test {}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestClassIndentationInNamespacesCase2 ()
 		{
 			TextEditorData data = new TextEditorData ();
 			data.Document.FileName = "a.cs";
-			data.Document.Text = 
+			data.Document.Text =
 @"using System;
 
 namespace MonoDevelop.CSharp.Formatting {
@@ -113,12 +112,12 @@ namespace MonoDevelop.CSharp.Formatting {
 		}
 	}
 }";
-			
+
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.NamespaceBraceStyle = BraceStyle.NextLine;
 			policy.ClassBraceStyle = BraceStyle.NextLine;
 			policy.ConstructorBraceStyle = BraceStyle.NextLine;
-			
+
 			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
 			Assert.AreEqual (@"using System;
@@ -133,21 +132,21 @@ namespace MonoDevelop.CSharp.Formatting
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestIndentClassBody ()
 		{
 			TextEditorData data = new TextEditorData ();
 			data.Document.FileName = "a.cs";
-			data.Document.Text = 
+			data.Document.Text =
 @"class Test
 {
 				Test a;
 }";
-			
+
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.IndentClassBody = true;
-			
+
 			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
@@ -162,21 +161,21 @@ namespace MonoDevelop.CSharp.Formatting
 Test a;
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestIndentInterfaceBody ()
 		{
 			TextEditorData data = new TextEditorData ();
 			data.Document.FileName = "a.cs";
-			data.Document.Text = 
+			data.Document.Text =
 @"interface Test
 {
 				Test Foo ();
 }";
-			
+
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.IndentInterfaceBody = true;
-			
+
 			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
 			Assert.AreEqual (@"interface Test
@@ -191,21 +190,21 @@ Test a;
 Test Foo ();
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestIndentStructBody ()
 		{
 			TextEditorData data = new TextEditorData ();
 			data.Document.FileName = "a.cs";
-			data.Document.Text = 
+			data.Document.Text =
 @"struct Test
 {
 				Test a;
 }";
-			
+
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.IndentStructBody = true;
-			
+
 			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
 			Assert.AreEqual (@"struct Test
@@ -220,21 +219,21 @@ Test Foo ();
 Test a;
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestIndentEnumBody ()
 		{
 			TextEditorData data = new TextEditorData ();
 			data.Document.FileName = "a.cs";
-			data.Document.Text = 
+			data.Document.Text =
 @"enum Test
 {
 								A
 }";
-			
+
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.IndentEnumBody = true;
-			
+
 			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
 			Assert.AreEqual (@"enum Test
@@ -249,13 +248,13 @@ Test a;
 A
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestIndentMethodBody ()
 		{
 			TextEditorData data = new TextEditorData ();
 			data.Document.FileName = "a.cs";
-			data.Document.Text = 
+			data.Document.Text =
 @"class Test
 {
 	Test Foo ()
@@ -264,10 +263,10 @@ A
 								;
 	}
 }";
-			
+
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.IndentMethodBody = true;
-			
+
 			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
@@ -290,13 +289,13 @@ A
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestIndentMethodBodyOperatorCase ()
 		{
 			TextEditorData data = new TextEditorData ();
 			data.Document.FileName = "a.cs";
-			data.Document.Text = 
+			data.Document.Text =
 @"class Test
 {
 	static Test operator+(Test left, Test right)
@@ -305,10 +304,10 @@ A
 								;
 	}
 }";
-			
+
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.IndentMethodBody = true;
-			
+
 			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
@@ -331,13 +330,13 @@ A
 	}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestIndentPropertyBody ()
 		{
 			TextEditorData data = new TextEditorData ();
 			data.Document.FileName = "a.cs";
-			data.Document.Text = 
+			data.Document.Text =
 @"class Test
 {
 	Test TestMe {
@@ -345,10 +344,10 @@ A
 set;
 	}
 }";
-			
+
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.IndentPropertyBody = true;
-			
+
 			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
@@ -369,13 +368,48 @@ set;
 	}
 }", data.Document.Text);
 		}
-		
+
+		[Test()]
+		public void TestIndentReadOnlyPropertyBody ()
+		{
+			TextEditorData data = new TextEditorData ();
+			data.Document.FileName = "a.cs";
+			data.Document.Text =
+@"class Test
+{
+	Test TestMe {
+get;
+	}
+}";
+
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
+			policy.IndentPropertyBody = true;
+
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Assert.AreEqual (@"class Test
+{
+	Test TestMe {
+		get;
+	}
+}", data.Document.Text);
+			policy.IndentPropertyBody = false;
+			compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Assert.AreEqual (@"class Test
+{
+	Test TestMe {
+	get;
+	}
+}", data.Document.Text);
+		}
+
 		[Test()]
 		public void TestIndentPropertyBodyIndexerCase ()
 		{
 			TextEditorData data = new TextEditorData ();
 			data.Document.FileName = "a.cs";
-			data.Document.Text = 
+			data.Document.Text =
 @"class Test
 {
 	Test this[int a] {
@@ -387,10 +421,10 @@ set {
 }
 	}
 }";
-			
+
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.IndentPropertyBody = true;
-			
+
 			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
@@ -419,22 +453,63 @@ set {
 	}
 }", data.Document.Text);
 		}
-		
-			
+
+		[Test()]
+		public void TestIndentReadOnlyPropertyBodyIndexerCase ()
+		{
+			TextEditorData data = new TextEditorData ();
+			data.Document.FileName = "a.cs";
+			data.Document.Text =
+@"class Test
+{
+	Test this[int a] {
+			get {
+	return null;
+}
+	}
+}";
+
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
+			policy.IndentPropertyBody = true;
+
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Assert.AreEqual (@"class Test
+{
+	Test this[int a] {
+		get {
+			return null;
+		}
+	}
+}", data.Document.Text);
+			policy.IndentPropertyBody = false;
+			compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Assert.AreEqual (@"class Test
+{
+	Test this[int a] {
+	get {
+		return null;
+	}
+	}
+}", data.Document.Text);
+		}
+
+
 		[Test()]
 		public void TestPropertyAlignment ()
 		{
 			TextEditorData data = new TextEditorData ();
 			data.Document.FileName = "a.cs";
-			data.Document.Text = 
+			data.Document.Text =
 @"class Test
 {
 	Test TestMe { get; set; }
 }";
-			
+
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.PropertyFormatting = PropertyFormatting.AllowOneLine;
-				
+
 			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
@@ -442,7 +517,7 @@ set {
 	Test TestMe { get; set; }
 }", data.Document.Text);
 			policy.PropertyFormatting = PropertyFormatting.ForceNewLine;
-			
+
 			compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
@@ -453,7 +528,7 @@ set {
 	}
 }", data.Document.Text);
 			policy.PropertyFormatting = PropertyFormatting.ForceOneLine;
-			
+
 			compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
@@ -462,28 +537,28 @@ set {
 }", data.Document.Text);
 		}
 
-		
+
 		[Test()]
 		public void TestIndentNamespaceBody ()
 		{
 			TextEditorData data = new TextEditorData ();
 			data.Document.FileName = "a.cs";
-			data.Document.Text = 
+			data.Document.Text =
 @"			namespace Test {
 class FooBar {}
 		}";
-			
+
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.ClassBraceStyle = BraceStyle.DoNotChange;
 			policy.NamespaceBraceStyle = BraceStyle.EndOfLine;
 			policy.IndentNamespaceBody = true;
-			
+
 			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
 			Assert.AreEqual (@"namespace Test {
 	class FooBar {}
 }", data.Document.Text);
-			
+
 			policy.IndentNamespaceBody = false;
 			compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
@@ -491,22 +566,22 @@ class FooBar {}
 class FooBar {}
 }", data.Document.Text);
 		}
-		
-		
+
+
 		[Test()]
 		public void TestMethodIndentation ()
 		{
 			TextEditorData data = new TextEditorData ();
 			data.Document.FileName = "a.cs";
-			data.Document.Text = 
+			data.Document.Text =
 @"class Test
 {
 MyType TestMethod () {}
 }";
-			
+
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.MethodBraceStyle = BraceStyle.DoNotChange;
-			
+
 			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
@@ -514,21 +589,21 @@ MyType TestMethod () {}
 	MyType TestMethod () {}
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestPropertyIndentation ()
 		{
 			TextEditorData data = new TextEditorData ();
 			data.Document.FileName = "a.cs";
-			data.Document.Text = 
+			data.Document.Text =
 @"class Test
 {
 				public int Prop { get; set; }
 }";
-			
+
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.PropertyBraceStyle = BraceStyle.DoNotChange;
-			
+
 			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
@@ -536,24 +611,24 @@ MyType TestMethod () {}
 	public int Prop { get; set; }
 }", data.Document.Text);
 		}
-		
+
 		[Test()]
 		public void TestPropertyIndentationCase2 ()
 		{
 			TextEditorData data = new TextEditorData ();
 			data.Document.FileName = "a.cs";
-			data.Document.Text = 
+			data.Document.Text =
 @"class Test
 {
 				public int Prop {
- get;
+	get;
 set;
 }
 }";
-			
+
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
-			
-			
+
+
 			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
@@ -564,14 +639,14 @@ set;
 	}
 }", data.Document.Text);
 		}
-		
-		
+
+
 		[Test()]
 		public void TestIndentEventBody ()
 		{
 			TextEditorData data = new TextEditorData ();
 			data.Document.FileName = "a.cs";
-			data.Document.Text = 
+			data.Document.Text =
 @"class Test
 {
 	public event EventHandler TestMe {
@@ -583,10 +658,10 @@ remove {
 }
 	}
 }";
-			
+
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.IndentEventBody = true;
-			
+
 			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
