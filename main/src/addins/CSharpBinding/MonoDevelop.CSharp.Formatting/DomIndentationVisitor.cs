@@ -64,7 +64,7 @@ namespace MonoDevelop.CSharp.Formatting
 			set;
 		}
 
-		public DomIndentationVisitor (CSharpFormattingPolicy policy,TextEditorData data)
+		public DomIndentationVisitor (CSharpFormattingPolicy policy, TextEditorData data)
 		{
 			this.policy = policy;
 			this.data = data;
@@ -212,9 +212,7 @@ namespace MonoDevelop.CSharp.Formatting
 			
 			if (GetPreviousMemberSibling (secondNode) == null) {
 				lineCount = 0;
-			} else if (secondNode is TypeDeclaration) {
-				lineCount = policy.BlankLinesBetweenTypes;
-			} else if (secondNode is DelegateDeclaration) {
+			} else if (secondNode is TypeDeclaration || secondNode is DelegateDeclaration) {
 				lineCount = policy.BlankLinesBetweenTypes;
 			} else if (secondNode is FieldDeclaration) {
 				lineCount = policy.BlankLinesBetweenFields;
@@ -320,10 +318,7 @@ namespace MonoDevelop.CSharp.Formatting
 
 		bool IsSimpleAccessor (Accessor accessor)
 		{
-			if (accessor == null) {
-				return false;
-			}
-			if (accessor.Body == null || accessor.Body.FirstChild == null)
+			if (accessor == null || accessor.Body == null || accessor.Body.FirstChild == null)
 				return true;
 			if (accessor.Body.Children.Count () != 1)
 				return false;
