@@ -328,6 +328,70 @@ namespace Test
 		}
 
 		[Test()]
+		public void TestBlankLinesBetweenMembersWithAttributes ()
+		{
+			TextEditorData data = new TextEditorData ();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = @"class Test
+{
+	[Obsolete()]
+	void AMethod ()
+	{
+	}
+	[Obsolete()]
+	void BMethod ()
+	{
+	}
+	[Obsolete()]
+	void CMethod ()
+	{
+	}
+}";
+
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
+			policy.BlankLinesBetweenMembers = 1;
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Console.WriteLine (data.Text);
+			Assert.AreEqual (@"class Test
+{
+	[Obsolete()]
+	void AMethod ()
+	{
+	}
+
+	[Obsolete()]
+	void BMethod ()
+	{
+	}
+
+	[Obsolete()]
+	void CMethod ()
+	{
+	}
+}", data.Document.Text);
+
+			policy.BlankLinesBetweenMembers = 0;
+			compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Assert.AreEqual (@"class Test
+{
+	[Obsolete()]
+	void AMethod ()
+	{
+	}
+	[Obsolete()]
+	void BMethod ()
+	{
+	}
+	[Obsolete()]
+	void CMethod ()
+	{
+	}
+}", data.Document.Text);
+		}
+
+		[Test()]
 		public void TestExcessBlankLinesBetweenMembers ()
 		{
 			TextEditorData data = new TextEditorData ();
