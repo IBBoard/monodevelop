@@ -64,7 +64,7 @@ namespace MonoDevelop.CSharp.Formatting
 			set;
 		}
 
-		public DomIndentationVisitor (CSharpFormattingPolicy policy, TextEditorData data)
+		public DomIndentationVisitor (CSharpFormattingPolicy policy,TextEditorData data)
 		{
 			this.policy = policy;
 			this.data = data;
@@ -234,7 +234,7 @@ namespace MonoDevelop.CSharp.Formatting
 					break;
 				}
 			}
-			System.Console.WriteLine (offset);
+			
 			return offset == -1;
 		}
 
