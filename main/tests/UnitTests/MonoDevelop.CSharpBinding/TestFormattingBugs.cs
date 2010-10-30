@@ -168,9 +168,7 @@ using (IDisposable b = null) {
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
 			Assert.AreEqual (@"public interface ISearchable
 {
-	string Content {
-		get;
-	}
+	string Content { get; }
 }", data.Document.Text);
 		}
 	}
