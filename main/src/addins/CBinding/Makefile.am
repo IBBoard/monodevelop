@@ -61,6 +61,8 @@ FILES =  \
 	Navigation/TypedefNodeBuilder.cs \
 	Navigation/UnionNodeBuilder.cs \
 	Navigation/VariableNodeBuilder.cs \
+	ObjCLanguageBinding.cs \
+	ObjCppLanguageBinding.cs \
 	Parser/CDocumentParser.cs \
 	Parser/Class.cs \
 	Parser/Enumeration.cs \
@@ -94,7 +96,6 @@ FILES =  \
 RES =  \
 	CBinding.addin.xml \
 	gtk-gui/gui.stetic \
-	gtk-gui/objects.xml \
 	icons/c-icon-32.png \
 	icons/cpp-icon-32.png \
 	icons/Icons.16x16.PrivateUnion \
@@ -121,12 +122,15 @@ RES =  \
 	md1format.xml \
 	templates/ConsoleCppProject.xpt.xml \
 	templates/ConsoleCProject.xpt.xml \
+	templates/ConsoleObjCProject.xpt.xml \
 	templates/EmptyCHeaderFile.xft.xml \
 	templates/EmptyCppHeaderFile.xft.xml \
 	templates/EmptyCppProject.xpt.xml \
 	templates/EmptyCppSourceFile.xft.xml \
 	templates/EmptyCProject.xpt.xml \
 	templates/EmptyCSourceFile.xft.xml \
+	templates/EmptyObjCppSourceFile.xft.xml \
+	templates/EmptyObjCSourceFile.xft.xml \
 	templates/SharedLibraryCppProject.xpt.xml \
 	templates/SharedLibraryCProject.xpt.xml \
 	templates/StaticLibraryCppProject.xpt.xml \

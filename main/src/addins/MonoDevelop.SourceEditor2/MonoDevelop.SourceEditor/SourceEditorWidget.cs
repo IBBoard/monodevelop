@@ -334,7 +334,7 @@ namespace MonoDevelop.SourceEditor
 		{
 			Document document = textEditorData.Document;
 			if (document == null || region.Start.Line <= 0 || region.End.Line <= 0
-			    || region.Start.Line > document.LineCount || region.End.Line > document.LineCount)
+			    || region.Start.Line > document.LineCount || region.End.Line > document.LineCount)
 			{
 				return null;
 			}
@@ -423,7 +423,7 @@ namespace MonoDevelop.SourceEditor
 					
 				}
 				doc.UpdateFoldSegments (foldSegments, false);
-				UpdateAutocorTimer ();
+				UpdateErrorUndelines (parsedDocument);
 			} catch (Exception ex) {
 				LoggingService.LogError ("Unhandled exception in ParseInformationUpdaterWorkerThread", ex);
 			}
@@ -479,9 +479,9 @@ namespace MonoDevelop.SourceEditor
 				Thread.Sleep (20);
 		}
 		
-		void UpdateAutocorTimer ()
+		void UpdateErrorUndelines (ParsedDocument parsedDocument)
 		{
-			if (!options.UnderlineErrors)
+			if (!options.UnderlineErrors || parsedDocument == null)
 				return;
 			// this may be run in another thread, therefore we've to synchronize
 			// with the gtk main loop.
@@ -493,9 +493,14 @@ namespace MonoDevelop.SourceEditor
 				const uint timeout = 500;
 				resetTimerId = GLib.Timeout.Add (timeout, delegate {
 					lock (this) { // this runs in the gtk main loop.
-						ResetUnderlineChangement ();
-						if (parsedDocument != null)
-							ParseCompilationUnit (parsedDocument);
+						RemoveErrorUnderlines ();
+						
+						// Else we underline the error
+						if (parsedDocument.Errors != null) {
+							foreach (MonoDevelop.Projects.Dom.Error info in parsedDocument.Errors)
+								UnderLineError (info);
+						}
+						
 						resetTimerId = 0;
 					}
 					return false;
@@ -503,28 +508,15 @@ namespace MonoDevelop.SourceEditor
 			}
 		}
 		
-		void ResetUnderlineChangement ()
+		void RemoveErrorUnderlines ()
 		{
-			if (errors.Count > 0) {
-				Document doc = this.TextEditor != null ? this.TextEditor.Document : null;
-				if (doc != null) {
-					foreach (ErrorMarker error in this.errors.Values) {
-						error.RemoveFromLine (doc);
-					}
-				}
+			Document doc = this.TextEditor != null ? this.TextEditor.Document : null;
+			if (errors.Count == 0 || doc == null)
+				return;
+			foreach (ErrorMarker error in errors.Values.ToArray ()) {
+				error.RemoveFromLine (doc);
 			}
 			errors.Clear ();
-		}
-		
-		void ParseCompilationUnit (ParsedDocument cu)
-		{
-			// No new errors
-			if (cu.Errors == null || cu.Errors.Count < 1)
-				return;
-			
-			// Else we underline the error
-			foreach (MonoDevelop.Projects.Dom.Error info in cu.Errors)
-				UnderLineError (info);
 		}
 		
 		void UnderLineError (Error info)
@@ -930,11 +922,9 @@ namespace MonoDevelop.SourceEditor
 		
 		internal void CheckSearchPatternCasing (string searchPattern)
 		{
-			if (!DisableAutomaticSearchPatternCaseMatch && PropertyService.Get ("AutoSetPatternCasing", true) && searchPattern.Any (ch => Char.IsUpper (ch))) {
-				if (!SearchAndReplaceWidget.IsCaseSensitive) {
-					SearchAndReplaceWidget.IsCaseSensitive = true;
-					SetSearchOptions ();
-				}
+			if (!DisableAutomaticSearchPatternCaseMatch && PropertyService.Get ("AutoSetPatternCasing", true)) {
+				searchAndReplaceWidget.IsCaseSensitive = searchPattern.Any (ch => Char.IsUpper (ch));
+				SetSearchOptions ();
 			}
 		}
 		
@@ -976,7 +966,7 @@ namespace MonoDevelop.SourceEditor
 		
 		internal void OnUpdateUseSelectionForFind (CommandInfo info)
 		{
-			info.Enabled = searchAndReplaceWidget != null && TextEditor.IsSomethingSelected;
+			info.Enabled = searchAndReplaceWidget != null && TextEditor.IsSomethingSelected;
 		}
 		
 		public void UseSelectionForFind ()
@@ -986,7 +976,7 @@ namespace MonoDevelop.SourceEditor
 		
 		internal void OnUpdateUseSelectionForReplace (CommandInfo info)
 		{
-			info.Enabled = searchAndReplaceWidget != null && TextEditor.IsSomethingSelected;
+			info.Enabled = searchAndReplaceWidget != null && TextEditor.IsSomethingSelected;
 		}
 		
 		public void UseSelectionForReplace ()
@@ -1005,8 +995,6 @@ namespace MonoDevelop.SourceEditor
 					SetSearchPattern ();
 				}
 				
-				if (!DisableAutomaticSearchPatternCaseMatch && PropertyService.Get ("AutoSetPatternCasing", true))
-					SearchAndReplaceWidget.IsCaseSensitive = TextEditor.IsSomethingSelected;
 				KillWidgets ();
 				searchAndReplaceWidgetFrame = new MonoDevelop.Components.RoundedFrame ();
 				//searchAndReplaceWidgetFrame.SetFillColor (MonoDevelop.Components.CairoExtensions.GdkColorToCairoColor (widget.TextEditor.ColorStyle.Default.BackgroundColor));
@@ -1075,7 +1063,8 @@ namespace MonoDevelop.SourceEditor
 				if (!(this.textEditor.SearchEngine is RegexSearchEngine))
 					this.textEditor.SearchEngine = new RegexSearchEngine ();
 			}
-			this.textEditor.IsCaseSensitive = SearchAndReplaceWidget.IsCaseSensitive;
+			if (searchAndReplaceWidget != null) 
+				this.textEditor.IsCaseSensitive = searchAndReplaceWidget.IsCaseSensitive;
 			this.textEditor.IsWholeWordOnly = SearchAndReplaceWidget.IsWholeWordOnly;
 			
 			string error;
@@ -1090,7 +1079,8 @@ namespace MonoDevelop.SourceEditor
 			}
 			this.textEditor.QueueDraw ();
 			if (this.splittedTextEditor != null) {
-				this.splittedTextEditor.IsCaseSensitive = SearchAndReplaceWidget.IsCaseSensitive;
+				if (searchAndReplaceWidget != null)
+					this.splittedTextEditor.IsCaseSensitive = searchAndReplaceWidget.IsCaseSensitive;
 				this.splittedTextEditor.IsWholeWordOnly = SearchAndReplaceWidget.IsWholeWordOnly;
 				if (valid) {
 					this.splittedTextEditor.SearchPattern = pattern;
@@ -1163,7 +1153,7 @@ namespace MonoDevelop.SourceEditor
 		
 		void SetReplacePatternToSelection ()
 		{
-			if (searchAndReplaceWidget != null && TextEditor.IsSomethingSelected)
+			if (searchAndReplaceWidget != null && TextEditor.IsSomethingSelected)
 				searchAndReplaceWidget.ReplacePattern = TextEditor.SelectedText;
 		}
 		
@@ -1416,9 +1406,9 @@ namespace MonoDevelop.SourceEditor
 				}
 			}
 			
-			if (TextEditor.Caret.Column != 0) {
+			if (TextEditor.Caret.Column != DocumentLocation.MinColumn) {
 				TextEditor.Caret.PreserveSelection = true;
-				TextEditor.Caret.Column = System.Math.Max (0, TextEditor.Caret.Column - last);
+				TextEditor.Caret.Column = System.Math.Max (DocumentLocation.MinColumn, TextEditor.Caret.Column - last);
 				TextEditor.Caret.PreserveSelection = false;
 			}
 			

@@ -7,6 +7,7 @@
   <import>
     <widget-library name="MonoDevelop.Ide, Version=2.4.0.0, Culture=neutral" />
     <widget-library name="MonoDevelop.DesignerSupport, Version=2.4.0.0, Culture=neutral" />
+    <widget-library name="MonoDevelop.AspNet, Version=2.4.0.0, Culture=neutral" />
     <widget-library name="../../build/MonoDevelop.MacDev.dll" />
     <widget-library name="../../build/MonoDevelop.IPhone.dll" internal="true" />
   </import>
@@ -1092,8 +1093,8 @@
                         <child>
                           <widget class="MonoDevelop.Ide.Gui.Components.ProjectFileEntry" id="entitlementsEntry">
                             <property name="MemberName" />
-                            <property name="EntryIsEditable">False</property>
                             <property name="VerifyFileExistsInProject">False</property>
+                            <property name="EntryIsEditable">False</property>
                           </widget>
                           <packing>
                             <property name="TopAttach">2</property>
@@ -1261,8 +1262,8 @@
                         <child>
                           <widget class="MonoDevelop.Ide.Gui.Components.ProjectFileEntry" id="resourceRulesEntry">
                             <property name="MemberName" />
-                            <property name="EntryIsEditable">False</property>
                             <property name="VerifyFileExistsInProject">False</property>
+                            <property name="EntryIsEditable">False</property>
                           </widget>
                           <packing>
                             <property name="TopAttach">3</property>

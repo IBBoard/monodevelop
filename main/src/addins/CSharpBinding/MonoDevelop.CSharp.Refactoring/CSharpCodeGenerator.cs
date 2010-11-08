@@ -269,7 +269,7 @@ namespace MonoDevelop.CSharp.Refactoring
 				AppendReturnType (result, options.ImplementingType, method.ReturnType);
 				result.Append (" ");
 				if (options.ExplicitDeclaration) {
-					result.Append (ambience.GetString (new DomReturnType (method.DeclaringType), OutputFlags.IncludeGenerics));
+					AppendReturnType (result, options.ImplementingType, new DomReturnType (method.DeclaringType));
 					result.Append (".");
 				}
 				result.Append (method.Name);
@@ -325,7 +325,7 @@ namespace MonoDevelop.CSharp.Refactoring
 						generator.AppendLine (result);
 					} else if (IsMonoTouchModelMember (method)) {
 						AppendMonoTouchTodo (result, out bodyStartOffset, out bodyEndOffset);
-					} else if (method.IsAbstract || !(method.IsVirtual && method.IsOverride) || method.DeclaringType.ClassType == ClassType.Interface) {
+					} else if (method.IsAbstract || !(method.IsVirtual || method.IsOverride) || method.DeclaringType.ClassType == ClassType.Interface) {
 						AppendNotImplementedException (result, options, out bodyStartOffset, out bodyEndOffset);
 					} else {
 						generator.AppendIndent (result);

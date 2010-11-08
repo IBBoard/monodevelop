@@ -361,7 +361,13 @@ namespace Mono.CSharp {
 			if (target_object.NodeType == System.Linq.Expressions.ExpressionType.Block)
 				return target_object;
 
-			var source_object = System.Linq.Expressions.Expression.Convert (source.MakeExpression (ctx), target_object.Type);
+			System.Linq.Expressions.UnaryExpression source_object;
+			if (ctx.HasSet (BuilderContext.Options.CheckedScope)) {
+				source_object = System.Linq.Expressions.Expression.ConvertChecked (source.MakeExpression (ctx), target_object.Type);
+			} else {
+				source_object = System.Linq.Expressions.Expression.Convert (source.MakeExpression (ctx), target_object.Type);
+			}
+
 			return System.Linq.Expressions.Expression.Assign (target_object, source_object);
 		}
 #endif
@@ -399,7 +405,8 @@ namespace Mono.CSharp {
 		}
 	}
 
-	public class SimpleAssign : Assign {
+	public class SimpleAssign : Assign
+	{
 		public SimpleAssign (Expression target, Expression source)
 			: this (target, source, target.Location)
 		{
@@ -436,6 +443,20 @@ namespace Mono.CSharp {
 		public override object Accept (StructuralVisitor visitor)
 		{
 			return visitor.Visit (this);
+		}
+	}
+
+	public class RuntimeExplicitAssign : Assign
+	{
+		public RuntimeExplicitAssign (Expression target, Expression source)
+			: base (target, source, target.Location)
+		{
+		}
+
+		protected override Expression ResolveConversions (ResolveContext ec)
+		{
+			source = EmptyCast.Create (source, target.Type);
+			return this;
 		}
 	}
 
@@ -648,30 +669,44 @@ namespace Mono.CSharp {
 
 			source = new Binary (op, left, right, true, loc);
 
-			if (target is DynamicMemberBinder) {
-				Arguments targs = ((DynamicMemberBinder) target).Arguments;
+			if (target is DynamicMemberAssignable) {
+				Arguments targs = ((DynamicMemberAssignable) target).Arguments;
 				source = source.Resolve (ec);
 
-				Arguments args = new Arguments (2);
+				Arguments args = new Arguments (targs.Count + 1);
 				args.AddRange (targs);
 				args.Add (new Argument (source));
-				source = new DynamicMemberBinder (ma.Name, args, loc).ResolveLValue (ec, right);
 
-				// Handles possible event addition/subtraction
-				if (op == Binary.Operator.Addition || op == Binary.Operator.Subtraction) {
-					args = new Arguments (2);
-					args.AddRange (targs);
-					args.Add (new Argument (right));
-					string method_prefix = op == Binary.Operator.Addition ?
-						Event.AEventAccessor.AddPrefix : Event.AEventAccessor.RemovePrefix;
+				var binder_flags = CSharpBinderFlags.ValueFromCompoundAssignment;
 
-					var invoke = DynamicInvocation.CreateSpecialNameInvoke (
-						new MemberAccess (right, method_prefix + ma.Name, loc), args, loc).Resolve (ec);
+				//
+				// Compound assignment does target conversion using additional method
+				// call, set checked context as the binary operation can overflow
+				//
+				if (ec.HasSet (ResolveContext.Options.CheckedScope))
+					binder_flags |= CSharpBinderFlags.CheckedContext;
 
-					args = new Arguments (1);
-					args.AddRange (targs);
-					source = new DynamicEventCompoundAssign (ma.Name, args,
-						(ExpressionStatement) source, (ExpressionStatement) invoke, loc).Resolve (ec);
+				if (target is DynamicMemberBinder) {
+					source = new DynamicMemberBinder (ma.Name, binder_flags, args, loc).Resolve (ec);
+
+					// Handles possible event addition/subtraction
+					if (op == Binary.Operator.Addition || op == Binary.Operator.Subtraction) {
+						args = new Arguments (targs.Count + 1);
+						args.AddRange (targs);
+						args.Add (new Argument (right));
+						string method_prefix = op == Binary.Operator.Addition ?
+							Event.AEventAccessor.AddPrefix : Event.AEventAccessor.RemovePrefix;
+
+						var invoke = DynamicInvocation.CreateSpecialNameInvoke (
+							new MemberAccess (right, method_prefix + ma.Name, loc), args, loc).Resolve (ec);
+
+						args = new Arguments (targs.Count);
+						args.AddRange (targs);
+						source = new DynamicEventCompoundAssign (ma.Name, args,
+							(ExpressionStatement) source, (ExpressionStatement) invoke, loc).Resolve (ec);
+					}
+				} else {
+					source = new DynamicIndexBinder (binder_flags, args, loc).Resolve (ec);
 				}
 
 				return source;
@@ -682,6 +717,14 @@ namespace Mono.CSharp {
 
 		protected override Expression ResolveConversions (ResolveContext ec)
 		{
+			//
+			// LAMESPEC: Under dynamic context no target conversion is happening
+			// This allows more natual dynamic behaviour but breaks compatibility
+			// with static binding
+			//
+			if (target is RuntimeValueExpression)
+				return this;
+
 			TypeSpec target_type = target.Type;
 
 			//
@@ -696,6 +739,9 @@ namespace Mono.CSharp {
 			// Otherwise, if the selected operator is a predefined operator
 			//
 			Binary b = source as Binary;
+			if (b == null && source is ReducedExpression)
+				b = ((ReducedExpression) source).OriginalExpression as Binary;
+
 			if (b != null) {
 				//
 				// 2a. the operator is a shift operator

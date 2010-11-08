@@ -29,16 +29,6 @@ namespace MonoDevelop.Platform
 			}
 		}
 
-		public override DesktopApplication[] GetAllApplications (string mimetype)
-		{
-			return new DesktopApplication [0];
-		}
-
-		public override DesktopApplication GetDefaultApplication (string mimetype)
-		{
-			return new DesktopApplication ();
-		}
-
 		public override string Name {
 			get { return "Windows"; }
 		}
@@ -141,6 +131,11 @@ namespace MonoDevelop.Platform
 		protected override RecentFiles CreateRecentFilesProvider ()
 		{
 			return new MonoDevelop.Platform.WindowsRecentFiles ();
+		}
+		
+		public override string GetUpdaterUrl ()
+		{
+			return "http://go-mono.com/macupdate/update";
 		}
 	}
 }

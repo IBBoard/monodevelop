@@ -56,9 +56,7 @@ namespace MonoDevelop.Ide.Gui
 		
 		IWorkbenchWindow window;
 		TextEditorExtension editorExtension;
-		bool closed;
 		
-		bool parsing;
 		const int ParseDelay = 600;
 
 		public IWorkbenchWindow Window {
@@ -133,6 +131,10 @@ namespace MonoDevelop.Ide.Gui
 		
 		public Project Project {
 			get { return Window.ViewContent.Project; }
+			set { 
+				Window.ViewContent.Project = value; 
+				dom = null;
+			}
 		}
 		
 		ProjectDom dom;
@@ -373,7 +375,6 @@ namespace MonoDevelop.Ide.Gui
 		
 		void OnClosed (object s, EventArgs a)
 		{
-			closed = true;
 			if (parseTimeout != 0) {
 				GLib.Source.Remove (parseTimeout);
 				parseTimeout = 0;
@@ -487,13 +488,25 @@ namespace MonoDevelop.Ide.Gui
 			if (ViewChanged != null)
 				ViewChanged (this, args);
 		}
-		
+		bool wasEdited;
 		internal void OnDocumentAttached ()
 		{
 			IExtensibleTextEditor editor = GetContent<IExtensibleTextEditor> ();
 			if (editor == null)
 				return;
-			Editor.Document.TextReplaced += OnDocumentChanged;
+			
+			Editor.Document.TextReplaced += (o, a) => wasEdited = true;
+			
+			Editor.Document.BeginUndo += delegate {
+				wasEdited = false;
+			};
+			
+			Editor.Document.EndUndo += delegate {
+				if (wasEdited)
+					StartReparseThread ();
+			};
+			Editor.Document.Undone += (o, a) => StartReparseThread ();
+			Editor.Document.Redone += (o, a) => StartReparseThread ();
 			
 			// If the new document is a text editor, attach the extensions
 			
@@ -528,8 +541,6 @@ namespace MonoDevelop.Ide.Gui
 		internal void SetProject (Project project)
 		{
 			IExtensibleTextEditor editor = GetContent<IExtensibleTextEditor> ();
-			if (editor != null)
-				Editor.Document.TextReplaced -= OnDocumentChanged;
 			while (editorExtension != null) {
 				try {
 					editorExtension.Dispose ();
@@ -555,23 +566,24 @@ namespace MonoDevelop.Ide.Gui
 		/// </returns>
 		public ParsedDocument UpdateParseDocument ()
 		{
-			parsing = true;
 			try {
 				string currentParseFile = FileName;
-				string currentParseText = Editor.Text;
-					Project curentParseProject = Project;
+				var editor = Editor;
+				if (editor == null)
+					return null;
+				string currentParseText = editor.Text;
+				Project curentParseProject = Project;
 				this.parsedDocument = ProjectDomService.Parse (curentParseProject, currentParseFile, currentParseText);
 				if (this.parsedDocument != null && !this.parsedDocument.HasErrors)
 					this.lastErrorFreeParsedDocument = parsedDocument;
 			} finally {
-				parsing = false;
 				OnDocumentParsed (EventArgs.Empty);
 			}
 			return this.parsedDocument;
 		}
 		
 		uint parseTimeout = 0;
-		void OnDocumentChanged (object sender, Mono.TextEditor.ReplaceEventArgs e)
+		void StartReparseThread ()
 		{
 			// Don't directly parse the document because doing it at every key press is
 			// very inefficient. Do it after a small delay instead, so several changes can
@@ -582,11 +594,13 @@ namespace MonoDevelop.Ide.Gui
 			parseTimeout = GLib.Timeout.Add (ParseDelay, delegate {
 				string currentParseText = Editor.Text;
 				Project curentParseProject = Project;
+				// parser revice queue takes care of the locking
 				ProjectDomService.QueueParseJob (dom, delegate (string name, IProgressMonitor monitor) {
-					this.parsedDocument = ProjectDomService.Parse (curentParseProject, currentParseFile, currentParseText);
-					if (this.parsedDocument != null && !this.parsedDocument.HasErrors)
-						this.lastErrorFreeParsedDocument = parsedDocument;
-					DispatchService.GuiSyncDispatch (delegate {
+					var currentParsedDocument = ProjectDomService.Parse (curentParseProject, currentParseFile, currentParseText);
+					Application.Invoke (delegate {
+						this.parsedDocument = currentParsedDocument;
+						if (this.parsedDocument != null && !this.parsedDocument.HasErrors)
+							this.lastErrorFreeParsedDocument = parsedDocument;
 						OnDocumentParsed (EventArgs.Empty);
 					});
 				}, FileName);

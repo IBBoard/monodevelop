@@ -95,10 +95,10 @@ namespace MonoDevelop.Ide.Gui.Pads.ProjectPad
 		public override object GetParentObject (object dataObject)
 		{
 			ProjectFile file = (ProjectFile) dataObject;
-			string dir = Path.GetDirectoryName (file.FilePath);
+			FilePath dir = !file.IsLink ? file.FilePath : file.Project.BaseDirectory.Combine (file.ProjectVirtualPath).ParentDirectory;
 			
 			if (!string.IsNullOrEmpty (file.DependsOn)) {
-				ProjectFile groupUnder = file.Project.Files.GetFile (Path.Combine (dir, file.DependsOn));
+				ProjectFile groupUnder = file.Project.Files.GetFile (file.FilePath.ParentDirectory.Combine (file.DependsOn));
 				if (groupUnder != null)
 					return groupUnder;
 			}
@@ -291,9 +291,27 @@ namespace MonoDevelop.Ide.Gui.Pads.ProjectPad
 		[CommandUpdateHandler (ViewCommands.OpenWithList)]
 		public void OnOpenWithUpdate (CommandArrayInfo info)
 		{
-			ProjectFile finfo = (ProjectFile) CurrentNode.DataItem;
+			PopulateOpenWithViewers (info, ((ProjectFile) CurrentNode.DataItem).FilePath);
+		}
+		
+		internal static void PopulateOpenWithViewers (CommandArrayInfo info, string filePath)
+		{
+			var viewers = IdeApp.Workbench.GetFileViewers (filePath);
+			
+			//show the default viewer first
+			var def = viewers.FirstOrDefault (v => v.CanUseAsDefault) ?? viewers.FirstOrDefault (v => v.IsExternal);
+			if (def != null) {
+				CommandInfo ci = info.Add (def.Title, def);
+				ci.Description = GettextCatalog.GetString ("Open with '{0}'", def.Title);
+				if (viewers.Length > 1)
+					info.AddSeparator ();
+			}
+			
+			//then the builtins, followed by externals
 			FileViewer prev = null; 
-			foreach (FileViewer fv in IdeApp.Workbench.GetFileViewers (finfo.Name)) {
+			foreach (FileViewer fv in viewers) {
+				if (def != null && fv.Equals (def))
+					continue;
 				if (prev != null && fv.IsExternal != prev.IsExternal)
 					info.AddSeparator ();
 				CommandInfo ci = info.Add (fv.Title, fv);

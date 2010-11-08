@@ -226,7 +226,7 @@ namespace Mono.CSharp {
 
 	public static TypeSpec CoreLookupType (CompilerContext ctx, string ns_name, string name, int arity, MemberKind kind, bool required)
 	{
-		Namespace ns = GlobalRootNamespace.Instance.GetNamespace (ns_name, true);
+		Namespace ns = ctx.GlobalRootNamespace.GetNamespace (ns_name, true);
 		var te = ns.LookupType (ctx, name, arity, !required, Location.Null);
 		var ts = te == null ? null : te.Type;
 
@@ -248,11 +248,14 @@ namespace Mono.CSharp {
 		return ts;
 	}
 
-	static MemberSpec GetPredefinedMember (TypeSpec t, MemberFilter filter, Location loc)
+	static MemberSpec GetPredefinedMember (TypeSpec t, MemberFilter filter, bool optional, Location loc)
 	{
 		var member = MemberCache.FindMember (t, filter, BindingRestriction.DeclaredOnly);
 
 		if (member != null && member.IsAccessible (InternalType.FakeInternalType))
+			return member;
+
+		if (optional)
 			return member;
 
 		string method_args = null;
@@ -271,7 +274,7 @@ namespace Mono.CSharp {
 	public static MethodSpec GetPredefinedConstructor (TypeSpec t, Location loc, params TypeSpec [] args)
 	{
 		var pc = ParametersCompiled.CreateFullyResolved (args);
-		return GetPredefinedMember (t, MemberFilter.Constructor (pc), loc) as MethodSpec;
+		return GetPredefinedMember (t, MemberFilter.Constructor (pc), false, loc) as MethodSpec;
 	}
 
 	//
@@ -281,22 +284,27 @@ namespace Mono.CSharp {
 	public static MethodSpec GetPredefinedMethod (TypeSpec t, string name, Location loc, params TypeSpec [] args)
 	{
 		var pc = ParametersCompiled.CreateFullyResolved (args);
-		return GetPredefinedMethod (t, MemberFilter.Method (name, 0, pc, null), loc);
+		return GetPredefinedMethod (t, MemberFilter.Method (name, 0, pc, null), false, loc);
 	}
 
 	public static MethodSpec GetPredefinedMethod (TypeSpec t, MemberFilter filter, Location loc)
 	{
-		return GetPredefinedMember (t, filter, loc) as MethodSpec;
+		return GetPredefinedMethod (t, filter, false, loc);
+	}
+
+	public static MethodSpec GetPredefinedMethod (TypeSpec t, MemberFilter filter, bool optional, Location loc)
+	{
+		return GetPredefinedMember (t, filter, optional, loc) as MethodSpec;
 	}
 
 	public static FieldSpec GetPredefinedField (TypeSpec t, string name, Location loc, TypeSpec type)
 	{
-		return GetPredefinedMember (t, MemberFilter.Field (name, type), loc) as FieldSpec;
+		return GetPredefinedMember (t, MemberFilter.Field (name, type), false, loc) as FieldSpec;
 	}
 
 	public static PropertySpec GetPredefinedProperty (TypeSpec t, string name, Location loc, TypeSpec type)
 	{
-		return GetPredefinedMember (t, MemberFilter.Property (name, type), loc) as PropertySpec;
+		return GetPredefinedMember (t, MemberFilter.Property (name, type), false, loc) as PropertySpec;
 	}
 
 	public static IList<PredefinedTypeSpec> InitCoreTypes ()
@@ -355,7 +363,7 @@ namespace Mono.CSharp {
 				continue;
 
 			if (!RootContext.StdLib) {
-				var ns = GlobalRootNamespace.Instance.GetNamespace (p.Namespace, false);
+				var ns = ctx.GlobalRootNamespace.GetNamespace (p.Namespace, false);
 				ns.ReplaceTypeWithPredefined (found, p);
 
 				var tc = found.MemberDefinition as TypeContainer;
@@ -442,60 +450,6 @@ namespace Mono.CSharp {
 	public static bool IsDelegateType (TypeSpec t)
 	{
 		return t.IsDelegate;
-	}
-
-	//
-	// When any element of the type is a dynamic type
-	//
-	// This method builds a transformation array for dynamic types
-	// used in places where DynamicAttribute cannot be applied to.
-	// It uses bool flag when type is of dynamic type and each
-	// section always starts with "false" for some reason.
-	//
-	// LAMESPEC: This should be part of C# specification !
-	// 
-	// Example: Func<dynamic, int, dynamic[]>
-	// Transformation: { false, true, false, false, true }
-	//
-	public static bool[] HasDynamicTypeUsed (TypeSpec t)
-	{
-		var ac = t as ArrayContainer;
-		if (ac != null) {
-			if (HasDynamicTypeUsed (ac.Element) != null)
-				return new bool[] { false, true };
-
-			return null;
-		}
-
-		if (t == null)
-			return null;
-
-		if (IsGenericType (t)) {
-			List<bool> transform = null;
-			var targs = GetTypeArguments (t);
-			for (int i = 0; i < targs.Length; ++i) {
-				var element = HasDynamicTypeUsed (targs [i]);
-				if (element != null) {
-					if (transform == null) {
-						transform = new List<bool> ();
-						for (int ii = 0; ii <= i; ++ii)
-							transform.Add (false);
-					}
-
-					transform.AddRange (element);
-				} else if (transform != null) {
-					transform.Add (false);
-				}
-			}
-
-			if (transform != null)
-				return transform.ToArray ();
-		}
-
-		if (object.ReferenceEquals (InternalType.Dynamic, t))
-			return new bool [] { true };
-
-		return null;
 	}
 	
 	// Obsolete

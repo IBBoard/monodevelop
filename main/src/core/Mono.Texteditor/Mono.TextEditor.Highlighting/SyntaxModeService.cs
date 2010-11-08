@@ -231,11 +231,22 @@ namespace Mono.TextEditor.Highlighting
 				if (startLine < 0)
 					return;
 				try {
-					var spanStack = doc.GetLine (startLine).StartSpan.Clone ();
+					var lineSegment = doc.GetLine (startLine);
+					if (lineSegment == null)
+						return;
+					var span = lineSegment.StartSpan;
+					if (span == null)
+						return;
+					var spanStack = span.Clone ();
 					SyntaxMode.SpanParser parser = mode.CreateSpanParser(doc, mode, null, spanStack);
 					foreach (var line in doc.GetLinesStartingAt (startLine)) {
+						if (line == null)
+							return;
 						if (line.Offset > endOffset) {
-							bool equal = line.StartSpan.Equals(spanStack);
+							span = line.StartSpan;
+							if (span == null)
+								return;
+							bool equal = span.Equals(spanStack);
 							doUpdate |= !equal;
 							if (equal)
 								break;
@@ -306,13 +317,7 @@ namespace Mono.TextEditor.Highlighting
 					if (worker != null && worker.Doc == doc)
 						worker.ManualResetEvent.WaitOne ();
 				} catch (Exception e) {
-					Console.WriteLine ("Worker:" + worker);
-					Console.WriteLine ("------");
 					Console.WriteLine (e);
-					Console.WriteLine ("------");
-					Console.WriteLine ("worker.Doc:" + worker.Doc);
-					Console.WriteLine ("worker.IsFinished:" + worker.IsFinished);
-					Console.WriteLine ("worker.ManualResetEvent:" + worker.ManualResetEvent);
 				}
 			}
 		}

@@ -122,7 +122,8 @@ namespace MonoDevelop.Ide.CodeCompletion
 			}
 			
 			if ((ka & KeyActions.Complete) != 0) {
-				bool completed = CompleteWord ();
+				//bool completed =
+				CompleteWord ();
 				//NOTE: this passes the enter keystroke through to the editor if the current item is an exact match
 				//if (!completed) {
 				//	CompletionWindowManager.HideWindow ();
@@ -215,6 +216,7 @@ namespace MonoDevelop.Ide.CodeCompletion
 					ResetSizes ();
 					ShowAll ();
 					UpdateWordSelection ();
+					UpdateDeclarationView ();
 					
 					//if there is only one matching result we take it by default
 					if (completionDataList.AutoCompleteUniqueMatch && IsUniqueMatch && !IsChanging) {
@@ -227,7 +229,7 @@ namespace MonoDevelop.Ide.CodeCompletion
 				initialWordLength = text.Length /*+ completionWidget.SelectedLength*/;
 				PartialWord = text;
 				UpdateWordSelection ();
-				
+			
 				//if there is only one matching result we take it by default
 				if (completionDataList.AutoCompleteUniqueMatch && IsUniqueMatch && !IsChanging) {
 					CompleteWord ();
@@ -235,6 +237,7 @@ namespace MonoDevelop.Ide.CodeCompletion
 				} else {
 					ResetSizes ();
 					ShowAll ();
+					UpdateDeclarationView ();
 				}
 				return true;
 			}
@@ -394,7 +397,6 @@ namespace MonoDevelop.Ide.CodeCompletion
 		{
 			if (completionDataList == null || List.Selection >= completionDataList.Count || List.Selection == -1)
 				return;
-			
 			if (List.GdkWindow == null)
 				return;
 			RemoveDeclarationViewTimer ();
@@ -445,6 +447,7 @@ namespace MonoDevelop.Ide.CodeCompletion
 				HideDeclarationView ();
 				return;
 			}
+			
 			if (currentData != null)
 				declarationViewTimer = GLib.Timeout.Add (250, DelayedTooltipShow);
 		}

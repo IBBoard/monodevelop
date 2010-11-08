@@ -333,6 +333,8 @@ namespace MonoDevelop.CSharp.Dom
 		
 		public string Visit (IReturnType returnType, OutputSettings settings)
 		{
+			if (returnType.IsNullable && returnType.GenericArguments.Count == 1)
+				return Visit (returnType.GenericArguments[0], settings) + "?";
 			if (returnType.Type is AnonymousType)
 				return returnType.Type.AcceptVisitor (this, settings);
 			StringBuilder result = new StringBuilder ();
@@ -406,6 +408,11 @@ namespace MonoDevelop.CSharp.Dom
 			} else {
 				result.Append (settings.EmitName (method, Format (FilterName (method.Name))));
 			}
+			//this is only ever used if GeneralizeGenerics is true
+			DomMethod.GenericMethodInstanceResolver resolver = null;
+			if (settings.GeneralizeGenerics) {
+				resolver = new DomMethod.GenericMethodInstanceResolver ();
+			}
 			
 			if (settings.IncludeGenerics) {
 				if (method.TypeParameters.Count > 0) {
@@ -420,7 +427,15 @@ namespace MonoDevelop.CSharp.Dom
 							if (instantiatedMethod != null) {
 								result.Append (this.GetString (instantiatedMethod.GenericParameters[i], settings));
 							} else {
-								result.Append (NetToCSharpTypeName (method.TypeParameters[i].Name));
+								if (settings.GeneralizeGenerics) {
+									string generalizedName = "$M" + i;
+									result.Append (generalizedName);
+									var t = new DomReturnType ();
+									t.Name = generalizedName;
+									resolver.Add (method.DeclaringType.SourceProjectDom, new DomReturnType (method.TypeParameters[i].Name), t);
+								} else {
+									result.Append (NetToCSharpTypeName (method.TypeParameters[i].Name));
+								}
 							}
 						}
 					}
@@ -443,7 +458,11 @@ namespace MonoDevelop.CSharp.Dom
 							result.Append (settings.Markup ("this "));
 						if (!first)
 							result.Append (settings.Markup (", "));
-						AppendParameter (settings, result, parameter);
+						if (settings.GeneralizeGenerics) {
+							AppendParameter (settings, result, (IParameter)resolver.Visit (parameter, method));
+						} else {
+							AppendParameter (settings, result, parameter);
+						}
 						first = false;
 					}
 				}

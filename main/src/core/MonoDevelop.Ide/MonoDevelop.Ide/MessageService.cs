@@ -32,6 +32,8 @@ using Gtk;
 using MonoDevelop.Ide.Gui;
 using MonoDevelop.Ide.Gui.Dialogs;
 using System.Collections.Generic;
+using MonoDevelop.Components.Extensions;
+using Mono.Addins;
 
 namespace MonoDevelop.Ide
 {
@@ -100,10 +102,24 @@ namespace MonoDevelop.Ide
 		public AlertButton (string label) : this (label, null)
 		{
 		}
+		
 		public AlertButton (string label, bool isStockButton) : this (label)
 		{
 			this.isStockButton = isStockButton;
 		}
+	}
+	
+	public class AlertOption
+	{
+		internal AlertOption (string id, string text)
+		{
+			this.Id = id;
+			this.Text = text;
+		}
+
+		public string Id { get; private set; }
+		public string Text { get; private set; }
+		public bool Value { get; set; }
 	}
 	
 	//all methods are synchronously invoked on the GUI thread, except those which take GTK# objects as arguments
@@ -363,68 +379,31 @@ namespace MonoDevelop.Ide
 		{
 			public void ShowException (Gtk.Window parent, Exception e, string primaryText)
 			{
-				var errorDialog = new MonoDevelop.Ide.Gui.Dialogs.ErrorDialog (parent);
-				try {
-					errorDialog.Message = primaryText;
-					errorDialog.AddDetails (e.ToString (), false);
-					PlaceDialog (errorDialog, parent);
-					errorDialog.Run ();
-				} finally {
-					errorDialog.Destroy ();
-				}
+				var exceptionDialog = new ExceptionDialog () {
+					Message = primaryText,
+					Exception = e,
+					TransientFor = parent,
+				};
+				exceptionDialog.Run ();
 			}
 			
 			public AlertButton GenericAlert (MessageDescription message)
 			{
-				if (message.ApplyToAllButton != null)
-					return message.ApplyToAllButton;
-				AlertDialog alertDialog = new AlertDialog (message);
-				alertDialog.FocusButton (message.DefaultButton);
-				ShowCustomDialog (alertDialog);
-				if (alertDialog.ApplyToAll)
-					message.ApplyToAllButton = alertDialog.ResultButton;
-				return alertDialog.ResultButton;
+				var dialog = new AlertDialog (message);
+				return dialog.Run ();
 			}
 			
 			public string GetTextResponse (string question, string caption, string initialValue, bool isPassword)
 			{
-				string returnValue = null;
-				
-				Dialog md = new Dialog (caption, rootWindow, DialogFlags.Modal | DialogFlags.DestroyWithParent);
-				try {
-					// add a label with the question
-					Label questionLabel = new Label(question);
-					questionLabel.UseMarkup = true;
-					questionLabel.Xalign = 0.0F;
-					md.VBox.PackStart(questionLabel, true, false, 6);
-					
-					// add an entry with initialValue
-					Entry responseEntry = (initialValue != null) ? new Entry(initialValue) : new Entry();
-					md.VBox.PackStart(responseEntry, false, true, 6);
-					responseEntry.Visibility = !isPassword;
-					
-					// add action widgets
-					md.AddActionWidget(new Button(Gtk.Stock.Cancel), ResponseType.Cancel);
-					md.AddActionWidget(new Button(Gtk.Stock.Ok), ResponseType.Ok);
-					
-					md.VBox.ShowAll();
-					md.ActionArea.ShowAll();
-					md.HasSeparator = false;
-					md.BorderWidth = 6;
-					
-					PlaceDialog (md, rootWindow);
-					
-					int response = md.Run ();
-					md.Hide ();
-					
-					if ((ResponseType) response == ResponseType.Ok) {
-						returnValue =  responseEntry.Text;
-					}
-					
-					return returnValue;
-				} finally {
-					md.Destroy ();
-				}
+				var dialog = new TextQuestionDialog () {
+					Question = question,
+					Caption = caption,
+					Value = initialValue,
+					IsPassword = isPassword,
+				};
+				if (dialog.Run ())
+					return dialog.Value;
+				return null;
 			}
 		}
 		#endregion
@@ -435,22 +414,14 @@ namespace MonoDevelop.Ide
 		internal MessageDescription ()
 		{
 			DefaultButton = -1;
+			Buttons = new List<AlertButton> ();
+			Options = new List<AlertOption> ();
 		}
 		
-		internal List<AlertButton> buttons = new List<AlertButton> ();
-		List<Option> options = new List<Option> ();
+		internal IList<AlertButton> Buttons { get; private set; }
+		internal IList<AlertOption> Options { get; private set; }
 		
-		internal class Option {
-			public string Text;
-			public bool Value;
-			public string Id;
-		}
-		
-		internal AlertButton ApplyToAllButton;
-		
-		internal IEnumerable<Option> Options {
-			get { return options; }
-		}
+		internal AlertButton ApplyToAllButton { get; set; }
 		
 		public string Icon { get; set; }
 		
@@ -461,12 +432,12 @@ namespace MonoDevelop.Ide
 		
 		public void AddOption (string id, string text, bool setByDefault)
 		{
-			options.Add (new Option () { Text = text, Id = id, Value = setByDefault });
+			Options.Add (new AlertOption (id, text) { Value = setByDefault });
 		}
 		
 		public bool GetOptionValue (string id)
 		{
-			foreach (Option op in options)
+			foreach (var op in Options)
 				if (op.Id == id)
 					return op.Value;
 			throw new ArgumentException ("Invalid option id");
@@ -474,7 +445,7 @@ namespace MonoDevelop.Ide
 		
 		public void SetOptionValue (string id, bool value)
 		{
-			foreach (Option op in options) {
+			foreach (var op in Options) {
 				if (op.Id == id) {
 					op.Value = value;
 					return;
@@ -500,8 +471,8 @@ namespace MonoDevelop.Ide
 			SecondaryText = secondaryText;
 		}
 		
-		public List<AlertButton> Buttons {
-			get { return buttons; }
+		public new IList<AlertButton> Buttons {
+			get { return base.Buttons; }
 		}
 	}
 	
@@ -523,8 +494,8 @@ namespace MonoDevelop.Ide
 			SecondaryText = secondaryText;
 		}
 		
-		public List<AlertButton> Buttons {
-			get { return buttons; }
+		public new IList<AlertButton> Buttons {
+			get { return base.Buttons; }
 		}
 	}
 	
@@ -535,7 +506,7 @@ namespace MonoDevelop.Ide
 		public ConfirmationMessage ()
 		{
 			Icon = MonoDevelop.Ide.Gui.Stock.Question;
-			buttons.Add (AlertButton.Cancel);
+			Buttons.Add (AlertButton.Cancel);
 		}
 		
 		public ConfirmationMessage (AlertButton button): this ()
@@ -556,9 +527,9 @@ namespace MonoDevelop.Ide
 		public AlertButton ConfirmButton {
 			get { return confirmButton; }
 			set {
-				if (buttons.Count == 2)
-					buttons.RemoveAt (1);
-				buttons.Add (value);
+				if (Buttons.Count == 2)
+					Buttons.RemoveAt (1);
+				Buttons.Add (value);
 				confirmButton = value;
 			}
 		}
