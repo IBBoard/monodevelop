@@ -174,7 +174,7 @@ namespace MonoDevelop.CSharp.Formatting
 		{
 			INode previous = node.PrevSibling;
 			int requiredNewLineCount = Math.Max (GetBlankLineAfterSectionCount (previous, node), GetBlankLineBeforeSectionCount (previous, node));
-			requiredNewLineCount = Math.Max (requiredNewLineCount, GetBlankLineRepeatCount (node));
+			requiredNewLineCount = Math.Max (requiredNewLineCount, GetBlankLineRepeatCount (previous, node));
 			if (!IsNodeAtDocStart (node))
 				requiredNewLineCount++;
 			return requiredNewLineCount;
@@ -214,7 +214,7 @@ namespace MonoDevelop.CSharp.Formatting
 			return prevNode;
 		}
 
-		int GetBlankLineRepeatCount (INode secondNode)
+		int GetBlankLineRepeatCount (INode firstNode, INode secondNode)
 		{
 			int lineCount = 0;
 
@@ -222,7 +222,7 @@ namespace MonoDevelop.CSharp.Formatting
 				lineCount = 0;
 			} else if (secondNode is TypeDeclaration || secondNode is DelegateDeclaration) {
 				lineCount = policy.BlankLinesBetweenTypes;
-			} else if (secondNode is FieldDeclaration) {
+			} else if (secondNode is FieldDeclaration && firstNode is FieldDeclaration) {
 				lineCount = policy.BlankLinesBetweenFields;
 			} else if (secondNode is EventDeclaration) {
 				lineCount = policy.BlankLinesBetweenEventFields;

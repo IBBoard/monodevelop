@@ -283,7 +283,7 @@ namespace Test
 	public event EventHandler b;
 	public event EventHandler c;
 }";
-			
+
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.BlankLinesBetweenEventFields = 1;
 			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
@@ -296,19 +296,19 @@ namespace Test
 
 	public event EventHandler c;
 }", data.Document.Text);
-			
-		policy.BlankLinesBetweenEventFields = 0;
-		compilationUnit = new CSharpParser ().Parse (data);
-		compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
-		Assert.AreEqual (@"class Test
+
+			policy.BlankLinesBetweenEventFields = 0;
+			compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Assert.AreEqual (@"class Test
 {
 	public event EventHandler a;
 	public event EventHandler b;
 	public event EventHandler c;
 }", data.Document.Text);
 		}
-		
-		
+
+
 		[Test()]
 		public void TestBlankLinesBetweenMembers ()
 		{
@@ -371,15 +371,15 @@ namespace Test
 			data.Document.FileName = "a.cs";
 			data.Document.Text = @"class Test
 {
-	[Obsolete()]
+	[Obsolete]
 	void AMethod ()
 	{
 	}
-	[Obsolete()]
+	[Obsolete]
 	void BMethod ()
 	{
 	}
-	[Obsolete()]
+	[Obsolete]
 	void CMethod ()
 	{
 	}
@@ -392,17 +392,17 @@ namespace Test
 			Console.WriteLine (data.Text);
 			Assert.AreEqual (@"class Test
 {
-	[Obsolete()]
+	[Obsolete]
 	void AMethod ()
 	{
 	}
 
-	[Obsolete()]
+	[Obsolete]
 	void BMethod ()
 	{
 	}
 
-	[Obsolete()]
+	[Obsolete]
 	void CMethod ()
 	{
 	}
@@ -413,15 +413,79 @@ namespace Test
 			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
 {
-	[Obsolete()]
+	[Obsolete]
 	void AMethod ()
 	{
 	}
-	[Obsolete()]
+	[Obsolete]
 	void BMethod ()
 	{
 	}
-	[Obsolete()]
+	[Obsolete]
+	void CMethod ()
+	{
+	}
+}", data.Document.Text);
+		}
+
+		[Test()]
+		public void TestBlankLinesBetweenMembersWithComments ()
+		{
+			TextEditorData data = new TextEditorData ();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = @"class Test
+{
+	//Some comment here
+	void AMethod ()
+	{
+	}
+	//Some comment here
+	void BMethod ()
+	{
+	}
+	//Some comment here
+	void CMethod ()
+	{
+	}
+}";
+
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
+			policy.BlankLinesBetweenMembers = 1;
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Console.WriteLine (data.Text);
+			Assert.AreEqual (@"class Test
+{
+	//Some comment here
+	void AMethod ()
+	{
+	}
+
+	//Some comment here
+	void BMethod ()
+	{
+	}
+
+	//Some comment here
+	void CMethod ()
+	{
+	}
+}", data.Document.Text);
+
+			policy.BlankLinesBetweenMembers = 0;
+			compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Assert.AreEqual (@"class Test
+{
+	//Some comment here
+	void AMethod ()
+	{
+	}
+	//Some comment here
+	void BMethod ()
+	{
+	}
+	//Some comment here
 	void CMethod ()
 	{
 	}
@@ -532,6 +596,39 @@ namespace Test
 	void AMethod ()
 	{
 	}
+}", data.Document.Text);
+		}
+
+		[Test()]
+		public void TestBlankLinesBetweenMemberAndFieldExample ()
+		{
+			TextEditorData data = new TextEditorData ();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = @"class Test{ void AMethod () { } int a; }";
+
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
+			policy.BlankLinesBetweenMembers = 1;
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Console.WriteLine (data.Text);
+			Assert.AreEqual (@"class Test
+{
+	void AMethod ()
+	{
+	}
+
+	int a;
+}", data.Document.Text);
+
+			policy.BlankLinesBetweenMembers = 0;
+			compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Assert.AreEqual (@"class Test
+{
+	void AMethod ()
+	{
+	}
+	int a;
 }", data.Document.Text);
 		}
 	}
