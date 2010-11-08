@@ -37,6 +37,7 @@ using System.Drawing;
 using MonoDevelop.Projects.Text;
 using MonoDevelop.Ide.Gui;
 using MonoDevelop.Ide;
+using System.Runtime.InteropServices;
 
 namespace MonoDevelop.Platform.Mac
 {
@@ -47,7 +48,8 @@ namespace MonoDevelop.Platform.Mac
 			NSSavePanel panel = null;
 			
 			try {
-				bool directoryMode = data.Action != Gtk.FileChooserAction.Open;
+				bool directoryMode = data.Action != Gtk.FileChooserAction.Open
+					&& data.Action != Gtk.FileChooserAction.Save;
 				
 				if (data.Action == Gtk.FileChooserAction.Save) {
 					panel = new NSSavePanel ();
@@ -63,7 +65,6 @@ namespace MonoDevelop.Platform.Mac
 				SelectEncodingPopUpButton encodingSelector = null;
 				NSPopUpButton viewerSelector = null;
 				NSButton closeSolutionButton = null;
-				NSView viewSelLabelled = null;
 				
 				var box = new MDBox (LayoutDirection.Vertical, 2, 2);
 				
@@ -76,7 +77,7 @@ namespace MonoDevelop.Platform.Mac
 					var filterLabel = new MDAlignment (new MDLabel (GettextCatalog.GetString ("Show files:")), true);
 					var filterBox = new MDBox (LayoutDirection.Horizontal, 2, 0) {
 						{ filterLabel },
-						{ new MDAlignment (filterPopup, true) { MinWidth = 200 }  }
+						{ new MDAlignment (filterPopup, true) { MinWidth = 200 } }
 					};
 					labels.Add (filterLabel);
 					box.Add (filterBox);
@@ -130,10 +131,12 @@ namespace MonoDevelop.Platform.Mac
 					}
 				}
 				
-				float w = labels.Max (l => l.MinWidth);
-				foreach (var l in labels) {
-					l.MinWidth = w;
-					l.XAlign = LayoutAlign.Begin;
+				if (labels.Count > 0) {
+					float w = labels.Max (l => l.MinWidth);
+					foreach (var l in labels) {
+						l.MinWidth = w;
+						l.XAlign = LayoutAlign.Begin;
+					}
 				}
 				
 				if (box.Count > 0) {
@@ -163,9 +166,11 @@ namespace MonoDevelop.Platform.Mac
 				};
 				
 				try {
-					var action = panel.RunModal ();
-					if (action == 0)
+					var action = MacSelectFileDialogHandler.RunPanel (data, panel);
+					if (!action) {
+						GtkQuartz.FocusWindow (data.TransientFor ?? MessageService.RootWindow);
 						return false;
+					}
 				} catch (Exception ex) {
 					System.Console.WriteLine (ex);
 					throw;
@@ -182,6 +187,7 @@ namespace MonoDevelop.Platform.Mac
 					data.SelectedViewer = currentViewers[viewerSelector.IndexOfSelectedItem];
 				}
 				
+				GtkQuartz.FocusWindow (data.TransientFor ?? MessageService.RootWindow);
 				return true;
 			} finally {
 				if (panel != null)
@@ -216,5 +222,38 @@ namespace MonoDevelop.Platform.Mac
 			button.Enabled = currentViewers.Count > 1;
 			button.SelectItem (0);
 		}
+	}
+	
+	static class GtkQuartz
+	{
+		//this may be needed to work around focusing issues in GTK/Cocoa interop
+		public static void FocusWindow (Gtk.Window widget)
+		{
+			var window = GetWindow (widget);
+			if (window != null)
+				window.MakeKeyAndOrderFront (window);
+		}
+		
+		public static NSWindow GetWindow (Gtk.Window window)
+		{
+			var ptr = gdk_quartz_window_get_nswindow (window.GdkWindow.Handle);
+			if (ptr == IntPtr.Zero)
+				return null;
+			return MonoMac.ObjCRuntime.Runtime.GetNSObject (ptr) as NSWindow;
+		}
+		
+		public static NSView GetView (Gtk.Widget widget)
+		{
+			var ptr = gdk_quartz_window_get_nsview (widget.GdkWindow.Handle);
+			if (ptr == IntPtr.Zero)
+				return null;
+			return MonoMac.ObjCRuntime.Runtime.GetNSObject (ptr) as NSView;
+		}
+		
+		[DllImport ("libgtk-quartz-2.0.dylib")]
+        static extern IntPtr gdk_quartz_window_get_nsview (IntPtr window);
+		
+        [DllImport ("libgtk-quartz-2.0.dylib")]
+        static extern IntPtr gdk_quartz_window_get_nswindow (IntPtr window);
 	}
 }

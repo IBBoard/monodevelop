@@ -471,6 +471,12 @@ namespace MonoDevelop.CSharp.Formatting
 			return null;
 		}
 
+		static bool IsSimpleEvent (INode node)
+		{
+			var evt = (EventDeclaration)node;
+			return evt.AddAccessor == null;
+		}
+
 		public override object VisitEventDeclaration (EventDeclaration eventDeclaration, object data)
 		{
 			EnsureCorrectWhiteSpaceBefore (eventDeclaration);
@@ -505,6 +511,7 @@ namespace MonoDevelop.CSharp.Formatting
 
 			if (policy.IndentEventBody)
 				IndentLevel--;
+
 			return null;
 		}
 
@@ -804,6 +811,8 @@ namespace MonoDevelop.CSharp.Formatting
 			string currentText = data.Document.GetTextAt (offset, removedChars);
 			if (currentText == insertedText)
 				return;
+			if (currentText.Any (c => !(char.IsWhiteSpace (c) || c == '\r' || c == '\t' || c == '{' || c == '}')))
+				throw new InvalidOperationException ("Tried to remove non ws chars: '" + currentText + "'");
 			foreach (DomSpacingVisitor.MyTextReplaceChange change in changes) {
 				if (change.Offset == offset) {
 					if (removedChars > 0 && insertedText == change.InsertedText) {
@@ -811,6 +820,13 @@ namespace MonoDevelop.CSharp.Formatting
 //						change.InsertedText = insertedText;
 						return;
 					}
+					if (!string.IsNullOrEmpty (change.InsertedText)) {
+						change.InsertedText += insertedText;
+					} else {
+						change.InsertedText = insertedText;
+					}
+					change.RemovedChars = System.Math.Max (removedChars, change.RemovedChars);
+					return;
 				}
 			}
 			//Console.WriteLine ("offset={0}, removedChars={1}, insertedText={2}", offset, removedChars, insertedText == null ? "null" : insertedText.Replace ("\n", "\\n").Replace ("\t", "\\t").Replace (" ", "."));
@@ -836,6 +852,8 @@ namespace MonoDevelop.CSharp.Formatting
 
 		int SearchWhitespaceStart (int startOffset)
 		{
+			if (startOffset < 0)
+				throw new ArgumentOutOfRangeException ("startoffset", "value : " + startOffset);
 			for (int offset = startOffset - 1; offset >= 0; offset--) {
 				char ch = data.Document.GetCharAt (offset);
 				if (!Char.IsWhiteSpace (ch)) {
@@ -847,6 +865,8 @@ namespace MonoDevelop.CSharp.Formatting
 
 		int SearchWhitespaceEnd (int startOffset)
 		{
+			if (startOffset > data.Document.Length)
+				throw new ArgumentOutOfRangeException ("startoffset", "value : " + startOffset);
 			for (int offset = startOffset + 1; offset < data.Document.Length; offset++) {
 				char ch = data.Document.GetCharAt (offset);
 				if (!Char.IsWhiteSpace (ch)) {
@@ -858,6 +878,8 @@ namespace MonoDevelop.CSharp.Formatting
 
 		int SearchWhitespaceLineStart (int startOffset)
 		{
+			if (startOffset < 0)
+				throw new ArgumentOutOfRangeException ("startoffset", "value : " + startOffset);
 			for (int offset = startOffset - 1; offset >= 0; offset--) {
 				char ch = data.Document.GetCharAt (offset);
 				if (ch != ' ' && ch != '\t') {
@@ -1049,7 +1071,7 @@ namespace MonoDevelop.CSharp.Formatting
 		void FixStatementIndentation (MonoDevelop.Projects.Dom.DomLocation location)
 		{
 			int offset = data.Document.LocationToOffset (location.Line, location.Column);
-			if (offset == 0) {
+			if (offset <= 0) {
 				Console.WriteLine ("possible wrong offset");
 				Console.WriteLine (Environment.StackTrace);
 				return;

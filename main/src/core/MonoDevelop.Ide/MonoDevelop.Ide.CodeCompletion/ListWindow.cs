@@ -237,14 +237,29 @@ namespace MonoDevelop.Ide.CodeCompletion
 			get;
 			set;
 		}
+		
+		/// <summary>
+		/// Gets or sets a value indicating that shift was pressed during enter.
+		/// </summary>
+		/// <value>
+		/// <c>true</c> if was shift pressed; otherwise, <c>false</c>.
+		/// </value>
+		public bool WasShiftPressed {
+			get;
+			private set;
+		}
 
 		public KeyActions ProcessKey (Gdk.Key key, char keyChar, Gdk.ModifierType modifier)
 		{
 			switch (key) {
 			case Gdk.Key.Home:
+				if ((modifier & ModifierType.ShiftMask) == ModifierType.ShiftMask)
+					return KeyActions.Process;
 				List.Selection = 0;
 				return KeyActions.Ignore;
 			case Gdk.Key.End:
+				if ((modifier & ModifierType.ShiftMask) == ModifierType.ShiftMask)
+					return KeyActions.Process;
 				List.Selection = List.filteredItems.Count - 1;
 				return KeyActions.Ignore;
 				
@@ -290,12 +305,16 @@ namespace MonoDevelop.Ide.CodeCompletion
 				return KeyActions.Ignore;
 
 			case Gdk.Key.Page_Up:
+				if ((modifier & ModifierType.ShiftMask) == ModifierType.ShiftMask)
+					return KeyActions.Process;
 				if (list.filteredItems.Count < 2)
 					return KeyActions.CloseWindow | KeyActions.Process;
 				list.MoveCursor (-(list.VisibleRows - 1));
 				return KeyActions.Ignore;
 
 			case Gdk.Key.Page_Down:
+				if ((modifier & ModifierType.ShiftMask) == ModifierType.ShiftMask)
+					return KeyActions.Process;
 				if (list.filteredItems.Count < 2)
 					return KeyActions.CloseWindow | KeyActions.Process;
 				list.MoveCursor (list.VisibleRows - 1);
@@ -337,6 +356,7 @@ namespace MonoDevelop.Ide.CodeCompletion
 			case Gdk.Key.ISO_Enter:
 			case Gdk.Key.Key_3270_Enter:
 			case Gdk.Key.KP_Enter:
+				WasShiftPressed = (modifier & ModifierType.ShiftMask) == ModifierType.ShiftMask;
 				return (!list.AutoSelect ? KeyActions.Process : (KeyActions.Complete | KeyActions.Ignore)) | KeyActions.CloseWindow;
 
 			case Gdk.Key.Escape:
