@@ -227,11 +227,7 @@ namespace MonoDevelop.CSharp.Formatting
 			} else if (secondNode is EventDeclaration) {
 				lineCount = policy.BlankLinesBetweenEventFields;
 			} else if (IsMember (secondNode)) {
-				//Temporary fix for spacing around attributes on members - we won't add space between the attribute and the previous member,
-				//but we also won't move the attribute away from the member
-				int attributeCount = ((Dom.AbstractMember)secondNode).Attributes.Count ();
-				System.Console.WriteLine ("Attributes: " + attributeCount);
-				lineCount = (attributeCount > 0) ? 0 : policy.BlankLinesBetweenMembers;
+				lineCount = policy.BlankLinesBetweenMembers;
 			}
 
 			return lineCount;
