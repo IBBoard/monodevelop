@@ -152,7 +152,30 @@ using (IDisposable b = null) {
 			Assert.AreEqual (expectedOutput, text);
 		}
 
-		
+
+		/// <summary>
+		/// Bug 647687 - On-the-fly code formatting issue with readonly properties
+		/// </summary>
+		[Test()]
+
+		public void TestBug647687 ()
+		{
+			TextEditorData data = new TextEditorData ();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = @"public interface ISearchable
+{
+	string Content { get; }
+}";
+
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
+			policy.AllowPropertyGetBlockInline = true;
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Assert.AreEqual (@"public interface ISearchable
+{
+	string Content { get; }
+}", data.Document.Text);
+		}
 	}
 }
 

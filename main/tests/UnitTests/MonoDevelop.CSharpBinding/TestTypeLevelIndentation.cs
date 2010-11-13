@@ -419,8 +419,49 @@ set {
 	}
 }", data.Document.Text);
 		}
-		
-			
+
+		[Test()]
+		public void TestIndentReadOnlyPropertyBodyIndexerCase ()
+		{
+			TextEditorData data = new TextEditorData ();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = 
+@"class Test
+{
+	Test this[int a] {
+			get {
+	return null;
+}
+	}
+}";
+
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
+			policy.IndentPropertyBody = true;
+
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Assert.AreEqual (@"class Test
+{
+	Test this[int a] {
+		get {
+			return null;
+		}
+	}
+}", data.Document.Text);
+			policy.IndentPropertyBody = false;
+			compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Assert.AreEqual (@"class Test
+{
+	Test this[int a] {
+	get {
+		return null;
+	}
+	}
+}", data.Document.Text);
+		}
+
+
 		[Test()]
 		public void TestPropertyAlignment ()
 		{

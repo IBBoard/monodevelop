@@ -111,6 +111,43 @@ namespace Test
 		}
 		
 		[Test()]
+		public void TestBlankLinesBeforeUsingsWithFileHeaderComment ()
+		{
+			TextEditorData data = new TextEditorData ();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = @"// File headers go here
+using System;
+using System.Text;
+namespace Test
+{
+}";
+
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
+			policy.BlankLinesAfterUsings = 0;
+			policy.BlankLinesBeforeUsings = 2;
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse(data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Assert.AreEqual (@"// File headers go here
+
+
+using System;
+using System.Text;
+namespace Test
+{
+}", data.Document.Text);
+
+			policy.BlankLinesBeforeUsings = 0;
+			compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
+			Assert.AreEqual(@"// File headers go here
+using System;
+using System.Text;
+namespace Test
+{
+}", data.Document.Text);
+		}
+
+		[Test()]
 		public void TestBlankLinesBeforeFirstDeclaration ()
 		{
 			TextEditorData data = new TextEditorData ();
@@ -328,9 +365,274 @@ namespace Test
 	}
 }", data.Document.Text);
 		}
-		
-		
-		
+
+		[Test()]
+		public void TestBlankLinesBetweenMembersWithAttributes()
+		{
+			TextEditorData data = new TextEditorData();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = @"class Test
+{
+	[Obsolete]
+	void AMethod ()
+	{
+	}
+	[Obsolete]
+	void BMethod ()
+	{
+	}
+	[Obsolete]
+	void CMethod ()
+	{
+	}
+}";
+
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy();
+			policy.BlankLinesBetweenMembers = 1;
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser().Parse(data);
+			compilationUnit.AcceptVisitor(new DomIndentationVisitor(policy, data), null);
+			Console.WriteLine(data.Text);
+			Assert.AreEqual(@"class Test
+{
+	[Obsolete]
+	void AMethod ()
+	{
+	}
+
+	[Obsolete]
+	void BMethod ()
+	{
+	}
+
+	[Obsolete]
+	void CMethod ()
+	{
+	}
+}", data.Document.Text);
+
+			policy.BlankLinesBetweenMembers = 0;
+			compilationUnit = new CSharpParser().Parse(data);
+			compilationUnit.AcceptVisitor(new DomIndentationVisitor(policy, data), null);
+			Assert.AreEqual(@"class Test
+{
+	[Obsolete]
+	void AMethod ()
+	{
+	}
+	[Obsolete]
+	void BMethod ()
+	{
+	}
+	[Obsolete]
+	void CMethod ()
+	{
+	}
+}", data.Document.Text);
+		}
+
+		[Test()]
+		public void TestBlankLinesBetweenMembersWithComments()
+		{
+			TextEditorData data = new TextEditorData();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = @"class Test
+{
+	//Some comment here
+	void AMethod ()
+	{
+	}
+	//Some comment here
+	void BMethod ()
+	{
+	}
+	//Some comment here
+	void CMethod ()
+	{
+	}
+}";
+
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy();
+			policy.BlankLinesBetweenMembers = 1;
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser().Parse(data);
+			compilationUnit.AcceptVisitor(new DomIndentationVisitor(policy, data), null);
+			Console.WriteLine(data.Text);
+			Assert.AreEqual(@"class Test
+{
+	//Some comment here
+	void AMethod ()
+	{
+	}
+
+	//Some comment here
+	void BMethod ()
+	{
+	}
+
+	//Some comment here
+	void CMethod ()
+	{
+	}
+}", data.Document.Text);
+
+			policy.BlankLinesBetweenMembers = 0;
+			compilationUnit = new CSharpParser().Parse(data);
+			compilationUnit.AcceptVisitor(new DomIndentationVisitor(policy, data), null);
+			Assert.AreEqual(@"class Test
+{
+	//Some comment here
+	void AMethod ()
+	{
+	}
+	//Some comment here
+	void BMethod ()
+	{
+	}
+	//Some comment here
+	void CMethod ()
+	{
+	}
+}", data.Document.Text);
+		}
+
+		[Test()]
+		public void TestExcessBlankLinesBetweenMembers()
+		{
+			TextEditorData data = new TextEditorData();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = @"class Test
+{
+	void AMethod ()
+	{
+	}
+
+
+
+	void BMethod ()
+	{
+	}
+}";
+
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy();
+			policy.BlankLinesBetweenMembers = 1;
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser().Parse(data);
+			compilationUnit.AcceptVisitor(new DomIndentationVisitor(policy, data), null);
+			Console.WriteLine(data.Text);
+			Assert.AreEqual(@"class Test
+{
+	void AMethod ()
+	{
+	}
+
+	void BMethod ()
+	{
+	}
+}", data.Document.Text);
+		}
+
+		[Test()]
+		public void TestBlankLinesBetweenFieldAndMember()
+		{
+			TextEditorData data = new TextEditorData();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = @"class Test
+{
+	int a;
+	void AMethod ()
+	{
+	}
+}";
+
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy();
+			policy.BlankLinesBetweenMembers = 1;
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser().Parse(data);
+			compilationUnit.AcceptVisitor(new DomIndentationVisitor(policy, data), null);
+			Console.WriteLine(data.Text);
+			Assert.AreEqual(@"class Test
+{
+	int a;
+
+	void AMethod ()
+	{
+	}
+}", data.Document.Text);
+
+			policy.BlankLinesBetweenMembers = 0;
+			compilationUnit = new CSharpParser().Parse(data);
+			compilationUnit.AcceptVisitor(new DomIndentationVisitor(policy, data), null);
+			Assert.AreEqual(@"class Test
+{
+	int a;
+	void AMethod ()
+	{
+	}
+}", data.Document.Text);
+		}
+
+		[Test()]
+		public void TestBlankLinesBetweenFieldAndMemberExample()
+		{
+			TextEditorData data = new TextEditorData();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = @"class Test{ int a; void AMethod () { } }";
+
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy();
+			policy.BlankLinesBetweenMembers = 1;
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser().Parse(data);
+			compilationUnit.AcceptVisitor(new DomIndentationVisitor(policy, data), null);
+			Console.WriteLine(data.Text);
+			Assert.AreEqual(@"class Test
+{
+	int a;
+
+	void AMethod ()
+	{
+	}
+}", data.Document.Text);
+
+			policy.BlankLinesBetweenMembers = 0;
+			compilationUnit = new CSharpParser().Parse(data);
+			compilationUnit.AcceptVisitor(new DomIndentationVisitor(policy, data), null);
+			Assert.AreEqual(@"class Test
+{
+	int a;
+	void AMethod ()
+	{
+	}
+}", data.Document.Text);
+		}
+
+		[Test()]
+		public void TestBlankLinesBetweenMemberAndFieldExample()
+		{
+			TextEditorData data = new TextEditorData();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = @"class Test{ void AMethod () { } int a; }";
+
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy();
+			policy.BlankLinesBetweenMembers = 1;
+			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser().Parse(data);
+			compilationUnit.AcceptVisitor(new DomIndentationVisitor(policy, data), null);
+			Console.WriteLine(data.Text);
+			Assert.AreEqual(@"class Test
+{
+	void AMethod ()
+	{
+	}
+
+	int a;
+}", data.Document.Text);
+
+			policy.BlankLinesBetweenMembers = 0;
+			compilationUnit = new CSharpParser().Parse(data);
+			compilationUnit.AcceptVisitor(new DomIndentationVisitor(policy, data), null);
+			Assert.AreEqual(@"class Test
+{
+	void AMethod ()
+	{
+	}
+	int a;
+}", data.Document.Text);
+		}
 	}
 }
 
