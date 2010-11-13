@@ -73,7 +73,7 @@ public static class IPhoneFramework
 		public static bool SdkIsInstalled (string version)
 		{
 			return File.Exists ("/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS"
-			                    + version + ".sdk/ResourceRules.plist");
+			                    + version + ".sdk/SDKSettings.plist");
 		}
 		
 		public static bool SdkIsInstalled (IPhoneSdkVersion version)
@@ -128,17 +128,12 @@ public static class IPhoneFramework
 		
 		public static IPhoneSdkVersion GetClosestInstalledSdk (IPhoneSdkVersion v)
 		{
-			IPhoneSdkVersion? previous = null;
+			//sorted low to high, so get first that's >= requested version
 			foreach (var i in InstalledSdkVersions) {
-				var cmp = v.CompareTo (i);
-				if (cmp == 0) {
+				if (i.CompareTo (v) >= 0)
 					return i;
-				} else if (cmp > 0) {
-					return previous ?? i;	
-				}
-				previous = i;
 			}
-			return IPhoneSdkVersion.Default;
+			return IPhoneSdkVersion.UseDefault;
 		}
 		
 		public static IList<IPhoneSdkVersion> InstalledSdkVersions {
@@ -210,6 +205,9 @@ public static class IPhoneFramework
 			
 			var sdks = new List<string> ();
 			foreach (var dir in Directory.GetDirectories (sdkDir)) {
+				if (!File.Exists (dir + "/SDKSettings.plist"))
+					continue;
+				
 				string d = dir.Substring (sdkDir.Length);
 				if (d.StartsWith ("iPhoneOS"))
 					d = d.Substring ("iPhoneOS".Length);

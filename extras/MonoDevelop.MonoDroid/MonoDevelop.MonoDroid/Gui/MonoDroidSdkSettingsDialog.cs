@@ -1,20 +1,21 @@
-// MyClass.cs
-//
+// 
+// MonoDroidSdkSettingsDialog.cs
+//  
 // Author:
-//   Lluis Sanchez Gual <lluis@novell.com>
-//
-// Copyright (c) 2008 Novell, Inc (http://www.novell.com)
-//
+//       Carlos Alberto Cortez <calberto.cortez@gmail.com>
+// 
+// Copyright (c) 2010 Novell, Inc.
+// 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-//
+// 
 // The above copyright notice and this permission notice shall be included in
 // all copies or substantial portions of the Software.
-//
+// 
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -22,69 +23,34 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-//
-//
 
 using System;
-using Library2;
+using MonoDevelop.Core;
+using MonoDevelop.MonoDroid;
+using Gtk;
 
-namespace Library1
+namespace MonoDevelop.MonoDroid.Gui
 {
-	public class CBin: CWidget
+	public partial class MonoDroidSdkSettingsDialog : Gtk.Dialog
 	{
-	}
+		MonoDroidSdkSettingsWidget settingsWidget;
 
-	public class CList: CWidget
-	{
-	}
-
-	public class SomeContainer
-	{
-		public class CInnerWidget: CWidget
+		public MonoDroidSdkSettingsDialog ()
 		{
-		}
-
-		public class SomeInnerContainer
-		{
-			public class CSubInnerWidget: CWidget
-			{
-			}
-		}
-	}
-
-	public class CExtraBin: CBin
-	{
-	}
-
-	public class CExtraContainerSub: CExtraContainer
-	{
-	}
-
-	public class CExtraContainerInnerSub: Library2.SomeContainer.CExtraInnerWidget
-	{
-		public class CInnerWidget1: CExtraContainer, IObject
-		{
-		}
-
-		public class CInnerWidget2: Library1.SomeContainer.CInnerWidget, IObject
-		{
-		}
-
-		public class CInnerWidget3: Library2.SomeContainer.CInnerWidget
-		{
-		}
-	}
-
-	public interface ISimple: IObject
-	{
-	}
-	
-	public class TestAttribute : Attribute
-	{
-		public TestAttribute (string foo, int bar)
-		{
+			this.Build ();
+			
+			settingsWidget = new MonoDroidSdkSettingsWidget ();
+			settingsWidget.SettingsChanged += delegate {
+				buttonOk.Sensitive = settingsWidget.IsAndroidPathValid && settingsWidget.IsJavaPathValid;
+			};
+			settingsWidget.ShowAll ();
+			settingsWidgetPlaceholder.Add (settingsWidget);
 		}
 		
-		public string Blah { get; set; }
+		public void ApplyChanges ()
+		{
+			settingsWidget.ApplyChanges ();
+		}
 	}
 }
+
