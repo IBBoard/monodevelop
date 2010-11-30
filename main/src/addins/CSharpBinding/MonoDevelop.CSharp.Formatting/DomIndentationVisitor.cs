@@ -176,7 +176,7 @@ namespace MonoDevelop.CSharp.Formatting
 			INode previous = node.PrevSibling;
 			int requiredNewLineCount = Math.Max (GetBlankLineAfterSectionCount (previous, node), GetBlankLineBeforeSectionCount (previous, node));
 			requiredNewLineCount = Math.Max (requiredNewLineCount, GetBlankLineRepeatCount (node));
-			if (!IsNodeAtDocStart (node))
+			if (node.PrevSibling != null)
 				requiredNewLineCount++;
 			return requiredNewLineCount;
 		}
@@ -232,19 +232,6 @@ namespace MonoDevelop.CSharp.Formatting
 			}
 
 			return lineCount;
-		}
-
-		bool IsNodeAtDocStart (ICSharpNode node)
-		{
-			int offset = GetNodeStartOffset (node) - 1;
-			for (; offset > -1; offset--) {
-				char ch = data.Document.GetCharAt (offset);
-				if (!Char.IsWhiteSpace (ch)) {
-					break;
-				}
-			}
-
-			return offset == -1;
 		}
 
 		bool HasTooManyLines (int lineCountDiff)

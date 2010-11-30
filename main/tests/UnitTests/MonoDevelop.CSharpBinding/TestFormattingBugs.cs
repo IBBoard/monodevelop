@@ -1,21 +1,21 @@
-//
+// 
 // TestFormattingBugs.cs
-//
+//  
 // Author:
 //       Mike Krüger <mkrueger@novell.com>
-//
+// 
 // Copyright (c) 2010 Novell, Inc (http://www.novell.com)
-//
+// 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-//
+// 
 // The above copyright notice and this permission notice shall be included in
 // all copies or substantial portions of the Software.
-//
+// 
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -53,7 +53,7 @@ namespace MonoDevelop.CSharpBinding.FormattingTests
 		{
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.PlaceElseOnNewLine = true;
-
+			
 			TestStatementFormatting (policy,
 @"foreach (int i in myints)
 if (i == 6)
@@ -66,15 +66,15 @@ Console.WriteLine (""Bad indent"");",
 	else
 		Console.WriteLine (""Bad indent"");");
 		}
-
+		
 		/// <summary>
 		/// Bug 415469 - return ternary in a switch is not tabbed properly
 		/// </summary>
 		[Test()]
-		public void TestBug415469 ()
+		public void TestBug415469 () 
 		{
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
-
+			
 			TestStatementFormatting (policy,
 @"switch (condition) {
 case CONDITION1:
@@ -90,7 +90,7 @@ case CONDITION2:
 	return ""Should be indented like this"";
 }");
 		}
-
+		
 		/// <summary>
 		/// Bug 540043 - Format option for alignment of using-statements
 		/// </summary>
@@ -98,7 +98,7 @@ case CONDITION2:
 		public void TestBug540043 ()
 		{
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
-
+			
 			TestStatementFormatting (policy,
 @"using (IDisposable a = null)
    using (IDisposable b = null) {
@@ -109,7 +109,11 @@ using (IDisposable b = null) {
 	int c;
 }");
 		}
+		
+		
 
+
+		
 		static void TestStatementFormatting (CSharpFormattingPolicy policy, string input, string expectedOutput)
 		{
 			TextEditorData data = new TextEditorData ();
@@ -126,16 +130,16 @@ using (IDisposable b = null) {
 			DomSpacingVisitor domSpacingVisitor = new DomSpacingVisitor (policy, data);
 			domSpacingVisitor.AutoAcceptChanges = false;
 			compilationUnit.AcceptVisitor (domSpacingVisitor, null);
-
+			
 			DomIndentationVisitor domIndentationVisitor = new DomIndentationVisitor (policy, data);
 			domIndentationVisitor.AutoAcceptChanges = false;
 			compilationUnit.AcceptVisitor (domIndentationVisitor, null);
-
+			
 			List<Change> changes = new List<Change> ();
 			changes.AddRange (domSpacingVisitor.Changes);
 			changes.AddRange (domIndentationVisitor.Changes);
 			RefactoringService.AcceptChanges (null, null, changes);
-
+			
 			for (int i = 1; i <= data.Document.LineCount; i++) {
 				LineSegment line = data.Document.GetLine (i);
 				if (line.EditableLength < 2)
@@ -148,31 +152,7 @@ using (IDisposable b = null) {
 			Assert.AreEqual (expectedOutput, text);
 		}
 
-
-		/// <summary>
-		/// Bug 647687 - On-the-fly code formatting issue with readonly properties
-		/// </summary>
-		[Test()]
-		public void TestBug647687()
-		{
-			TextEditorData data = new TextEditorData ();
-			data.Document.FileName = "a.cs";
-			data.Document.Text = @"public interface ISearchable
-{
-	string Content { get; }
-}";
-
-			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
-			policy.AllowPropertyGetBlockInline = true;
-			CSharp.Dom.CompilationUnit compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new DomIndentationVisitor (policy, data), null);
-			Assert.AreEqual (@"public interface ISearchable
-{
-	string Content {
-		get;
-	}
-}", data.Document.Text);
-		}
+		
 	}
 }
 
