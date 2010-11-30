@@ -48,9 +48,10 @@ namespace MonoDevelop.Projects.Formats.MSBuild
 		public const string GenericItemGuid = "{9344bdbb-3e7f-41fc-a0dd-8665d75ee146}";
 		public const string FolderTypeGuid = "{2150E333-8FDC-42A3-9474-1A3956D46DE8}";
 		
-		//FIXME: default toolsversion should match the default format.
+		//NOTE: default toolsversion should match the default format.
 		public const string DefaultFormat = "MSBuild08";
-		const string REFERENCED_MSBUILD_TOOLS = "2.0";
+		const string REFERENCED_MSBUILD_TOOLS = "3.5";
+		const string REFERENCED_MSBUILD_UTILS = "Microsoft.Build.Utilities.v3.5";
 		internal const string DefaultToolsVersion = REFERENCED_MSBUILD_TOOLS;
 		
 		static DataContext dataContext;
@@ -479,22 +480,22 @@ namespace MonoDevelop.Projects.Formats.MSBuild
 				version = "2.0.0.0";
 				newVersions.Add ("Microsoft.Build.Engine", new string[] {"Microsoft.Build.Engine", version});
 				newVersions.Add ("Microsoft.Build.Framework", new string[] {"Microsoft.Build.Framework", version});
-				newVersions.Add ("Microsoft.Build.Utilities", new string[] {"Microsoft.Build.Utilities", version});
-				runtime = Mono.Cecil.TargetRuntime.NET_2_0;
+				newVersions.Add (REFERENCED_MSBUILD_UTILS, new string[] {"Microsoft.Build.Utilities", version});
+				runtime = Mono.Cecil.TargetRuntime.Net_2_0;
 				break;
 			case "3.5":
 				version = "3.5.0.0";
 				newVersions.Add ("Microsoft.Build.Engine", new string[] {"Microsoft.Build.Engine", version});
 				newVersions.Add ("Microsoft.Build.Framework", new string[] {"Microsoft.Build.Framework", version});
-				newVersions.Add ("Microsoft.Build.Utilities", new string[] {"Microsoft.Build.Utilities.v3.5", version});
-				runtime = Mono.Cecil.TargetRuntime.NET_2_0;
+				newVersions.Add (REFERENCED_MSBUILD_UTILS, new string[] {"Microsoft.Build.Utilities.v3.5", version});
+				runtime = Mono.Cecil.TargetRuntime.Net_2_0;
 				break;
 			case "4.0":
 				version = "4.0.0.0";
 				newVersions.Add ("Microsoft.Build.Engine", new string[] {"Microsoft.Build.Engine", version});
 				newVersions.Add ("Microsoft.Build.Framework", new string[] {"Microsoft.Build.Framework", version});
-				newVersions.Add ("Microsoft.Build.Utilities", new string[] {"Microsoft.Build.Utilities.v4.0", version});
-				runtime = Mono.Cecil.TargetRuntime.NET_4_0;
+				newVersions.Add (REFERENCED_MSBUILD_UTILS, new string[] {"Microsoft.Build.Utilities.v4.0", version});
+				runtime = Mono.Cecil.TargetRuntime.Net_4_0;
 				break;
 			default:
 				throw new InvalidOperationException ("Unknown MSBuild ToolsVersion '" + toolsVersion + "'");
@@ -506,7 +507,7 @@ namespace MonoDevelop.Projects.Formats.MSBuild
 					Directory.CreateDirectory (p.ParentDirectory);
 				
 				// Update the references to msbuild
-				Cecil.AssemblyDefinition asm = Cecil.AssemblyFactory.GetAssembly (sourceExe);
+				Cecil.AssemblyDefinition asm = Cecil.AssemblyDefinition.ReadAssembly (sourceExe);
 				foreach (Cecil.AssemblyNameReference ar in asm.MainModule.AssemblyReferences) {
 					string[] replacement;
 					if (newVersions.TryGetValue (ar.Name, out replacement)) {
@@ -514,15 +515,15 @@ namespace MonoDevelop.Projects.Formats.MSBuild
 						ar.Version = new Version (replacement[1]);
 					}
 				}
-				asm.Runtime = runtime;
+				asm.MainModule.Runtime = runtime;
 				
 				//run in 32-bit mode because usually msbuild targets are installed for 32-bit only
-				asm.MainModule.Image.CLIHeader.Flags |= Mono.Cecil.Binary.RuntimeImage.F32BitsRequired;
+				asm.MainModule.Attributes |= Mono.Cecil.ModuleAttributes.Required32Bit;
 				
 				// Workaround to a bug in mcs. The ILOnly flag is not emitted when using /platform:x86
-				asm.MainModule.Image.CLIHeader.Flags |= Mono.Cecil.Binary.RuntimeImage.ILOnly;
+				asm.MainModule.Attributes |= Mono.Cecil.ModuleAttributes.ILOnly;
 				
-				Cecil.AssemblyFactory.SaveAssembly (asm, p);
+				asm.Write (p);
 			}
 			
 			FilePath configFile = p + ".config";

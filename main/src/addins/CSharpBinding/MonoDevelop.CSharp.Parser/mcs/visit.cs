@@ -20,7 +20,7 @@ namespace Mono.CSharp
 			Console.WriteLine ("unknown member type: " + member.GetType ());
 		}
 
-		public virtual void Visit (ModuleCompiled mc)
+		public virtual void Visit (ModuleContainer mc)
 		{/*
 			if (mc.Delegates != null) {
 				foreach (TypeContainer tc in mc.Delegates) {
@@ -257,14 +257,17 @@ namespace Mono.CSharp
 		{
 			return null;
 		}
-
-
+		
 		public virtual object Visit (Switch switchStatement)
 		{
 			return null;
 		}
-
-
+		
+		public virtual object Visit (StatementList statementList)
+		{
+			return null;
+		}
+		
 		public virtual object Visit (Lock lockStatement)
 		{
 			return null;

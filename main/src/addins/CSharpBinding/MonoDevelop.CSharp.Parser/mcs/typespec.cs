@@ -11,7 +11,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using System.Linq;
+using System.Reflection;
 
 namespace Mono.CSharp
 {
@@ -872,6 +872,7 @@ namespace Mono.CSharp
 
 	public interface ITypeDefinition : IMemberDefinition
 	{
+		IAssemblyDefinition DeclaringAssembly { get; }
 		string Namespace { get; }
 		int TypeParametersCount { get; }
 		TypeParameterSpec[] TypeParameters { get; }
@@ -879,6 +880,7 @@ namespace Mono.CSharp
 		TypeSpec GetAttributeCoClass ();
 		string GetAttributeDefaultMember ();
 		AttributeUsageAttribute GetAttributeUsage (PredefinedAttribute pa);
+		bool IsInternalAsPublic (IAssemblyDefinition assembly);
 		void LoadMembers (TypeSpec declaringType, bool onlyTypes, ref MemberCache cache);
 	}
 
@@ -918,7 +920,7 @@ namespace Mono.CSharp
 			}
 		}
 
-		System.Reflection.Assembly IMemberDefinition.Assembly {
+		IAssemblyDefinition ITypeDefinition.DeclaringAssembly {
 			get {
 				throw new NotImplementedException ();
 			}
@@ -978,6 +980,11 @@ namespace Mono.CSharp
 			return null;
 		}
 
+		bool ITypeDefinition.IsInternalAsPublic (IAssemblyDefinition assembly)
+		{
+			throw new NotImplementedException ();
+		}
+
 		void ITypeDefinition.LoadMembers (TypeSpec declaringType, bool onlyTypes, ref MemberCache cache)
 		{
 			throw new NotImplementedException ();
@@ -1015,7 +1022,14 @@ namespace Mono.CSharp
 			: base (kind, element.DeclaringType, null, info, element.Modifiers)
 		{
 			this.Element = element;
-			if (element == InternalType.Dynamic || element.HasDynamicElement)
+
+			// Some flags can be copied directly from the element
+			const StateFlags shared_flags = StateFlags.CLSCompliant | StateFlags.CLSCompliant_Undetected
+				| StateFlags.Obsolete | StateFlags.Obsolete_Undetected | StateFlags.HasDynamicElement;
+			state &= ~shared_flags;
+			state |= (element.state & shared_flags);
+
+			if (element == InternalType.Dynamic)
 				state |= StateFlags.HasDynamicElement;
 
 			// Has to use its own type definition instead of just element definition to
@@ -1066,10 +1080,15 @@ namespace Mono.CSharp
 
 		#region ITypeDefinition Members
 
-		System.Reflection.Assembly IMemberDefinition.Assembly {
+		IAssemblyDefinition ITypeDefinition.DeclaringAssembly {
 			get {
-				return Element.Assembly;
+				return Element.MemberDefinition.DeclaringAssembly;
 			}
+		}
+
+		bool ITypeDefinition.IsInternalAsPublic (IAssemblyDefinition assembly)
+		{
+			return Element.MemberDefinition.IsInternalAsPublic (assembly);
 		}
 
 		public string Namespace {
@@ -1175,7 +1194,7 @@ namespace Mono.CSharp
 			}
 		}
 
-		public System.Reflection.MethodInfo GetConstructor ()
+		public MethodInfo GetConstructor ()
 		{
 			var mb = RootContext.ToplevelTypes.Builder;
 
@@ -1184,14 +1203,14 @@ namespace Mono.CSharp
 				arg_types[i] = TypeManager.int32_type.GetMetaInfo ();
 
 			var ctor = mb.GetArrayMethod (
-				GetMetaInfo (), ".ctor",
-				System.Reflection.CallingConventions.HasThis,
+				GetMetaInfo (), Constructor.ConstructorName,
+				CallingConventions.HasThis,
 				null, arg_types);
 
 			return ctor;
 		}
 
-		public System.Reflection.MethodInfo GetAddressMethod ()
+		public MethodInfo GetAddressMethod ()
 		{
 			var mb = RootContext.ToplevelTypes.Builder;
 
@@ -1201,13 +1220,13 @@ namespace Mono.CSharp
 
 			var address = mb.GetArrayMethod (
 				GetMetaInfo (), "Address",
-				System.Reflection.CallingConventions.HasThis | System.Reflection.CallingConventions.Standard,
+				CallingConventions.HasThis | CallingConventions.Standard,
 				ReferenceContainer.MakeType (Element).GetMetaInfo (), arg_types);
 
 			return address;
 		}
 
-		public System.Reflection.MethodInfo GetGetMethod ()
+		public MethodInfo GetGetMethod ()
 		{
 			var mb = RootContext.ToplevelTypes.Builder;
 
@@ -1217,13 +1236,13 @@ namespace Mono.CSharp
 
 			var get = mb.GetArrayMethod (
 				GetMetaInfo (), "Get",
-				System.Reflection.CallingConventions.HasThis | System.Reflection.CallingConventions.Standard,
+				CallingConventions.HasThis | CallingConventions.Standard,
 				Element.GetMetaInfo (), arg_types);
 
 			return get;
 		}
 
-		public System.Reflection.MethodInfo GetSetMethod ()
+		public MethodInfo GetSetMethod ()
 		{
 			var mb = RootContext.ToplevelTypes.Builder;
 
@@ -1235,7 +1254,7 @@ namespace Mono.CSharp
 
 			var set = mb.GetArrayMethod (
 				GetMetaInfo (), "Set",
-				System.Reflection.CallingConventions.HasThis | System.Reflection.CallingConventions.Standard,
+				CallingConventions.HasThis | CallingConventions.Standard,
 				TypeManager.void_type.GetMetaInfo (), arg_types);
 
 			return set;

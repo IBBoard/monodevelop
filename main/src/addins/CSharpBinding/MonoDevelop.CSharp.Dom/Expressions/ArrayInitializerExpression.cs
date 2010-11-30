@@ -23,12 +23,10 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-using System;
-using MonoDevelop.Projects.Dom;
 
 namespace MonoDevelop.CSharp.Dom
 { 
-	public class ArrayInitializerExpression : AbstractCSharpNode
+	public class ArrayInitializerExpression : DomNode
 	{
 		public override NodeType NodeType {
 			get {
@@ -37,7 +35,7 @@ namespace MonoDevelop.CSharp.Dom
 		}
 		
 		
-		public override S AcceptVisitor<T, S> (ICSharpDomVisitor<T, S> visitor, T data)
+		public override S AcceptVisitor<T, S> (DomVisitor<T, S> visitor, T data)
 		{
 			return visitor.VisitArrayInitializerExpression (this, data);
 		}

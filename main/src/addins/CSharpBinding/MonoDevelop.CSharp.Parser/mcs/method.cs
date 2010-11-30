@@ -15,8 +15,6 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Security;
 using System.Security.Permissions;
 using System.Text;
@@ -461,8 +459,8 @@ namespace Mono.CSharp {
 				return;
 			}
 
-			if (a.IsInternalMethodImplAttribute) {
-				is_external_implementation = true;
+			if (a.Type == pa.MethodImpl) {
+				is_external_implementation = a.IsInternalCall ();
 			}
 
 			if (a.Type == pa.DllImport) {
@@ -775,7 +773,7 @@ namespace Mono.CSharp {
 		{
 		}
 
-#region Properties
+		#region Properties
 
 		public override TypeParameter[] CurrentTypeParameters {
 			get {
@@ -827,7 +825,7 @@ namespace Mono.CSharp {
 		{
 			Report.Error (17, b.Location,
 				"Program `{0}' has more than one entry point defined: `{1}'",
-				CodeGen.FileName, b.GetSignatureForError ());
+				b.Module.Builder.ScopeName, b.GetSignatureForError ());
 		}
 
 		bool IsEntryPoint ()
@@ -1065,7 +1063,7 @@ namespace Mono.CSharp {
 					ModFlags |= Modifiers.METHOD_EXTENSION;
 					Parent.PartialContainer.ModFlags |= Modifiers.METHOD_EXTENSION;
 					Spec.DeclaringType.SetExtensionMethodContainer ();
-					CodeGen.Assembly.HasExtensionMethods = true;
+					Parent.Module.HasExtensionMethod = true;
 				} else {
 					Report.Error (1106, Location, "`{0}': Extension methods must be defined in a non-generic static class",
 						GetSignatureForError ());
@@ -1081,16 +1079,16 @@ namespace Mono.CSharp {
 				RootContext.MainClass == Parent.TypeBuilder.FullName)){
 				if (IsEntryPoint ()) {
 
-					if (RootContext.EntryPoint == null) {
+					if (Parent.DeclaringAssembly.EntryPoint == null) {
 						if (Parent.IsGeneric || MemberName.IsGeneric) {
 							Report.Warning (402, 4, Location, "`{0}': an entry point cannot be generic or in a generic type",
 								GetSignatureForError ());
 						} else {
 							SetIsUsed ();
-							RootContext.EntryPoint = this;
+							Parent.DeclaringAssembly.EntryPoint = this;
 						}
 					} else {
-						Error_DuplicateEntryPoint (RootContext.EntryPoint);
+						Error_DuplicateEntryPoint (Parent.DeclaringAssembly.EntryPoint);
 						Error_DuplicateEntryPoint (this);
 					}
 				} else {
@@ -1340,7 +1338,10 @@ namespace Mono.CSharp {
 			Modifiers.PRIVATE;
 
 		static readonly string[] attribute_targets = new string [] { "method" };
-		
+
+		public static readonly string ConstructorName = ".ctor";
+		public static readonly string TypeConstructorName = ".cctor";
+
 		//
 		// The spec claims that static is not permitted, but
 		// my very own code has static constructors.
@@ -1384,8 +1385,8 @@ namespace Mono.CSharp {
 				return;
 			}
 
-			if (a.IsInternalMethodImplAttribute) {
-				is_external_implementation = true;
+			if (a.Type == pa.MethodImpl) {
+				is_external_implementation = a.IsInternalCall ();
 			}
 
 			ConstructorBuilder.SetCustomAttribute ((ConstructorInfo) ctor.GetMetaInfo (), cdata);

@@ -417,7 +417,8 @@ namespace MonoDevelop.Projects
 		internal override void OnFileChanged (object source, MonoDevelop.Core.FileEventArgs e)
 		{
 			base.OnFileChanged (source, e);
-			CheckReferenceChange (e.FileName);
+			foreach (FileEventInfo ei in e)
+				CheckReferenceChange (ei.FileName);
 		}
 
 
@@ -491,12 +492,13 @@ namespace MonoDevelop.Projects
 				base.PopulateSupportFileList (list, configuration);
 
 			//rename the app.config file
-			FileCopySet.Item appConfig = list.Remove ("app.config");
-			if (appConfig == null)
-				appConfig = list.Remove ("App.config");
+			list.Remove ("app.config");
+			list.Remove ("App.config");
+			
+			ProjectFile appConfig = Files.FirstOrDefault (f => f.FilePath.FileName.Equals ("app.config", StringComparison.CurrentCultureIgnoreCase));
 			if (appConfig != null) {
-				string output = Path.GetFileName (GetOutputFileName (configuration));
-				list.Add (appConfig.Src, appConfig.CopyOnlyIfNewer, output + ".config");
+				string output = GetOutputFileName (configuration).FileName;
+				list.Add (appConfig.FilePath, true, output + ".config");
 			}
 			
 			//collect all the "local copy" references and their attendant files
@@ -624,7 +626,7 @@ namespace MonoDevelop.Projects
 			yield return fileName;
 			Mono.Cecil.AssemblyDefinition adef;
 			try {
-				adef = Mono.Cecil.AssemblyFactory.GetAssemblyManifest (fileName);
+				adef = Mono.Cecil.AssemblyDefinition.ReadAssembly (fileName);
 			} catch {
 				yield break;
 			}
@@ -1079,7 +1081,8 @@ namespace MonoDevelop.Projects
 
 		private void OnFileRemoved (Object o, FileEventArgs e)
 		{
-			CheckReferenceChange (e.FileName);
+			foreach (FileEventInfo ei in e)
+				CheckReferenceChange (ei.FileName);
 		}
 
 		protected override void DoExecute (IProgressMonitor monitor, ExecutionContext context, ConfigurationSelector configuration)

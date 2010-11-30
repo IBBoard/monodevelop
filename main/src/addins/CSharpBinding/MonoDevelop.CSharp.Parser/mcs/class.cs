@@ -15,20 +15,17 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security;
 using System.Security.Permissions;
-using System.Text;
 using System.Linq;
 
 #if NET_2_1
 using XmlElement = System.Object;
 #else
-using System.Xml;
+
 #endif
 
-using Mono.CompilerServices.SymbolWriter;
 
 namespace Mono.CSharp {
 
@@ -166,7 +163,7 @@ namespace Mono.CSharp {
 		List<MemberCore> operators;
 
 		// Holds the compiler generated classes
-		List<CompilerGeneratedClass> compiler_generated;
+		protected List<CompilerGeneratedClass> compiler_generated;
 
 		Dictionary<MethodSpec, Method> hoisted_base_call_proxies;
 
@@ -282,6 +279,18 @@ namespace Mono.CSharp {
 					return total - CurrentTypeParameters.Length;
 				}
 				return total;
+			}
+		}
+
+		public virtual AssemblyDefinition DeclaringAssembly {
+			get {
+				return Module.DeclaringAssembly;
+			}
+		}
+
+		IAssemblyDefinition ITypeDefinition.DeclaringAssembly {
+			get {
+				return Module.DeclaringAssembly;
 			}
 		}
 
@@ -463,8 +472,7 @@ namespace Mono.CSharp {
 		{
 			orderedAllMembers.Add (c);
 			bool is_static = (c.ModFlags & Modifiers.STATIC) != 0;
-			if (!AddToContainer (c, is_static ?
-				ConstructorBuilder.ConstructorName : ConstructorBuilder.TypeConstructorName))
+			if (!AddToContainer (c, is_static ? Constructor.ConstructorName : Constructor.TypeConstructorName))
 				return;
 			
 			if (is_static && c.ParameterInfo.IsEmpty){
@@ -654,12 +662,6 @@ namespace Mono.CSharp {
 		public IList<MemberCore> Operators {
 			get {
 				return operators;
-			}
-		}
-
-		public IList<CompilerGeneratedClass> CompilerGeneratedClasses {
-			get {
-				return compiler_generated;
 			}
 		}
 
@@ -1025,17 +1027,14 @@ namespace Mono.CSharp {
 			int type_size = Kind == MemberKind.Struct && first_nonstatic_field == null ? 1 : 0;
 
 			if (IsTopLevel) {
-				if (Compiler.GlobalRootNamespace.IsNamespace (Name)) {
+				// TODO: Completely wrong
+				if (Module.GlobalRootNamespace.IsNamespace (Name)) {
 					Report.Error (519, Location, "`{0}' clashes with a predefined namespace", Name);
-					return false;
 				}
 
-				ModuleBuilder builder = Module.Compiled.Builder;
-				TypeBuilder = builder.DefineType (Name, TypeAttr, null, type_size);
+				TypeBuilder = Module.CreateBuilder (Name, TypeAttr, type_size);
 			} else {
-				TypeBuilder builder = Parent.TypeBuilder;
-
-				TypeBuilder = builder.DefineNestedType (Basename, TypeAttr, null, type_size);
+				TypeBuilder = Parent.TypeBuilder.DefineNestedType (Basename, TypeAttr, null, type_size);
 			}
 
 			spec.SetMetaInfo (TypeBuilder);
@@ -1161,13 +1160,15 @@ namespace Mono.CSharp {
 					Report.Error (529, Location,
 						"Inherited interface `{0}' causes a cycle in the interface hierarchy of `{1}'",
 					    GetSignatureForError (), cycle.GetSignatureForError ());
+
+					iface_exprs = null;
 				} else {
 					Report.Error (146, Location,
 						"Circular base class dependency involving `{0}' and `{1}'",
 						GetSignatureForError (), cycle.GetSignatureForError ());
-				}
 
-				base_type = null;
+					base_type = null;
+				}
 			}
 
 			if (iface_exprs != null) {
@@ -1275,17 +1276,17 @@ namespace Mono.CSharp {
 		//
 		// Defines the type in the appropriate ModuleBuilder or TypeBuilder.
 		//
-		public TypeBuilder CreateType ()
+		public bool CreateType ()
 		{
 			if (TypeBuilder != null)
-				return TypeBuilder;
+				return !error;
 
 			if (error)
-				return null;
+				return false;
 
 			if (!CreateTypeBuilder ()) {
 				error = true;
-				return null;
+				return false;
 			}
 
 			if (partial_parts != null) {
@@ -1298,36 +1299,31 @@ namespace Mono.CSharp {
 
 			if (Types != null) {
 				foreach (TypeContainer tc in Types) {
-					if (tc.CreateType () == null) {
-						error = true;
-						return null;
-					}
+					tc.CreateType ();
 				}
 			}
 
-			return TypeBuilder;
+			return true;
 		}
 
-		public override TypeBuilder DefineType ()
+		public override void DefineType ()
 		{
 			if (error)
-				return null;
+				return;
 			if (type_defined)
-				return TypeBuilder;
+				return;
 
 			type_defined = true;
 
 			if (!DefineBaseTypes ()) {
 				error = true;
-				return null;
+				return;
 			}
 
 			if (!DefineNestedTypes ()) {
 				error = true;
-				return null;
+				return;
 			}
-
-			return TypeBuilder;
 		}
 
 		public override void SetParameterInfo (List<Constraints> constraints_list)
@@ -1426,8 +1422,7 @@ namespace Mono.CSharp {
 		{
 			if (Types != null) {
 				foreach (TypeContainer tc in Types)
-					if (tc.DefineType () == null)
-						return false;
+					tc.DefineType ();
 			}
 
 			return true;
@@ -1487,6 +1482,9 @@ namespace Mono.CSharp {
 		{
 			if (iface_exprs != null) {
 				foreach (TypeExpr iface in iface_exprs) {
+					if (iface == null)
+						continue;
+
 					var iface_type = iface.Type;
 
 					// Ensure the base is always setup
@@ -1518,7 +1516,7 @@ namespace Mono.CSharp {
 				}
 			}
 
-			if (base_type_expr != null) {
+			if (base_type != null) {
 				ObsoleteAttribute obsolete_attr = base_type.GetAttributeObsolete ();
 				if (obsolete_attr != null && !IsObsolete)
 					AttributeTester.Report_ObsoleteMessage (obsolete_attr, base_type.GetSignatureForError (), Location, Report);
@@ -1526,9 +1524,7 @@ namespace Mono.CSharp {
 				var ct = base_type_expr as GenericTypeExpr;
 				if (ct != null)
 					ct.CheckConstraints (this);
-			}
 
-			if (base_type != null) {
 				var baseContainer = base_type.MemberDefinition as ClassOrStruct;
 				if (baseContainer != null) {
 					baseContainer.Define ();
@@ -1642,8 +1638,11 @@ namespace Mono.CSharp {
 				!pa.ResolveConstructor (Location, TypeManager.string_type))
 				return;
 
-			CustomAttributeBuilder cb = new CustomAttributeBuilder (pa.Constructor, new string [] { GetAttributeDefaultMember () });
-			TypeBuilder.SetCustomAttribute (cb);
+			var encoder = new AttributeEncoder (false);
+			encoder.Encode (GetAttributeDefaultMember ());
+			encoder.EncodeEmptyNamedArguments ();
+
+			pa.EmitAttribute (TypeBuilder, encoder);
 		}
 
 		protected virtual void CheckEqualsAndGetHashCode ()
@@ -2075,6 +2074,11 @@ namespace Mono.CSharp {
 			return false;
 		}
 
+		bool ITypeDefinition.IsInternalAsPublic (IAssemblyDefinition assembly)
+		{
+			return Module.DeclaringAssembly == assembly;
+		}
+
 		public void LoadMembers (TypeSpec declaringType, bool onlyTypes, ref MemberCache cache)
 		{
 			throw new NotSupportedException ("Not supported for compiled definition " + GetSignatureForError ());
@@ -2263,8 +2267,7 @@ namespace Mono.CSharp {
 
 			if (a.Type == pa.StructLayout) {
 				PartialContainer.HasStructLayout = true;
-
-				if (a.GetLayoutKindValue () == LayoutKind.Explicit)
+				if (a.IsExplicitLayoutKind ())
 					PartialContainer.HasExplicitLayout = true;
 			}
 
@@ -2636,13 +2639,19 @@ namespace Mono.CSharp {
 			//
 			// When struct constains fixed fixed and struct layout has explicitly
 			// set CharSet, its value has to be propagated to compiler generated
-			// fixed field types
+			// fixed types
 			//
-			if (a.Type == pa.StructLayout && Fields != null && a.HasField ("CharSet")) {
+			if (a.Type == pa.StructLayout && Fields != null) {
+				var value = a.GetNamedValue ("CharSet");
+				if (value == null)
+					return;
+
 				for (int i = 0; i < Fields.Count; ++i) {
 					FixedField ff = Fields [i] as FixedField;
-					if (ff != null)
-						ff.SetCharSet (TypeBuilder.Attributes);
+					if (ff == null)
+						continue;
+
+					ff.CharSet = (CharSet) System.Enum.Parse (typeof (CharSet), value.GetValue ().ToString ());
 				}
 			}
 		}
@@ -3094,7 +3103,7 @@ namespace Mono.CSharp {
 				// which has InternalsVisibleTo
 				//
 				if ((thisp & (Modifiers.PROTECTED | Modifiers.INTERNAL)) == (Modifiers.PROTECTED | Modifiers.INTERNAL)) {
-					return TypeManager.IsThisOrFriendAssembly (this_member.Assembly, base_member.Assembly);
+					return base_member.DeclaringType.MemberDefinition.IsInternalAsPublic (this_member.Module.DeclaringAssembly);
 				} 
 				if ((thisp & Modifiers.PROTECTED) != Modifiers.PROTECTED) {
 					//
@@ -3103,7 +3112,7 @@ namespace Mono.CSharp {
 
 					return false;
 				}
-				if (this_member.Parent.PartialContainer.Module.Assembly == base_member.Assembly) {
+				if (this_member.Parent.PartialContainer.DeclaringAssembly == base_member.DeclaringType.MemberDefinition.DeclaringAssembly) {
 					//
 					// protected within the same assembly - an error
 					//

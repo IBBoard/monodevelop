@@ -61,8 +61,13 @@
     <Compile Include="gtk-gui\MonoDevelop.VersionControl.Git.EditBranchDialog.cs" />
     <Compile Include="MonoDevelop.VersionControl.Git\EditRemoteDialog.cs" />
     <Compile Include="gtk-gui\MonoDevelop.VersionControl.Git.EditRemoteDialog.cs" />
-    <Compile Include="MonoDevelop.VersionControl.Git\MergeDialog.cs" />
     <Compile Include="gtk-gui\MonoDevelop.VersionControl.Git.MergeDialog.cs" />
+    <Compile Include="MonoDevelop.VersionControl.Git\Change.cs" />
+    <Compile Include="MonoDevelop.VersionControl.Git\RepositoryStatus.cs" />
+    <Compile Include="MonoDevelop.VersionControl.Git\MergeDialog.cs" />
+    <Compile Include="MonoDevelop.VersionControl.Git\Stash.cs" />
+    <Compile Include="MonoDevelop.VersionControl.Git\GitUtil.cs" />
+    <Compile Include="MonoDevelop.VersionControl.Git\RebaseOperation.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\core\MonoDevelop.Core\MonoDevelop.Core.csproj">
@@ -85,6 +90,18 @@
       <Name>Mono.TextEditor</Name>
       <Private>False</Private>
     </ProjectReference>
+    <ProjectReference Include="..\..\..\..\contrib\NSch\NSch.csproj">
+      <Project>{A19E6F3F-A25B-4B01-8922-CF0CC35C781D}</Project>
+      <Name>NSch</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\..\contrib\NGit\NGit.csproj">
+      <Project>{E3BFF8B4-189C-496A-A817-7E8B31E22B91}</Project>
+      <Name>NGit</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\..\contrib\Sharpen\Sharpen.csproj">
+      <Project>{72944A6C-45FF-4EF8-B349-8C9CABF519D4}</Project>
+      <Name>Sharpen</Name>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="MonoDevelop.VersionControl.Git.addin.xml">
@@ -93,19 +110,9 @@
     <EmbeddedResource Include="gtk-gui\gui.stetic">
       <LogicalName>gui.stetic</LogicalName>
     </EmbeddedResource>
-    <EmbeddedResource Include="icons\tag_blue.png">
-      <LogicalName>tag_blue.png</LogicalName>
-    </EmbeddedResource>
-    <EmbeddedResource Include="icons\arrow_branch.png">
-      <LogicalName>arrow_branch.png</LogicalName>
-    </EmbeddedResource>
-    <EmbeddedResource Include="icons\server.png">
-      <LogicalName>server.png</LogicalName>
-    </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
     <Folder Include="MonoDevelop.VersionControl.Git\" />
-    <Folder Include="icons\" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Makefile.am" />

@@ -6,7 +6,10 @@ DEPS =  \
 	$(top_builddir)/build/AddIns/VersionControl/MonoDevelop.VersionControl.dll \
 	$(top_builddir)/build/bin/Mono.TextEditor.dll \
 	$(top_builddir)/build/bin/MonoDevelop.Core.dll \
-	$(top_builddir)/build/bin/MonoDevelop.Ide.dll
+	$(top_builddir)/build/bin/MonoDevelop.Ide.dll \
+	$(top_builddir)/contrib/bin/NGit.dll \
+	$(top_builddir)/contrib/bin/NSch.dll \
+	$(top_builddir)/contrib/bin/Sharpen.dll
 
 REFS =  \
 	$(GLIB_SHARP_LIBS) \
@@ -25,6 +28,7 @@ FILES =  \
 	gtk-gui/MonoDevelop.VersionControl.Git.MergeDialog.cs \
 	gtk-gui/MonoDevelop.VersionControl.Git.PushDialog.cs \
 	gtk-gui/MonoDevelop.VersionControl.Git.UserInfoConflictDialog.cs \
+	MonoDevelop.VersionControl.Git/Change.cs \
 	MonoDevelop.VersionControl.Git/Commands.cs \
 	MonoDevelop.VersionControl.Git/CommitDialogExtensionWidget.cs \
 	MonoDevelop.VersionControl.Git/ConflictResolutionDialog.cs \
@@ -35,25 +39,29 @@ FILES =  \
 	MonoDevelop.VersionControl.Git/GitNodeBuilderExtension.cs \
 	MonoDevelop.VersionControl.Git/GitRepository.cs \
 	MonoDevelop.VersionControl.Git/GitService.cs \
+	MonoDevelop.VersionControl.Git/GitUtil.cs \
 	MonoDevelop.VersionControl.Git/GitVersionControl.cs \
 	MonoDevelop.VersionControl.Git/MergeDialog.cs \
 	MonoDevelop.VersionControl.Git/PushDialog.cs \
+	MonoDevelop.VersionControl.Git/RebaseOperation.cs \
+	MonoDevelop.VersionControl.Git/RepositoryStatus.cs \
+	MonoDevelop.VersionControl.Git/Stash.cs \
 	MonoDevelop.VersionControl.Git/UserInfoConflictDialog.cs
 
 RES =  \
 	gtk-gui/gui.stetic \
-	icons/arrow_branch.png \
-	icons/server.png \
-	icons/tag_blue.png \
 	MonoDevelop.VersionControl.Git.addin.xml
 
 $(ASSEMBLY): $(build_sources) $(build_resources) $(DEPS)
 	mkdir -p $(ADDIN_BUILD)
+	cp $(top_builddir)/contrib/bin/NGit.dll $(ADDIN_BUILD)
+	cp $(top_builddir)/contrib/bin/NSch.dll $(ADDIN_BUILD)
+	cp $(top_builddir)/contrib/bin/Sharpen.dll $(ADDIN_BUILD)
 	$(CSC) $(CSC_FLAGS) $(build_sources) $(REFS) $(build_deps) $(build_resources:%=/resource:%) -out:$@ -target:library
 
 $(ASSEMBLY).mdb: $(ASSEMBLY)
 
-CLEANFILES = $(ASSEMBLY) $(ASSEMBLY).mdb
+CLEANFILES = $(ASSEMBLY) $(ASSEMBLY).mdb $(ADDIN_BUILD)/NGit.dll $(ADDIN_BUILD)/NSch.dll $(ADDIN_BUILD)/Sharpen.dll
 EXTRA_DIST = $(FILES) $(RES)
 
 if ENABLE_GIT
@@ -64,7 +72,7 @@ endif
 
 if ENABLE_GIT
 addindir = $(MD_ADDIN_DIR)/VersionControl
-addin_DATA = $(ASSEMBLY) $(ASSEMBLY).mdb
+addin_DATA = $(ASSEMBLY) $(ASSEMBLY).mdb $(ADDIN_BUILD)/NGit.dll $(ADDIN_BUILD)/NSch.dll $(ADDIN_BUILD)/Sharpen.dll
 endif
 
 include $(top_srcdir)/Makefile.include

@@ -138,8 +138,13 @@ namespace MonoDevelop.SourceEditor
 			
 			widget = new SourceEditorWidget (this);
 			widget.TextEditor.Document.TextReplaced += delegate(object sender, ReplaceEventArgs args) {
-				if (!inLoad)
-					wasEdited = true;
+				if (!inLoad) {
+					if (widget.TextEditor.Document.IsInAtomicUndo) {
+						wasEdited = true;
+					} else {
+						AutoSave.InformAutoSaveThread (Document);
+					}
+				}
 				int startIndex = args.Offset;
 				int endIndex = startIndex + Math.Max (args.Count, args.Value != null ? args.Value.Length : 0);
 				if (TextChanged != null)
@@ -250,9 +255,10 @@ namespace MonoDevelop.SourceEditor
 		void HandleTaskServiceJumpedToTask (object sender, TaskEventArgs e)
 		{
 			Task task = e.Tasks.FirstOrDefault ();
-			if (task == null || task.FileName != Document.FileName)
+			var doc = Document;
+			if (task == null || doc == null || task.FileName != doc.FileName)
 				return;
-			LineSegment lineSegment = Document.GetLine (task.Line);
+			LineSegment lineSegment = doc.GetLine (task.Line);
 			if (lineSegment == null)
 				return;
 			MessageBubbleTextMarker marker = (MessageBubbleTextMarker)lineSegment.Markers.FirstOrDefault (m => m is MessageBubbleTextMarker);
@@ -664,8 +670,10 @@ namespace MonoDevelop.SourceEditor
 		
 		void GotFileChanged (object sender, FileEventArgs args)
 		{
-			if (!isDisposed)
-				HandleFileChanged (args.FileName);
+			if (!isDisposed) {
+				foreach (FileEventInfo f in args)
+					HandleFileChanged (f.FileName);
+			}
 		}
 		
 		void OnFileChanged (object sender, FileSystemEventArgs args)

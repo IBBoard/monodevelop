@@ -35,11 +35,24 @@ using System.Collections.Generic;
 using System.Text;
 using System.Globalization;
 using MonoDevelop.Ide;
+using NGit;
+using NGit.Storage.File;
+using NGit.Revwalk;
+using NGit.Api;
+using NGit.Treewalk;
+using NGit.Treewalk.Filter;
+using NGit.Dircache;
+using NGit.Transport;
+using NGit.Errors;
+using NGit.Api.Errors;
+using NGit.Diff;
+using NGit.Merge;
 
 namespace MonoDevelop.VersionControl.Git
 {
-	public class GitRepository: UrlBasedRepository
+	public class GitRepository : UrlBasedRepository
 	{
+		NGit.Repository repo;
 		FilePath path;
 
 		public static event EventHandler BranchSelectionChanged;
@@ -53,6 +66,7 @@ namespace MonoDevelop.VersionControl.Git
 		{
 			this.path = path;
 			Url = url;
+			repo = new FileRepository (path.Combine (Constants.DOT_GIT));
 		}
 
 		public FilePath RootPath {
@@ -61,91 +75,75 @@ namespace MonoDevelop.VersionControl.Git
 
 		public override void CopyConfigurationFrom (Repository other)
 		{
-			GitRepository repo = (GitRepository) other;
-			path = repo.path;
-			Url = repo.Url;
+			GitRepository r = (GitRepository)other;
+			path = r.path;
+			Url = r.Url;
+			if (r.repo != null)
+				repo = new FileRepository (path);
 		}
 
 		public override string LocationDescription {
-			get {
-				return Url ?? path;
-			}
+			get { return Url ?? path; }
 		}
 
 		public override bool AllowLocking {
-			get {
-				return false;
-			}
+			get { return false; }
 		}
 
 		public override string GetBaseText (FilePath localFile)
 		{
-			StringReader sr = RunCommand ("show \":" + localFile.ToRelative (path) + "\"", true);
-			return sr.ReadToEnd ();
+			RevCommit c = GetHeadCommit ();
+			if (c == null)
+				return string.Empty;
+			return GetCommitContent (c, localFile);
 		}
-
+				
+		RevCommit GetHeadCommit ()
+		{
+			RevWalk rw = new RevWalk (repo);
+			ObjectId headId = repo.Resolve (Constants.HEAD);
+			if (headId == null)
+				return null;
+			return rw.ParseCommit (headId);
+		}
 
 		public override Revision[] GetHistory (FilePath localFile, Revision since)
 		{
 			List<Revision> revs = new List<Revision> ();
-			StringReader sr = RunCommand ("log --name-status --date=iso " + ToCmdPath (localFile), true);
-			string line;
-			string rev;
-			while ((rev = ReadWithPrefix (sr, "commit ")) != null) {
-				string author = ReadWithPrefix  (sr, "Author: ");
-				string dateStr = ReadWithPrefix (sr, "Date:   ");
-				DateTime date;
-				DateTime.TryParse (dateStr, out date);
-
+			
+			RevWalk walk = new RevWalk (repo);
+			var hc = GetHeadCommit ();
+			if (hc == null)
+				return new GitRevision [0];
+			walk.MarkStart (hc);
+			
+			foreach (RevCommit commit in walk) {
 				List<RevisionPath> paths = new List<RevisionPath> ();
-				bool readingComment = true;
-				StringBuilder message = new StringBuilder ();
-				StringBuilder interline = new StringBuilder ();
-
-				while ((line = sr.ReadLine ()) != null) {
-					if (line.Length > 2 && ("ADM".IndexOf (line[0]) != -1) && line [1] == '\t') {
-						readingComment = false;
-						string file = line.Substring (2);
-						RevisionAction ra;
-						switch (line[0]) {
-						case 'A': ra = RevisionAction.Add; break;
-						case 'D': ra = RevisionAction.Delete; break;
-						default: ra = RevisionAction.Modify; break;
-						}
-						RevisionPath p = new RevisionPath (path.Combine (file), ra, null);
-						paths.Add (p);
-					}
-					else if (readingComment) {
-						if (IsEmptyLine (line))
-							interline.AppendLine (line);
-						else {
-							message.Append (interline);
-							message.AppendLine (line);
-							interline = new StringBuilder ();
-						}
-					}
-					else
+				foreach (Change change in GitUtil.GetCommitChanges (repo, commit)) {
+					FilePath cpath = FromGitPath (change.Path);
+					if (cpath != localFile && !cpath.IsChildPathOf (localFile))
+						continue;
+					RevisionAction ra;
+					switch (change.ChangeType) {
+					case ChangeType.Added:
+						ra = RevisionAction.Add;
 						break;
+					case ChangeType.Deleted:
+						ra = RevisionAction.Delete;
+						break;
+					default:
+						ra = RevisionAction.Modify;
+						break;
+					}
+					RevisionPath p = new RevisionPath (cpath, ra, null);
+					paths.Add (p);
 				}
-				revs.Add (new GitRevision (this, rev, date, author, message.ToString ().Trim ('\n','\r'), paths.ToArray ()));
+				if (paths.Count > 0) {
+					PersonIdent author = commit.GetAuthorIdent ();
+					revs.Add (new GitRevision (this, commit.Id.Name, author.GetWhen().ToLocalTime (), author.GetName (), commit.GetShortMessage (), paths.ToArray ()));
+				}
 			}
 			return revs.ToArray ();
-		}
-
-		bool IsEmptyLine (string txt)
-		{
-			return txt.Replace (" ","").Replace ("\t","").Length == 0;
-		}
-
-		string ReadWithPrefix (StringReader sr, string prefix)
-		{
-			do {
-				string line = sr.ReadLine ();
-				if (line == null)
-					return null;
-				if (line.StartsWith (prefix))
-					return line.Substring (prefix.Length);
-			} while (true);
 		}
 
 
@@ -154,8 +152,7 @@ namespace MonoDevelop.VersionControl.Git
 			if (Directory.Exists (localPath)) {
 				GitRevision rev = new GitRevision (this, "");
 				return new VersionInfo (localPath, "", true, VersionStatus.Versioned, rev, VersionStatus.Versioned, null);
-			}
-			else {
+			} else {
 				VersionInfo[] infos = GetDirectoryVersionInfo (localPath.ParentDirectory, localPath.FileName, getRemoteStatus, false);
 				if (infos.Length == 1)
 					return infos[0];
@@ -164,74 +161,20 @@ namespace MonoDevelop.VersionControl.Git
 			}
 		}
 
-		StringReader RunCommand (string cmd, bool checkExitCode)
-		{
-			return RunCommand (cmd, checkExitCode, null);
-		}
-
-		StringReader RunCommand (string cmd, bool checkExitCode, IProgressMonitor monitor)
-		{
-#if DEBUG_GIT
-			Console.WriteLine ("> git " + cmd);
-#endif
-			var psi = new System.Diagnostics.ProcessStartInfo (GitVersionControl.GitExe, "--no-pager " + cmd) {
-				WorkingDirectory = path,
-				RedirectStandardOutput = true,
-				RedirectStandardError = true,
-				RedirectStandardInput = false,
-				UseShellExecute = false,
-			};
-			if (PropertyService.IsWindows) {
-				//msysgit needs this to read global config
-				psi.EnvironmentVariables ["HOME"] = Environment.GetEnvironmentVariable("USERPROFILE");
-			}
-
-			StringWriter outw = new StringWriter ();
-			ProcessWrapper proc = Runtime.ProcessService.StartProcess (psi, outw, outw, null);
-			proc.WaitForOutput ();
-			if (monitor != null)
-				monitor.Log.Write (outw.ToString ());
-#if DEBUG_GIT
-			Console.WriteLine (outw.ToString ());
-#endif
-			if (checkExitCode && proc.ExitCode != 0)
-				throw new InvalidOperationException ("Git operation failed");
-			return new StringReader (outw.ToString ());
-		}
-
-		List<string> ToList (StringReader sr)
-		{
-			List<string> list = new List<string> ();
-			string line;
-			while ((line = sr.ReadLine ()) != null)
-				list.Add (line);
-			return list;
-		}
-
 		public override VersionInfo[] GetDirectoryVersionInfo (FilePath localDirectory, bool getRemoteStatus, bool recursive)
 		{
 			return GetDirectoryVersionInfo (localDirectory, null, getRemoteStatus, recursive);
 		}
 
-		string ToCmdPath (FilePath filePath)
+		string ToGitPath (FilePath filePath)
 		{
-			return "\"" + filePath.ToRelative (path) + "\"";
-		}
-
-		string ToCmdPathList (IEnumerable<FilePath> paths)
-		{
-			StringBuilder sb = new StringBuilder ();
-			foreach (FilePath it in paths)
-				sb.Append (' ').Append (ToCmdPath (it));
-			return sb.ToString ();
+			if (!filePath.IsAbsolute)
+				return filePath;
+			return filePath.FullPath.ToRelative (path).ToString ().Replace ('\\', '/');
 		}
 
 		VersionInfo[] GetDirectoryVersionInfo (FilePath localDirectory, string fileName, bool getRemoteStatus, bool recursive)
 		{
-			StringReader sr = RunCommand ("log -1 --format=format:%H", true);
-			string strRev = sr.ReadLine ();
-			sr.Close ();
-
 			HashSet<FilePath> existingFiles = new HashSet<FilePath> ();
 			if (fileName != null) {
 				FilePath fp = localDirectory.Combine (fileName).CanonicalPath;
@@ -239,48 +182,51 @@ namespace MonoDevelop.VersionControl.Git
 					existingFiles.Add (fp);
 			} else
 				CollectFiles (existingFiles, localDirectory, recursive);
-
-			GitRevision rev = new GitRevision (this, strRev);
+			
+			GitRevision rev;
+			var headCommit = GetHeadCommit ();
+			if (headCommit != null)
+				rev = new GitRevision (this, headCommit.Id.Name);
+			else
+				rev = null;
 			List<VersionInfo> versions = new List<VersionInfo> ();
 			FilePath p = fileName != null ? localDirectory.Combine (fileName) : localDirectory;
-			sr = RunCommand ("status -s " + ToCmdPath (p), true);
-			string line;
-			while ((line = sr.ReadLine ()) != null) {
-				char staged = line[0];
-				char nostaged = line[1];
-				string file = line.Substring (3);
-				FilePath srcFile = FilePath.Null;
-				int i = file.IndexOf ("->");
-				if (i != -1) {
-					srcFile = path.Combine (file.Substring (0, i - 1));
-					file = file.Substring (i + 3);
+			p = p.CanonicalPath;
+			
+			RepositoryStatus status;
+			if (fileName != null)
+				status = GitUtil.GetFileStatus (repo, p);
+			else
+				status = GitUtil.GetDirectoryStatus (repo, localDirectory, recursive);
+			
+			HashSet<string> added = new HashSet<string> ();
+			
+			Action<IEnumerable<string>, VersionStatus> AddFiles = delegate(IEnumerable<string> files, VersionStatus fstatus) {
+				foreach (string file in files) {
+					if (!added.Add (file))
+						continue;
+					FilePath statFile = FromGitPath (file);
+					existingFiles.Remove (statFile.CanonicalPath);
+					VersionInfo vi = new VersionInfo (statFile, "", false, fstatus, rev, VersionStatus.Versioned, null);
+					versions.Add (vi);
 				}
-				FilePath statFile = path.Combine (file);
-				if (statFile.ParentDirectory != localDirectory && (!statFile.IsChildPathOf (localDirectory) || !recursive))
-					continue;
-				VersionStatus status;
-				if (staged == 'M' || nostaged == 'M')
-					status = VersionStatus.Versioned | VersionStatus.Modified;
-				else if (staged == 'A')
-					status = VersionStatus.Versioned | VersionStatus.ScheduledAdd;
-				else if (staged == 'D' || nostaged == 'D')
-					status = VersionStatus.Versioned | VersionStatus.ScheduledDelete;
-				else if (staged == 'U' || nostaged == 'U')
-					status = VersionStatus.Versioned | VersionStatus.Conflicted;
-				else if (staged == 'R') {
+			};
+			
+			AddFiles (status.Added, VersionStatus.Versioned | VersionStatus.ScheduledAdd);
+			AddFiles (status.Modified, VersionStatus.Versioned | VersionStatus.Modified);
+			AddFiles (status.Removed, VersionStatus.Versioned | VersionStatus.ScheduledDelete);
+			AddFiles (status.Missing, VersionStatus.Versioned | VersionStatus.ScheduledDelete);
+			AddFiles (status.MergeConflict, VersionStatus.Versioned | VersionStatus.Conflicted);
+			AddFiles (status.Untracked, VersionStatus.Unversioned);
+			
+						/*				else if (staged == 'R') {
 					// Renamed files are in reality files delete+added to a different location.
 					existingFiles.Remove (srcFile.CanonicalPath);
 					VersionInfo rvi = new VersionInfo (srcFile, "", false, VersionStatus.Versioned | VersionStatus.ScheduledDelete, rev, VersionStatus.Versioned, null);
 					versions.Add (rvi);
 					status = VersionStatus.Versioned | VersionStatus.ScheduledAdd;
 				}
-				else
-					status = VersionStatus.Unversioned;
-
-				existingFiles.Remove (statFile.CanonicalPath);
-				VersionInfo vi = new VersionInfo (statFile, "", false, status, rev, VersionStatus.Versioned, null);
-				versions.Add (vi);
-			}
+				else*/
 
 			// Files for which git did not report an status are supposed to be tracked
 			foreach (FilePath file in existingFiles) {
@@ -301,130 +247,175 @@ namespace MonoDevelop.VersionControl.Git
 			}
 		}
 
-
 		public override Repository Publish (string serverPath, FilePath localPath, FilePath[] files, string message, IProgressMonitor monitor)
 		{
-			throw new System.NotImplementedException();
+			throw new System.NotImplementedException ();
+		}
+		
+		public override bool CanUpdate (FilePath localPath)
+		{
+			return base.CanUpdate (localPath) && GetCurrentRemote () != null;
 		}
 
 		public override void Update (FilePath[] localPaths, bool recurse, IProgressMonitor monitor)
 		{
-			List<string> statusList = null;
-
+			IEnumerable<Change> statusList = null;
+			
+			StashCollection stashes = GitUtil.GetStashes (repo);
+			Stash stash = null;
+			
+			monitor.BeginTask (GettextCatalog.GetString ("Updating"), 5);
+			
 			try {
 				// Fetch remote commits
-				RunCommand ("fetch " + GetCurrentRemote (), true, monitor);
-
+				string remote = GetCurrentRemote ();
+				if (remote == null)
+					throw new InvalidOperationException ("No remotes defined");
+				monitor.Log.WriteLine (GettextCatalog.GetString ("Fetching from '{0}'", remote));
+				RemoteConfig remoteConfig = new RemoteConfig (repo.GetConfig (), remote);
+				Transport tn = Transport.Open (repo, remoteConfig);
+				tn.Fetch (new GitMonitor (monitor), null);
+				monitor.Step (1);
+				
+				string upstreamRef = GitUtil.GetUpstreamSource (repo, GetCurrentBranch ());
+				if (upstreamRef == null)
+					upstreamRef = GetCurrentRemote () + "/" + GetCurrentBranch ();
+				
+				ObjectId upstreamId = repo.Resolve (upstreamRef);
+				if (upstreamId == null)
+					throw new UserException (GettextCatalog.GetString ("Branch '{0}' not found. Please set a valid upstream reference to be tracked by branch '{1}'", upstreamRef, GetCurrentBranch ()));
+				
 				// Get a list of files that are different in the target branch
-				statusList = ToList (RunCommand ("diff " + GetCurrentRemote () + "/" + GetCurrentBranch () + " --name-status", true));
-
+				statusList = GitUtil.GetChangedFiles (repo, upstreamRef);
+				monitor.Step (1);
+				
 				// Save local changes
-				RunCommand ("stash save " + GetStashName ("_tmp_"), true);
-
-				// Apply changes
-				StringReader sr = RunCommand ("rebase " + GetCurrentRemote () + " " + GetCurrentBranch (), false, monitor);
-				string conflictFile = null;
-				do {
-					conflictFile = GetConflictFiles (sr).FirstOrDefault ();
-					if (conflictFile != null) {
-						ConflictResult res = ResolveConflict (conflictFile);
-						if (res == ConflictResult.Abort) {
-							sr = RunCommand ("rebase --abort", false, monitor);
-							break;
+				monitor.Log.WriteLine (GettextCatalog.GetString ("Saving local changes"));
+				stash = stashes.Create (GetStashName ("_tmp_"));
+				monitor.Step (1);
+				
+				RebaseOperation rebaser = new RebaseOperation (repo, upstreamRef, monitor);
+				try {
+					while (!rebaser.Rebase ()) {
+						var conflicts = rebaser.LastMergeResult.GetConflicts ();
+						if (conflicts != null) {
+							foreach (string conflictFile in conflicts.Keys) {
+								ConflictResult res = ResolveConflict (FromGitPath (conflictFile));
+								if (res == ConflictResult.Abort) {
+									rebaser.Abort ();
+									break;
+								} else if (res == ConflictResult.Skip) {
+									rebaser.Skip ();
+									break;
+								}
+							}
+							if (rebaser.Aborted)
+								break;
 						}
-						else if (res == ConflictResult.Skip)
-							sr = RunCommand ("rebase --skip", false, monitor);
-						else {
-							RunCommand ("add " + ToCmdPath (conflictFile), false, monitor);
-							sr = RunCommand ("rebase --continue", false, monitor);
-						}
+						else
+							throw new Exception ("Rebase commit failed");
 					}
-				} while (conflictFile != null);
-
+				} catch {
+					if (!rebaser.Aborted)
+						rebaser.Abort ();
+					throw;
+				}
+				
 			} finally {
 				// Restore local changes
-				string sid = GetStashId ("_tmp_");
-				if (sid != null)
-					RunCommand ("stash pop " + sid, false);
+				if (stash != null) {
+					monitor.Log.WriteLine (GettextCatalog.GetString ("Restoring local changes"));
+					stash.Apply ();
+					stashes.Remove (stash);
+				}
 			}
-
+			monitor.Step (1);
+			
 			// Notify changes
 			if (statusList != null)
-				NotifyFileChanges (statusList);
+				NotifyFileChanges (monitor, statusList);
+			
+			monitor.EndTask ();
 		}
 
 		public void Merge (string branch, IProgressMonitor monitor)
 		{
-			List<string> statusList = null;
-
+			IEnumerable<Change> statusList = null;
+			Stash stash = null;
+			StashCollection stashes = new StashCollection (repo);
+			monitor.BeginTask (null, 4);
+			
 			try {
 				// Get a list of files that are different in the target branch
-				statusList = ToList (RunCommand ("diff " + branch + " --name-status", true));
-
+				statusList = GitUtil.GetChangedFiles (repo, branch);
+				monitor.Step (1);
+				
 				// Save local changes
-				RunCommand ("stash save " + GetStashName ("_tmp_"), true);
-
+				stash = stashes.Create (GetStashName ("_tmp_"));
+				monitor.Step (1);
+				
 				// Apply changes
-				StringReader sr = RunCommand ("merge " + branch, false, monitor);
-
-				var conflicts = GetConflictFiles (sr);
-				if (conflicts.Count != 0) {
-					foreach (string conflictFile in conflicts) {
-						ConflictResult res = ResolveConflict (conflictFile);
+				
+				ObjectId branchId = repo.Resolve (branch);
+				
+				NGit.Api.Git git = new NGit.Api.Git (repo);
+				MergeCommandResult mergeResult = git.Merge ().SetStrategy (MergeStrategy.RESOLVE).Include (branchId).Call ();
+				if (mergeResult.GetMergeStatus () == MergeStatus.CONFLICTING || mergeResult.GetMergeStatus () == MergeStatus.FAILED) {
+					var conflicts = mergeResult.GetConflicts ();
+					bool commit = true;
+					foreach (string conflictFile in conflicts.Keys) {
+						ConflictResult res = ResolveConflict (FromGitPath (conflictFile));
 						if (res == ConflictResult.Abort) {
-							sr = RunCommand ("reset --merge", false, monitor);
-							return;
-						}
-						else if (res == ConflictResult.Skip) {
-							RunCommand ("reset " + ToCmdPath (conflictFile), false, monitor);
-							RunCommand ("reset " + ToCmdPath (conflictFile), false, monitor);
-							RunCommand ("checkout " + ToCmdPath (conflictFile), false, monitor);
-						} else {
-							// Do nothing. The change will be committed with the -a option
+							GitUtil.HardReset (repo, GetHeadCommit ());
+							commit = false;
+							break;
+						} else if (res == ConflictResult.Skip) {
+							Revert (FromGitPath (conflictFile), false, monitor);
+							break;
 						}
 					}
-					string msg = "Merge branch '" + branch + "'";
-					RunCommand ("commit -a -m \"" + msg + "\"", true, monitor);
+					if (commit)
+						git.Commit ().Call ();
 				}
 
 			} finally {
 				// Restore local changes
-				string sid = GetStashId ("_tmp_");
-				if (sid != null)
-					RunCommand ("stash pop " + sid, false);
-			}
-
-			// Notify changes
-			if (statusList != null)
-				NotifyFileChanges (statusList);
-		}
-
-		List<string> GetConflictFiles (StringReader reader)
-		{
-			List<string> list = new List<string> ();
-			foreach (string line in ToList (reader)) {
-				if (line.StartsWith ("CONFLICT ")) {
-					string s = "Merge conflict in ";
-					int i = line.IndexOf (s) + s.Length;
-					list.Add (path.Combine (line.Substring (i)));
+				if (stash != null) {
+					stash.Apply ();
+					stashes.Remove (stash);
 				}
 			}
-			return list;
+
+			monitor.Step (1);
+			
+			// Notify changes
+			if (statusList != null)
+				NotifyFileChanges (monitor, statusList);
+			
+			monitor.EndTask ();
 		}
 
 		ConflictResult ResolveConflict (string file)
 		{
 			ConflictResult res = ConflictResult.Abort;
 			DispatchService.GuiSyncDispatch (delegate {
-				var dlg = new ConflictResolutionDialog ();
+				ConflictResolutionDialog dlg = new ConflictResolutionDialog ();
+				dlg.Load (file);
 				try {
 					dlg.Load (file);
 					var dres = (Gtk.ResponseType) MessageService.RunCustomDialog (dlg);
 					dlg.Hide ();
 					switch (dres) {
-					case Gtk.ResponseType.Cancel: res = ConflictResult.Abort; break;
-					case Gtk.ResponseType.Close: res = ConflictResult.Skip; break;
-					case Gtk.ResponseType.Ok: res = ConflictResult.Continue; dlg.Save (file); break;
+					case Gtk.ResponseType.Cancel:
+						res = ConflictResult.Abort;
+						break;
+					case Gtk.ResponseType.Close:
+						res = ConflictResult.Skip;
+						break;
+					case Gtk.ResponseType.Ok:
+						res = ConflictResult.Continue;
+						dlg.Save (file);
+						break;
 					}
 				} finally {
 					dlg.Destroy ();
@@ -433,35 +424,249 @@ namespace MonoDevelop.VersionControl.Git
 			return res;
 		}
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> master
 		public override void Commit (ChangeSet changeSet, IProgressMonitor monitor)
 		{
-			string file = Path.GetTempFileName ();
-			try {
-				File.WriteAllText (file, changeSet.GlobalComment);
-				string paths = ToCmdPathList (changeSet.Items.Select (it => it.LocalPath));
-				RunCommand ("commit -F \"" + file + "\" " + paths, true, monitor);
-			} finally {
-				File.Delete (file);
+			PersonIdent author = new PersonIdent (repo);
+			PersonIdent committer = new PersonIdent (repo);
+			string message = changeSet.GlobalComment;
+			
+			if (string.IsNullOrEmpty (message))
+				throw new ArgumentException ("Commit message must not be null or empty!", "message");
+			if (string.IsNullOrEmpty (author.GetName ()))
+				throw new ArgumentException ("Author name must not be null or empty!", "author");
+			
+			RepositoryState state = repo.GetRepositoryState ();
+			if (!state.CanCommit ()) {
+				throw new WrongRepositoryStateException ("Cannot commit with repository in state: " + state);
 			}
+		
+			try {
+				Ref head = repo.GetRef (Constants.HEAD);
+				if (head == null)
+					throw new InvalidOperationException ("No HEAD");
+				
+				List<ObjectId> parents = new List<ObjectId>();
+				
+				// determine the current HEAD and the commit it is referring to
+				ObjectId headId = repo.Resolve (Constants.HEAD + "^{commit}");
+				if (headId != null)
+					parents.Insert (0, headId);
+				
+				ObjectInserter odi = repo.NewObjectInserter ();
+				try {
+					List<string> filePaths = GetFilesInPaths (changeSet.Items.Select (i => i.LocalPath));
+					ObjectId indexTreeId = CreateCommitTree (filePaths);
+					
+					ObjectId commitId = GitUtil.CreateCommit (repo, message, parents, indexTreeId, author, committer);
+					
+					RevWalk revWalk = new RevWalk (repo);
+					try {
+						RevCommit revCommit = revWalk.ParseCommit (commitId);
+						RefUpdate ru = repo.UpdateRef (Constants.HEAD);
+						ru.SetNewObjectId (commitId);
+						ru.SetRefLogMessage ("commit : " + revCommit.GetShortMessage (), false);
+						ru.SetExpectedOldObjectId (headId);
+						RefUpdate.Result rc = ru.Update ();
+						switch (rc) {
+						case RefUpdate.Result.NEW:
+						case RefUpdate.Result.FAST_FORWARD:
+						{
+							Unstage (filePaths);
+							if (state == RepositoryState.MERGING_RESOLVED) {
+								// Commit was successful. Now delete the files
+								// used for merge commits
+								repo.WriteMergeCommitMsg (null);
+								repo.WriteMergeHeads (null);
+							}
+							return;
+						}
+						
+						case RefUpdate.Result.REJECTED:
+						case RefUpdate.Result.LOCK_FAILURE:
+							throw new ConcurrentRefUpdateException (JGitText.Get ().couldNotLockHEAD, ru.GetRef (), rc);
+
+						default:
+							throw new JGitInternalException ("Reference update failed");
+						}
+					} finally {
+						revWalk.Release ();
+					}
+				} finally {
+					odi.Release ();
+				}
+			} catch (UnmergedPathException) {
+				// since UnmergedPathException is a subclass of IOException
+				// which should not be wrapped by a JGitInternalException we
+				// have to catch and re-throw it here
+				throw;
+			} catch (IOException e) {
+				throw new JGitInternalException (JGitText.Get ().exceptionCaughtDuringExecutionOfCommitCommand, e);
+			}
+		}		
+
+		ObjectId CreateCommitTree (IEnumerable<string> files)
+		{
+			int basePathLength = Path.GetFullPath (this.path).TrimEnd ('/','\\').Length;
+			
+			// Expand directory paths into file paths. Convert paths to full paths.
+			List<string> filePaths = new List<string> ();
+			foreach (var path in files) {
+				string fullPath = path;
+				if (!Path.IsPathRooted (fullPath))
+					fullPath = Path.Combine (path, fullPath);
+				fullPath = Path.GetFullPath (fullPath).TrimEnd ('/','\\');
+				DirectoryInfo dir = new DirectoryInfo (fullPath);
+				if (dir.Exists)
+					filePaths.AddRange (GetDirectoryFiles (dir));
+				else
+					filePaths.Add (fullPath);
+			}
+			
+			// Read the tree of the last commit. We are going to update it.
+			var hc = GetHeadCommit ();
+			NGit.Tree tree = hc != null ? repo.MapTree (hc) : new Tree (repo);
+
+			// Keep a list of trees that have been modified, since they have to be written.
+			HashSet<NGit.Tree> modifiedTrees = new HashSet<NGit.Tree> ();
+			
+			// Update the tree
+			foreach (string fullPath in filePaths) {
+				string relPath = fullPath.Substring (basePathLength + 1).Replace ('\\','/');				
+				NGit.TreeEntry treeEntry = tree.FindBlobMember (relPath);
+				
+				if (File.Exists (fullPath)) {
+					// Looks like an old directory is now a file. Delete the subtree and create a new entry for the file.
+					if (treeEntry != null && !(treeEntry is FileTreeEntry))
+						treeEntry.Delete ();
+
+					FileTreeEntry fileEntry = treeEntry as FileTreeEntry;
+					var inserter = repo.ObjectDatabase.NewInserter ();
+					ObjectId id;
+					try {
+						FileStream fs = new FileStream (fullPath, System.IO.FileMode.Open, FileAccess.Read);
+						id = inserter.Insert(Constants.OBJ_BLOB, fs.Length, fs);
+						inserter.Flush();
+					}
+					finally {
+						inserter.Release ();
+					}
+					
+					bool executable = repo.FileSystem.CanExecute (fullPath);
+					if (fileEntry == null) {
+						// It's a new file. Add it.
+						fileEntry = (FileTreeEntry) tree.AddFile (relPath);
+						treeEntry = fileEntry;
+					} else if (fileEntry.GetId () == id && executable == fileEntry.IsExecutable ()) {
+						// Same file, ignore it
+						continue;
+					}
+					
+					fileEntry.SetId (id);
+					fileEntry.SetExecutable (executable);
+				}
+				else {
+					// Deleted file or directory. Remove from the tree
+					if (treeEntry != null) {
+						NGit.Tree ptree = treeEntry.GetParent ();
+						treeEntry.Delete ();
+						// Remove the subtree if it's now empty
+						while (ptree != null && ptree.MemberCount() == 0) {
+							NGit.Tree nextParent = ptree.GetParent ();
+							ptree.Delete ();
+							ptree = nextParent;
+						}
+					}
+					else
+						continue; // Already deleted.
+				}
+				modifiedTrees.Add (treeEntry.GetParent ());
+			}
+
+			// check if tree is different from current commit's tree
+			if (modifiedTrees.Count == 0)
+				throw new InvalidOperationException("There are no changes to commit");
+			
+			// Create new trees if there is any change
+			return SaveTree (tree, modifiedTrees);
 		}
+<<<<<<< HEAD
 
 		public void GetUserInfo (out string name, out string email)
+=======
+		
+		ObjectId SaveTree (NGit.Tree tree, HashSet<NGit.Tree> modifiedTrees)
+>>>>>>> master
 		{
-			name = ToList (RunCommand ("config --get user.name", false)).FirstOrDefault ();
-			email = ToList (RunCommand ("config --get user.email", false)).FirstOrDefault ();
+			// Saves tree that have been modified (that is, which are in the provided list or
+			// which have child trees that have been modified)
+			
+			bool childModified = false;
+			foreach (var te in tree.Members ()) {
+				NGit.Tree childTree = te as NGit.Tree;
+				if (childTree != null) {
+					ObjectId newId = SaveTree (childTree, modifiedTrees);
+					if (newId != null) {
+						childTree.SetId (newId);
+						childModified = true;
+					}
+				}
+			}
+			if (childModified || modifiedTrees.Contains (tree)) {
+				var writer = repo.ObjectDatabase.NewInserter ();
+				try {
+					return writer.Insert (Constants.OBJ_TREE, tree.Format ());
+				} finally {
+					writer.Release ();
+				}
+			} else
+				return null;
 		}
+<<<<<<< HEAD
 
 		public void SetUserInfo (string name, string email)
+=======
+		
+		List<string> GetFilesInPaths (IEnumerable<FilePath> paths)
+>>>>>>> master
 		{
-			RunCommand ("config user.name \"" + name + "\"", false);
-			RunCommand ("config user.email \"" + email + "\"", false);
+			int basePathLength = Path.GetFullPath (this.path).TrimEnd ('/','\\').Length;
+			
+			// Expand directory paths into file paths. Convert paths to full paths.
+			List<string> filePaths = new List<string> ();
+			foreach (var path in paths) {
+				string fullPath = path;
+				if (!Path.IsPathRooted (fullPath))
+					fullPath = Path.Combine (path, fullPath);
+				fullPath = Path.GetFullPath (fullPath).TrimEnd ('/','\\');
+				DirectoryInfo dir = new DirectoryInfo (fullPath);
+				if (dir.Exists)
+					filePaths.AddRange (GetDirectoryFiles (dir));
+				else
+					filePaths.Add (fullPath);
+			}
+			return filePaths;
 		}
+<<<<<<< HEAD
 
 		public override void Checkout (FilePath targetLocalPath, Revision rev, bool recurse, IProgressMonitor monitor)
+=======
+		
+		IEnumerable<string> GetDirectoryFiles (DirectoryInfo dir)
+>>>>>>> master
 		{
-			RunCommand ("clone " + Url + " " + targetLocalPath, true, monitor);
+			FileTreeIterator iter = new FileTreeIterator (dir.FullName, repo.FileSystem, WorkingTreeOptions.CreateConfigurationInstance(repo.GetConfig()));
+			while (!iter.Eof ()) {
+				var file = iter.GetEntryFile ();
+				if (file != null && !iter.IsEntryIgnored ())
+					yield return file.GetPath ();
+				iter.Next (1);
+			}
 		}
+<<<<<<< HEAD
 
 
 		public override void Revert (FilePath[] localPaths, bool recurse, IProgressMonitor monitor)
@@ -478,43 +683,239 @@ namespace MonoDevelop.VersionControl.Git
 				RunCommand ("checkout -- " + ToCmdPath (p), false, monitor);
 
 			foreach (FilePath p in localPaths)
-				FileService.NotifyFileChanged (p);
+=======
+		
+		void Unstage (IEnumerable<string> files)
+		{
+			GitIndex index = repo.GetIndex ();
+			index.RereadIfNecessary();
+			RevWalk rw = new RevWalk (repo);
+			
+			foreach (var file in files) {
+				string path = file;
+				GitIndex.Entry e = index.GetEntry (ToGitPath (path));
+				if (e != null)
+					index.Add (repo.WorkTree, path);
+			}
+			index.Write();
 		}
+
+		public void GetUserInfo (out string name, out string email)
+		{
+			UserConfig config = repo.GetConfig ().Get (UserConfig.KEY);
+			name = config.GetCommitterName ();
+			email = config.GetCommitterEmail ();
+		}
+
+		public void SetUserInfo (string name, string email)
+		{
+			NGit.StoredConfig config = repo.GetConfig ();
+			config.SetString ("user", null, "name", name);
+			config.SetString ("user", null, "email", email);
+			config.Save ();
+		}
+
+		public override void Checkout (FilePath targetLocalPath, Revision rev, bool recurse, IProgressMonitor monitor)
+		{
+			GitUtil.Clone (targetLocalPath, Url, monitor);
+		}
+
+		public override void Revert (FilePath[] localPaths, bool recurse, IProgressMonitor monitor)
+		{
+			GitIndex index = repo.GetIndex ();
+			index.RereadIfNecessary ();
+			RevWalk rw = new RevWalk (repo);
+			var c = GetHeadCommit ();
+			RevTree tree = c != null ? c.Tree : null;
+			
+			List<FilePath> changedFiles = new List<FilePath> ();
+			List<FilePath> removedFiles = new List<FilePath> ();
+			
+			monitor.BeginTask (GettextCatalog.GetString ("Revering files"), 3);
+			monitor.BeginStepTask (GettextCatalog.GetString ("Revering files"), localPaths.Length, 2);
+			
+			DirCache dc = repo.LockDirCache ();
+			DirCacheEditor editor = dc.Editor ();
+			DirCacheBuilder builder = dc.Builder ();
+			
+			try {
+				HashSet<string> entriesToRemove = new HashSet<string> ();
+				HashSet<string> foldersToRemove = new HashSet<string> ();
+				
+				// Add the new entries
+				foreach (FilePath fp in localPaths) {
+					string p = ToGitPath (fp);
+					
+					// Register entries to be removed from the index
+					if (Directory.Exists (fp))
+						foldersToRemove.Add (p);
+					else
+						entriesToRemove.Add (p);
+					
+					TreeWalk tw = tree != null ? TreeWalk.ForPath (repo, p, tree) : null;
+					if (tw == null) {
+						// Removed from the index
+					}
+					else {
+						// Add new entries
+						
+						TreeWalk r;
+						if (tw.IsSubtree) {
+							// It's a directory. Make sure we remove existing index entries of this directory
+							foldersToRemove.Add (p);
+							
+							// We have to iterate through all folder files. We need a new iterator since the
+							// existing rw is not recursive
+							r = new NGit.Treewalk.TreeWalk(repo);
+							r.Reset (tree);
+							r.Filter = PathFilterGroup.CreateFromStrings(new string[]{p});
+							r.Recursive = true;
+							r.Next ();
+						} else {
+							r = tw;
+						}
+						
+						do {
+							// There can be more than one entry if reverting a whole directory
+							string rpath = FromGitPath (r.PathString);
+							DirCacheEntry e = new DirCacheEntry (r.PathString);
+							e.SetObjectId (r.GetObjectId (0));
+							e.SetFileMode (r.GetFileMode (0));
+							if (!Directory.Exists (Path.GetDirectoryName (rpath)))
+								Directory.CreateDirectory (rpath);
+							DirCacheCheckout.CheckoutEntry (repo, rpath, e, true);
+							builder.Add (e);
+							changedFiles.Add (rpath);
+						} while (r.Next ());
+					}
+					monitor.Step (1);
+				}
+				
+				// Add entries we want to keep
+				int count = dc.GetEntryCount ();
+				for (int n=0; n<count; n++) {
+					DirCacheEntry e = dc.GetEntry (n);
+					string path = e.GetPathString ();
+					if (!entriesToRemove.Contains (path) && !foldersToRemove.Any (f => IsSubpath (f,path)))
+						builder.Add (e);
+				}
+				
+				builder.Commit ();
+			}
+			catch {
+				dc.Unlock ();
+				throw;
+			}
+			
+			monitor.EndTask ();
+			monitor.BeginTask (null, localPaths.Length);
+
+			foreach (FilePath p in changedFiles) {
+>>>>>>> master
+				FileService.NotifyFileChanged (p);
+				monitor.Step (1);
+			}
+			foreach (FilePath p in removedFiles) {
+				FileService.NotifyFileRemoved (p);
+				monitor.Step (1);
+			}
+			monitor.EndTask ();
+		}
+<<<<<<< HEAD
+=======
+		
+		bool IsSubpath (string basePath, string childPath)
+		{
+			if (basePath [basePath.Length - 1] == '/')
+				return childPath.StartsWith (basePath);
+			return childPath.StartsWith (basePath + "/");
+		}
+>>>>>>> master
 
 		public override void RevertRevision (FilePath localPath, Revision revision, IProgressMonitor monitor)
 		{
-			throw new System.NotImplementedException();
+			throw new System.NotImplementedException ();
 		}
 
 
 		public override void RevertToRevision (FilePath localPath, Revision revision, IProgressMonitor monitor)
 		{
-			throw new System.NotImplementedException();
+			throw new System.NotImplementedException ();
 		}
 
 
 		public override void Add (FilePath[] localPaths, bool recurse, IProgressMonitor monitor)
 		{
-			RunCommand ("add " + ToCmdPathList (localPaths), true, monitor);
+			NGit.Api.Git git = new NGit.Api.Git (repo);
+			var cmd = git.Add ();
+			foreach (FilePath fp in localPaths)
+				cmd.AddFilepattern (ToGitPath (fp));
+			cmd.Call ();
 		}
 
 		public override string GetTextAtRevision (FilePath repositoryPath, Revision revision)
 		{
-			StringReader sr = RunCommand ("show \"" + revision.ToString () + ":" + repositoryPath.ToRelative (path) + "\"", true);
-			return sr.ReadToEnd ();
+			ObjectId id = repo.Resolve (revision.ToString ());
+			RevWalk rw = new RevWalk (repo);
+			RevCommit c = rw.ParseCommit (id);
+			if (c == null)
+				return string.Empty;
+			else
+				return GetCommitContent (c, repositoryPath);
 		}
 
 		public override DiffInfo[] PathDiff (FilePath baseLocalPath, FilePath[] localPaths, bool remoteDiff)
 		{
 			if (localPaths != null) {
-				return new DiffInfo [0];
-			}
-			else {
-				StringReader sr = RunCommand ("diff " + ToCmdPath (baseLocalPath), true);
-				return GetUnifiedDiffInfo (sr.ReadToEnd (), baseLocalPath, null);
+				return new DiffInfo[0];
+			} else {
+				List<DiffInfo> diffs = new List<DiffInfo> ();
+				VersionInfo[] vinfos = GetDirectoryVersionInfo (baseLocalPath, null, false, true);
+				foreach (VersionInfo vi in vinfos) {
+					try {
+						if ((vi.Status & VersionStatus.ScheduledAdd) != 0) {
+							string ctxt = File.ReadAllText (vi.LocalPath);
+							diffs.Add (new DiffInfo (baseLocalPath, vi.LocalPath, GenerateDiff ("", ctxt)));
+						} else if ((vi.Status & VersionStatus.ScheduledDelete) != 0) {
+							string ctxt = GetCommitContent (GetHeadCommit (), vi.LocalPath);
+							diffs.Add (new DiffInfo (baseLocalPath, vi.LocalPath, GenerateDiff (ctxt, "")));
+						} else if ((vi.Status & VersionStatus.Modified) != 0 || (vi.Status & VersionStatus.Conflicted) != 0) {
+							string ctxt1 = GetCommitContent (GetHeadCommit (), vi.LocalPath);
+							string ctxt2 = File.ReadAllText (vi.LocalPath);
+							diffs.Add (new DiffInfo (baseLocalPath, vi.LocalPath, GenerateDiff (ctxt1, ctxt2)));
+						}
+					} catch (Exception ex) {
+						LoggingService.LogError ("Could not get diff for file '" + vi.LocalPath + "'", ex);
+					}
+				}
+				return diffs.ToArray ();
 			}
 		}
 
+<<<<<<< HEAD
+=======
+		string GetCommitContent (RevCommit c, FilePath file)
+		{
+			TreeWalk tw = TreeWalk.ForPath (repo, ToGitPath (file), c.Tree);
+			if (tw == null)
+				return string.Empty;
+			ObjectId id = tw.GetObjectId (0);
+			byte[] data = repo.ObjectDatabase.Open (id).GetBytes ();
+			return Encoding.UTF8.GetString (data);
+		}
+
+		string GenerateDiff (string s1, string s2)
+		{
+			var text1 = new NGit.Diff.RawText (Encoding.UTF8.GetBytes (s1));
+			var text2 = new NGit.Diff.RawText (Encoding.UTF8.GetBytes (s2));
+			var edits = MyersDiff<RawText>.INSTANCE.Diff(RawTextComparator.DEFAULT, text1, text2);
+			MemoryStream s = new MemoryStream ();
+			var formatter = new NGit.Diff.DiffFormatter (s);
+			formatter.Format (edits, text1, text2);
+			return Encoding.UTF8.GetString (s.ToArray ());
+		}
+
+>>>>>>> master
 		DiffInfo[] GetUnifiedDiffInfo (string diffContent, FilePath basePath, FilePath[] localPaths)
 		{
 			basePath = basePath.FullPath;
@@ -532,8 +933,7 @@ namespace MonoDevelop.VersionControl.Git
 							content = new StringBuilder ();
 						}
 						fileName = newFile;
-					}
-					else if (!line.StartsWith ("diff") && !line.StartsWith ("index")) {
+					} else if (!line.StartsWith ("diff") && !line.StartsWith ("index")) {
 						content.Append (line).Append ('\n');
 					}
 				}
@@ -548,89 +948,111 @@ namespace MonoDevelop.VersionControl.Git
 		{
 			List<string> remotes = new List<string> (GetRemotes ().Select (r => r.Name));
 			if (remotes.Count == 0)
+<<<<<<< HEAD
 				throw new InvalidOperationException ("There are no remote repositories defined");
 
+=======
+				return null;
+			
+>>>>>>> master
 			if (remotes.Contains ("origin"))
 				return "origin";
 			else
-				return remotes [0];
+				return remotes[0];
 		}
 
 		public void Push (IProgressMonitor monitor, string remote, string remoteBranch)
 		{
-			RunCommand ("push " + remote + " HEAD:" + remoteBranch, true, monitor);
-			monitor.ReportSuccess ("Repository successfully pushed");
+			RemoteConfig remoteConfig = new RemoteConfig (repo.GetConfig (), remote);
+			Transport tp = Transport.Open (repo, remoteConfig);
+			
+			string remoteRef = "refs/heads/" + remoteBranch;
+			
+			RemoteRefUpdate rr = new RemoteRefUpdate (repo, repo.GetBranch (), remoteRef, false, null, null);
+			List<RemoteRefUpdate> list = new List<RemoteRefUpdate> ();
+			list.Add (rr);
+			PushResult res = tp.Push (new GitMonitor (monitor), list);
+			switch (rr.GetStatus ()) {
+			case RemoteRefUpdate.Status.UP_TO_DATE: monitor.ReportSuccess (GettextCatalog.GetString ("Remote branch is up to date.")); break;
+			case RemoteRefUpdate.Status.REJECTED_NODELETE: monitor.ReportError (GettextCatalog.GetString ("The server is configured to deny deletion of the branch"), null); break;
+			case RemoteRefUpdate.Status.REJECTED_NONFASTFORWARD: monitor.ReportError (GettextCatalog.GetString ("The update is a non-fast-forward update. Merge the remote changes before pushing again."), null); break;
+			case RemoteRefUpdate.Status.OK:
+				monitor.ReportSuccess (GettextCatalog.GetString ("Push operation successfully completed."));
+				// Update the remote branch
+				ObjectId headId = rr.GetNewObjectId ();
+				RefUpdate updateRef = repo.UpdateRef (Constants.R_REMOTES + remote + "/" + remoteBranch);
+				updateRef.SetNewObjectId(headId);
+				updateRef.Update();
+				break;
+			default:
+				string msg = rr.GetMessage ();
+				msg = !string.IsNullOrEmpty (msg) ? msg : GettextCatalog.GetString ("Push operation failed");
+				monitor.ReportError (msg, null);
+				break;
+			}
 		}
 
 		public void CreateBranch (string name, string trackSource)
 		{
-			if (string.IsNullOrEmpty (trackSource))
-				RunCommand ("branch " + name, true);
-			else
-				RunCommand ("branch --track " + name + " " + trackSource, true);
+			ObjectId headId = repo.Resolve (Constants.HEAD);
+			RefUpdate updateRef = repo.UpdateRef ("refs/heads/" + name);
+			updateRef.SetNewObjectId(headId);
+			updateRef.Update();
+			GitUtil.SetUpstreamSource (repo, name, trackSource);
 		}
 
 		public void SetBranchTrackSource (string name, string trackSource)
 		{
-			if (string.IsNullOrEmpty (trackSource))
-				RunCommand ("branch --no-track -f " + name, true);
-			else
-				RunCommand ("branch --track -f " + name + " " + trackSource, true);
+			GitUtil.SetUpstreamSource (repo, name, trackSource);
 		}
 
 		public void RemoveBranch (string name)
 		{
-			RunCommand ("branch -d " + name, true);
+			RefUpdate updateRef = repo.UpdateRef ("refs/heads/" + name);
+			updateRef.Delete ();
 		}
 
 		public void RenameBranch (string name, string newName)
 		{
-			RunCommand ("branch -m " + name + " " + newName, true);
+			RefRename renameRef = repo.RenameRef ("refs/heads/" + name, "refs/heads/" + newName);
+			renameRef.Rename ();
 		}
 
 		public IEnumerable<RemoteSource> GetRemotes ()
 		{
-			StringReader sr = RunCommand ("remote -v", true);
-			string line;
-			List<RemoteSource> sources = new List<RemoteSource> ();
-			while ((line = sr.ReadLine ()) != null) {
-				int i = line.IndexOf ('\t');
-				if (i == -1)
-					continue;
-				string name = line.Substring (0, i);
-				RemoteSource remote = sources.FirstOrDefault (r => r.Name == name);
-				if (remote == null) {
-					remote = new RemoteSource ();
-					remote.Name = name;
-					sources.Add (remote);
-				}
-				int j = line.IndexOf (" (fetch)");
-				if (j != -1) {
-					remote.FetchUrl = line.Substring (i, line.Length - i - 8).Trim ();
-				} else {
-					j = line.IndexOf (" (push)");
-					remote.PushUrl = line.Substring (i, line.Length - i - 7).Trim ();
-				}
-			}
-			return sources;
+			StoredConfig cfg = repo.GetConfig ();
+			foreach (RemoteConfig rc in RemoteConfig.GetAllRemoteConfigs (cfg))
+				yield return new RemoteSource (cfg, rc);
 		}
 
 		public void RenameRemote (string name, string newName)
 		{
-			RunCommand ("remote rename " + name + " " + newName, true);
+			StoredConfig cfg = repo.GetConfig ();
+			RemoteConfig rem = RemoteConfig.GetAllRemoteConfigs (cfg).FirstOrDefault (r => r.Name == name);
+			if (rem != null) {
+				rem.Name = newName;
+				rem.Update (cfg);
+			}
 		}
 
 		public void AddRemote (RemoteSource remote, bool importTags)
 		{
-			RunCommand ("remote add " + (importTags ? "--tags " : "--no-tags ") + remote.Name + " " + remote.FetchUrl, true);
-			if (!string.IsNullOrEmpty (remote.PushUrl) && remote.PushUrl != remote.FetchUrl)
-				RunCommand ("remote set-url --push " + remote.Name + " " + remote.PushUrl, true);
+			if (string.IsNullOrEmpty (remote.Name))
+				throw new InvalidOperationException ("Name not set");
+			
+			StoredConfig c = repo.GetConfig ();
+			RemoteConfig rc = new RemoteConfig (c, remote.Name);
+			c.Save ();
+			remote.RepoRemote = rc;
+			remote.cfg = c;
+			UpdateRemote (remote);
 		}
 
 		public void UpdateRemote (RemoteSource remote)
 		{
 			if (string.IsNullOrEmpty (remote.FetchUrl))
 				throw new InvalidOperationException ("Fetch url can't be empty");
+<<<<<<< HEAD
 
 			RunCommand ("remote set-url " + remote.Name + " " + remote.FetchUrl, true);
 
@@ -638,15 +1060,29 @@ namespace MonoDevelop.VersionControl.Git
 				RunCommand ("remote set-url --push " + remote.Name + " " + remote.PushUrl, true);
 			else
 				RunCommand ("remote set-url --push --delete " + remote.Name + " " + remote.PushUrl, true);
+=======
+			
+			if (remote.RepoRemote == null)
+				throw new InvalidOperationException ("Remote not created");
+			
+			remote.Update ();
+			remote.cfg.Save ();
+>>>>>>> master
 		}
 
 		public void RemoveRemote (string name)
 		{
-			RunCommand ("remote rm " + name, true);
+			StoredConfig cfg = repo.GetConfig ();
+			RemoteConfig rem = RemoteConfig.GetAllRemoteConfigs (cfg).FirstOrDefault (r => r.Name == name);
+			if (rem != null) {
+				cfg.UnsetSection ("remote", name);
+				cfg.Save ();
+			}
 		}
 
 		public IEnumerable<Branch> GetBranches ()
 		{
+<<<<<<< HEAD
 			StringReader sr = RunCommand ("branch -vv", true);
 			List<Branch> list = new List<Branch> ();
 			string line;
@@ -667,46 +1103,51 @@ namespace MonoDevelop.VersionControl.Git
 					b.Tracking = line.Substring (i, j - i);
 				}
 				list.Add (b);
+=======
+			IDictionary<string, NGit.Ref> refs = repo.RefDatabase.GetRefs (Constants.R_HEADS);
+			foreach (var pair in refs) {
+				string name = NGit.Repository.ShortenRefName (pair.Key);
+				Branch br = new Branch ();
+				br.Name = name;
+				br.Tracking = GitUtil.GetUpstreamSource (repo, name);
+				yield return br;
+>>>>>>> master
 			}
-			return list;
 		}
 
 		public IEnumerable<string> GetTags ()
 		{
-			StringReader sr = RunCommand ("tag", true);
-			return ToList (sr);
+			return repo.GetTags ().Keys;
 		}
 
 		public IEnumerable<string> GetRemoteBranches (string remoteName)
 		{
-			StringReader sr = RunCommand ("branch -r", true);
-			string line;
-			while ((line = sr.ReadLine ()) != null) {
-				if (line.StartsWith ("  " + remoteName + "/") || line.StartsWith ("* " + remoteName + "/")) {
-					int i = line.IndexOf ('/');
-					int j = line.IndexOf (" -> ");
-					if (j == -1) j = line.Length;
-					i++;
-					yield return line.Substring (i, j - i);
-				}
+			var refs = repo.RefDatabase.GetRefs (Constants.R_REMOTES);
+			foreach (var pair in refs) {
+				string name = NGit.Repository.ShortenRefName (pair.Key);
+				if (name.StartsWith (remoteName + "/"))
+					yield return name.Substring (remoteName.Length + 1);
 			}
 		}
 
 		public string GetCurrentBranch ()
 		{
-			StringReader sr = RunCommand ("branch", true);
-			string line;
-			while ((line = sr.ReadLine ()) != null) {
-				if (line.StartsWith ("* "))
-					return line.Substring (2).Trim ();
-			}
-			return null;
+			return repo.GetBranch ();
 		}
 
+<<<<<<< HEAD
 		public void SwitchToBranch (string branch)
+=======
+		public void SwitchToBranch (IProgressMonitor monitor, string branch)
+>>>>>>> master
 		{
+			monitor.BeginTask (GettextCatalog.GetString ("Switching to branch {0}", branch), 4);
+			
+			StashCollection stashes = GitUtil.GetStashes (repo);
+			
 			// Remove the stash for this branch, if exists
 			string currentBranch = GetCurrentBranch ();
+<<<<<<< HEAD
 			string sid = GetStashId (currentBranch);
 			if (sid != null)
 				RunCommand ("stash drop " + sid, true);
@@ -718,16 +1159,46 @@ namespace MonoDevelop.VersionControl.Git
 			// without losing local changes
 			RunCommand ("stash save " + GetStashName (currentBranch), true);
 
+=======
+			Stash stash = GetStashForBranch (stashes, currentBranch);
+			if (stash != null)
+				stashes.Remove (stash);
+			
+			// Get a list of files that are different in the target branch
+			IEnumerable<Change> statusList = GitUtil.GetChangedFiles (repo, branch);
+			
+			// Create a new stash for the branch. This allows switching branches
+			// without losing local changes
+			stash = stashes.Create (GetStashName (currentBranch));
+			
+			monitor.Step (1);
+			
+>>>>>>> master
 			// Switch to the target branch
+			DirCache dc = repo.LockDirCache ();
 			try {
-				RunCommand ("checkout " + branch, true);
+				RevWalk rw = new RevWalk (repo);
+				ObjectId branchHeadId = repo.Resolve (branch);
+				if (branchHeadId == null)
+					throw new InvalidOperationException ("Branch head commit not found");
+				
+				RevCommit branchCommit = rw.ParseCommit (branchHeadId);
+				DirCacheCheckout checkout = new DirCacheCheckout (repo, null, dc, branchCommit.Tree);
+				checkout.Checkout ();
+				
+				RefUpdate u = repo.UpdateRef(Constants.HEAD);
+				u.Link ("refs/heads/" + branch);
+				monitor.Step (1);
 			} catch {
+				dc.Unlock ();
 				// If something goes wrong, restore the work tree status
-				RunCommand ("stash pop", true);
+				stash.Apply ();
+				stashes.Remove (stash);
 				throw;
 			}
-
+			
 			// Restore the branch stash
+<<<<<<< HEAD
 
 			sid = GetStashId (branch);
 			if (sid != null)
@@ -737,21 +1208,43 @@ namespace MonoDevelop.VersionControl.Git
 
 			NotifyFileChanges (statusList);
 
+=======
+			
+			stash = GetStashForBranch (stashes, branch);
+			if (stash != null) {
+				stash.Apply ();
+				stashes.Remove (stash);
+			}
+			monitor.Step (1);
+			
+			// Notify file changes
+			
+			NotifyFileChanges (monitor, statusList);
+			
+>>>>>>> master
 			if (BranchSelectionChanged != null)
 				BranchSelectionChanged (this, EventArgs.Empty);
+			
+			monitor.EndTask ();
 		}
 
+<<<<<<< HEAD
 		void NotifyFileChanges (List<string> statusList)
+=======
+		void NotifyFileChanges (IProgressMonitor monitor, IEnumerable<Change> statusList)
+>>>>>>> master
 		{
-			foreach (string line in statusList) {
-				char s = line [0];
-				FilePath file = path.Combine (line.Substring (2));
-				if (s == 'A')
+			List<Change> changes = new List<Change> (statusList);
+			monitor.BeginTask (null, changes.Count);
+			foreach (Change change in changes) {
+				if (change.ChangeType == ChangeType.Added)
 					// File added to source branch not present to target branch.
-					FileService.NotifyFileRemoved (file);
+					FileService.NotifyFileRemoved (FromGitPath (change.Path));
 				else
-					FileService.NotifyFileChanged (file);
+					FileService.NotifyFileChanged (FromGitPath (change.Path));
+				monitor.Step (1);
 			}
+			monitor.EndTask ();
 		}
 
 		string GetStashName (string branchName)
@@ -759,14 +1252,16 @@ namespace MonoDevelop.VersionControl.Git
 			return "__MD_" + branchName;
 		}
 
+<<<<<<< HEAD
 		string GetStashId (string branchName)
+=======
+		Stash GetStashForBranch (StashCollection stashes, string branchName)
+>>>>>>> master
 		{
 			string sn = GetStashName (branchName);
-			foreach (string ss in ToList (RunCommand ("stash list", true))) {
-				if (ss.IndexOf (sn) != -1) {
-					int i = ss.IndexOf (':');
-					return ss.Substring (0, i);
-				}
+			foreach (Stash ss in stashes) {
+				if (ss.Comment.IndexOf (sn) != -1)
+					return ss;
 			}
 			return null;
 		}
@@ -774,25 +1269,66 @@ namespace MonoDevelop.VersionControl.Git
 		public ChangeSet GetPushChangeSet (string remote, string branch)
 		{
 			ChangeSet cset = CreateChangeSet (path);
-			StringReader sr = RunCommand ("diff --name-status " + remote + "/" + branch + " " + GetCurrentBranch (), true);
-			foreach (string change in ToList (sr)) {
-				FilePath file = path.Combine (change.Substring (2));
+			ObjectId cid1 = repo.Resolve (remote + "/" + branch);
+			ObjectId cid2 = repo.Resolve (repo.GetBranch ());
+			RevWalk rw = new RevWalk (repo);
+			RevCommit c1 = rw.ParseCommit (cid1);
+			RevCommit c2 = rw.ParseCommit (cid2);
+			
+			foreach (Change change in GitUtil.CompareCommits (repo, c2, c1)) {
 				VersionStatus status;
-				switch (change [0]) {
-				case 'A': status = VersionStatus.ScheduledAdd; break;
-				case 'D': status = VersionStatus.ScheduledDelete; break;
-				default: status = VersionStatus.Modified; break;
+				switch (change.ChangeType) {
+				case ChangeType.Added:
+					status = VersionStatus.ScheduledAdd;
+					break;
+				case ChangeType.Deleted:
+					status = VersionStatus.ScheduledDelete;
+					break;
+				default:
+					status = VersionStatus.Modified;
+					break;
 				}
-				VersionInfo vi = new VersionInfo (file, "", false, status | VersionStatus.Versioned, null, VersionStatus.Versioned, null);
+				VersionInfo vi = new VersionInfo (FromGitPath (change.Path), "", false, status | VersionStatus.Versioned, null, VersionStatus.Versioned, null);
 				cset.AddFile (vi);
 			}
 			return cset;
 		}
+<<<<<<< HEAD
+=======
+		
+		FilePath FromGitPath (string filePath)
+		{
+			filePath = filePath.Replace ('/', Path.DirectorySeparatorChar);
+			return path.Combine (filePath);
+		}
+>>>>>>> master
 
 		public DiffInfo[] GetPushDiff (string remote, string branch)
 		{
-			StringReader sr = RunCommand ("diff " + remote + "/" + branch + " " + GetCurrentBranch (), true);
-			return GetUnifiedDiffInfo (sr.ReadToEnd (), path, null);
+			ObjectId cid1 = repo.Resolve (remote + "/" + branch);
+			ObjectId cid2 = repo.Resolve (repo.GetBranch ());
+			RevWalk rw = new RevWalk (repo);
+			RevCommit c1 = rw.ParseCommit (cid1);
+			RevCommit c2 = rw.ParseCommit (cid2);
+			
+			List<DiffInfo> diffs = new List<DiffInfo> ();
+			foreach (Change change in GitUtil.CompareCommits (repo, c1, c2)) {
+				string diff;
+				switch (change.ChangeType) {
+				case ChangeType.Deleted:
+					diff = GenerateDiff ("", GetCommitContent (c2, change.Path));
+					break;
+				case ChangeType.Added:
+					diff = GenerateDiff (GetCommitContent (c1, change.Path), "");
+					break;
+				default:
+					diff = GenerateDiff (GetCommitContent (c1, change.Path), GetCommitContent (c2, change.Path));
+					break;
+				}
+				DiffInfo di = new DiffInfo (path, FromGitPath (change.Path), diff);
+				diffs.Add (di);
+			}
+			return diffs.ToArray ();
 		}
 
 		public override void MoveFile (FilePath localSrcPath, FilePath localDestPath, bool force, IProgressMonitor monitor)
@@ -801,17 +1337,23 @@ namespace MonoDevelop.VersionControl.Git
 				base.MoveFile (localSrcPath, localDestPath, force, monitor);
 				return;
 			}
-			RunCommand ("mv " + ToCmdPath (localSrcPath) + " " + ToCmdPath (localDestPath), true, monitor);
+			base.MoveFile (localSrcPath, localDestPath, force, monitor);
+			Add (localDestPath, false, monitor);
 		}
 
 		public override void MoveDirectory (FilePath localSrcPath, FilePath localDestPath, bool force, IProgressMonitor monitor)
 		{
-			try {
-				RunCommand ("mv " + ToCmdPath (localSrcPath) + " " + ToCmdPath (localDestPath), true, monitor);
-			} catch {
-				// If the move can't be done using git, do a regular move
-				base.MoveDirectory (localSrcPath, localDestPath, force, monitor);
+			VersionInfo[] versionedFiles = GetDirectoryVersionInfo (localSrcPath, false, true);
+			base.MoveDirectory (localSrcPath, localDestPath, force, monitor);
+			monitor.BeginTask ("Moving files", versionedFiles.Length);
+			foreach (VersionInfo vif in versionedFiles) {
+				if (vif.IsDirectory)
+					continue;
+				FilePath newDestPath = vif.LocalPath.ToRelative (localSrcPath).ToAbsolute (localDestPath);
+				Add (newDestPath, false, monitor);
+				monitor.Step (1);
 			}
+			monitor.EndTask ();
 		}
 
 		public override bool CanGetAnnotations (FilePath localPath)
@@ -821,6 +1363,7 @@ namespace MonoDevelop.VersionControl.Git
 
 		public override Annotation[] GetAnnotations (FilePath repositoryPath)
 		{
+<<<<<<< HEAD
 			Dictionary<string, Annotation> annotationCache = new Dictionary<string, Annotation> ();
 			List<Annotation> alist = new List<Annotation> ();
 			StringReader sr = RunCommand ("blame -p " + ToCmdPath (repositoryPath), true);
@@ -847,8 +1390,18 @@ namespace MonoDevelop.VersionControl.Git
 					sr.ReadLine (); // Next header
 					sr.ReadLine (); // Next line content
 				}
+=======
+			RevCommit hc = GetHeadCommit ();
+			if (hc == null)
+				return new Annotation [0];
+			RevCommit[] lineCommits = GitUtil.Blame (repo, hc, repositoryPath);
+			Annotation[] lines = new Annotation[lineCommits.Length];
+			for (int n = 0; n < lines.Length; n++) {
+				RevCommit c = lineCommits[n];
+				lines[n] = new Annotation (c.Name, c.GetAuthorIdent ().GetName () + "<" + c.GetAuthorIdent().GetEmailAddress () + ">", c.GetCommitterIdent ().GetWhen ());
+>>>>>>> master
 			}
-			return alist.ToArray ();
+			return lines;
 		}
 
 		public static Annotation CreateAnnotation (string revision, StringReader sr)
@@ -893,6 +1446,7 @@ namespace MonoDevelop.VersionControl.Git
 
 		internal GitRevision GetPreviousRevisionFor (GitRevision revision)
 		{
+<<<<<<< HEAD
 			StringReader sr = RunCommand ("log -1 --name-status --date=iso " + revision + "^", true);
 			string rev = ReadWithPrefix (sr, "commit ");
 			string author = ReadWithPrefix  (sr, "Author: ");
@@ -933,6 +1487,12 @@ namespace MonoDevelop.VersionControl.Git
 			}
 
 			return new GitRevision (this, rev, date, author, message.ToString ().Trim ('\n','\r'), paths.ToArray ());
+=======
+			ObjectId id = repo.Resolve (revision.ToString () + "^");
+			if (id == null)
+				return null;
+			return new GitRevision (this, id.Name);
+>>>>>>> master
 		}
 	}
 
@@ -940,14 +1500,22 @@ namespace MonoDevelop.VersionControl.Git
 	{
 		string rev;
 
+<<<<<<< HEAD
 		public GitRevision (Repository repo, string rev)
 			: base (repo)
+=======
+		public GitRevision (Repository repo, string rev) : base(repo)
+>>>>>>> master
 		{
 			this.rev = rev;
 		}
 
+<<<<<<< HEAD
 		public GitRevision (Repository repo, string rev, DateTime time, string author, string message, RevisionPath[] changedFiles)
 			: base (repo, time, author, message, changedFiles)
+=======
+		public GitRevision (Repository repo, string rev, DateTime time, string author, string message, RevisionPath[] changedFiles) : base(repo, time, author, message, changedFiles)
+>>>>>>> master
 		{
 			this.rev = rev;
 		}
@@ -971,8 +1539,80 @@ namespace MonoDevelop.VersionControl.Git
 
 	public class RemoteSource
 	{
+		internal RemoteConfig RepoRemote;
+		internal StoredConfig cfg;
+
+		public RemoteSource ()
+		{
+		}
+
+		internal RemoteSource (StoredConfig cfg, RemoteConfig rem)
+		{
+			this.cfg = cfg;
+			RepoRemote = rem;
+			Name = rem.Name;
+			FetchUrl = rem.URIs.Select (u => u.ToString ()).FirstOrDefault ();
+			PushUrl = rem.PushURIs.Select (u => u.ToString ()).FirstOrDefault ();
+			if (string.IsNullOrEmpty (PushUrl))
+				PushUrl = FetchUrl;
+		}
+
+		internal void Update ()
+		{
+			RepoRemote.Name = Name;
+			
+			var list = new List<URIish> (RepoRemote.URIs);
+			list.ForEach (u => RepoRemote.RemoveURI (u));
+			
+			list = new List<URIish> (RepoRemote.PushURIs);
+			list.ForEach (u => RepoRemote.RemovePushURI (u));
+			
+			RepoRemote.AddURI (new URIish (FetchUrl));
+			if (!string.IsNullOrEmpty (PushUrl) && PushUrl != FetchUrl)
+				RepoRemote.AddPushURI (new URIish (PushUrl));
+			RepoRemote.Update (cfg);
+		}
+
 		public string Name { get; internal set; }
 		public string FetchUrl { get; internal set; }
 		public string PushUrl { get; internal set; }
+	}
+	
+	class GitMonitor: NGit.ProgressMonitor
+	{
+		IProgressMonitor monitor;
+		
+		public GitMonitor (IProgressMonitor monitor)
+		{
+			this.monitor = monitor;
+		}
+		
+		public override void Start (int totalTasks)
+		{
+			monitor.BeginTask (null, totalTasks);
+		}
+		
+		
+		public override void BeginTask (string title, int totalWork)
+		{
+			monitor.BeginTask (title, totalWork);
+		}
+		
+		
+		public override void Update (int completed)
+		{
+		}
+		
+		
+		public override void EndTask ()
+		{
+			monitor.EndTask ();
+		}
+		
+		
+		public override bool IsCancelled ()
+		{
+			return monitor.IsCancelRequested;
+		}
 	}
 }

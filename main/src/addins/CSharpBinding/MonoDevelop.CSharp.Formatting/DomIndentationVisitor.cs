@@ -35,7 +35,7 @@ using System.Linq;
 
 namespace MonoDevelop.CSharp.Formatting
 {
-	public class DomIndentationVisitor : AbtractCSharpDomVisitor<object, object>
+	public class DomIndentationVisitor : DomVisitor<object, object>
 	{
 		CSharpFormattingPolicy policy;
 		TextEditorData data;
@@ -86,7 +86,7 @@ namespace MonoDevelop.CSharp.Formatting
 			return null;
 		}
 		
-		public void EnsureBlankLinesAfter (ICSharpNode node, int blankLines)
+		public void EnsureBlankLinesAfter (DomNode node, int blankLines)
 		{
 			var loc = node.EndLocation;
 			int line = loc.Line;
@@ -103,7 +103,7 @@ namespace MonoDevelop.CSharp.Formatting
 			AddChange (start, lineSegment.Offset - start, sb.ToString ());
 		}
 		
-		public void EnsureBlankLinesBefore (ICSharpNode node, int blankLines)
+		public void EnsureBlankLinesBefore (DomNode node, int blankLines)
 		{
 			var loc = node.StartLocation;
 			int line = loc.Line;
@@ -145,7 +145,7 @@ namespace MonoDevelop.CSharp.Formatting
 		{
 			var firstNsMember = namespaceDeclaration.GetChildByRole (NamespaceDeclaration.Roles.Member);
 			if (firstNsMember != null)
-				EnsureBlankLinesBefore ((ICSharpNode)firstNsMember, policy.BlankLinesBeforeFirstDeclaration);
+				EnsureBlankLinesBefore (firstNsMember, policy.BlankLinesBeforeFirstDeclaration);
 			FixIndentationForceNewLine (namespaceDeclaration.StartLocation);
 			EnforceBraceStyle (policy.NamespaceBraceStyle, namespaceDeclaration.LBrace, namespaceDeclaration.RBrace);
 			if (policy.IndentNamespaceBody)
@@ -198,7 +198,7 @@ namespace MonoDevelop.CSharp.Formatting
 		
 		bool IsSimpleAccessor (Accessor accessor)
 		{
-			if (accessor == null || accessor.Body == null || accessor.Body.FirstChild == null)
+			if (accessor.IsNull || accessor.Body.IsNull || accessor.Body.FirstChild == null)
 				return true;
 			if (accessor.Body.Children.Count () != 1)
 				return false;
@@ -244,8 +244,8 @@ namespace MonoDevelop.CSharp.Formatting
 			}
 			if (policy.IndentPropertyBody)
 				IndentLevel++;
-
-			if (propertyDeclaration.GetAccessor != null) {
+			
+			if (!propertyDeclaration.GetAccessor.IsNull) {
 				if (!oneLine) {
 					if (!IsLineIsEmptyUpToEol (propertyDeclaration.GetAccessor.StartLocation)) {
 						int offset = this.data.Document.LocationToOffset (propertyDeclaration.GetAccessor.StartLocation.Line, propertyDeclaration.GetAccessor.StartLocation.Column);
@@ -256,13 +256,13 @@ namespace MonoDevelop.CSharp.Formatting
 						FixIndentation (propertyDeclaration.GetAccessor.StartLocation);
 					}
 				} else {
-					if (propertyDeclaration.SetAccessor != null && propertyDeclaration.SetAccessor.StartLocation < propertyDeclaration.GetAccessor.StartLocation) {
+					if (!propertyDeclaration.SetAccessor.IsNull && propertyDeclaration.SetAccessor.StartLocation < propertyDeclaration.GetAccessor.StartLocation) {
 						int offset = this.data.Document.LocationToOffset (propertyDeclaration.GetAccessor.StartLocation.Line, propertyDeclaration.GetAccessor.StartLocation.Column);
 						int start = SearchWhitespaceStart (offset);
 						AddChange (start, offset - start, " ");
 					}
 				}
-				if (propertyDeclaration.GetAccessor.Body != null) {
+				if (!propertyDeclaration.GetAccessor.Body.IsNull) {
 					if (!policy.AllowPropertyGetBlockInline || propertyDeclaration.GetAccessor.Body.LBrace.StartLocation.Line != propertyDeclaration.GetAccessor.Body.RBrace.StartLocation.Line) {
 						EnforceBraceStyle (policy.PropertyGetBraceStyle, propertyDeclaration.GetAccessor.Body.LBrace, propertyDeclaration.GetAccessor.Body.RBrace);
 					} else {
@@ -271,8 +271,8 @@ namespace MonoDevelop.CSharp.Formatting
 					VisitBlockWithoutFixIndentation (propertyDeclaration.GetAccessor.Body, policy.IndentBlocks, data);
 				}
 			}
-
-			if (propertyDeclaration.SetAccessor != null) {
+			
+			if (!propertyDeclaration.SetAccessor.IsNull) {
 				if (!oneLine) {
 					if (!IsLineIsEmptyUpToEol (propertyDeclaration.SetAccessor.StartLocation)) {
 						int offset = this.data.Document.LocationToOffset (propertyDeclaration.SetAccessor.StartLocation.Line, propertyDeclaration.SetAccessor.StartLocation.Column);
@@ -283,13 +283,13 @@ namespace MonoDevelop.CSharp.Formatting
 						FixIndentation (propertyDeclaration.SetAccessor.StartLocation);
 					}
 				} else {
-					if (propertyDeclaration.GetAccessor != null && propertyDeclaration.SetAccessor.StartLocation > propertyDeclaration.GetAccessor.StartLocation) {
+					if (!propertyDeclaration.GetAccessor.IsNull && propertyDeclaration.SetAccessor.StartLocation > propertyDeclaration.GetAccessor.StartLocation) {
 						int offset = this.data.Document.LocationToOffset (propertyDeclaration.SetAccessor.StartLocation.Line, propertyDeclaration.SetAccessor.StartLocation.Column);
 						int start = SearchWhitespaceStart (offset);
 						AddChange (start, offset - start, " ");
 					}
 				}
-				if (propertyDeclaration.SetAccessor.Body != null) {
+				if (!propertyDeclaration.SetAccessor.Body.IsNull) {
 					if (!policy.AllowPropertySetBlockInline || propertyDeclaration.SetAccessor.Body.LBrace.StartLocation.Line != propertyDeclaration.SetAccessor.Body.RBrace.StartLocation.Line) {
 						EnforceBraceStyle (policy.PropertySetBraceStyle, propertyDeclaration.SetAccessor.Body.LBrace, propertyDeclaration.SetAccessor.Body.RBrace);
 					} else {
@@ -312,10 +312,10 @@ namespace MonoDevelop.CSharp.Formatting
 			EnforceBraceStyle (policy.PropertyBraceStyle, indexerDeclaration.LBrace, indexerDeclaration.RBrace);
 			if (policy.IndentPropertyBody)
 				IndentLevel++;
-
-			if (indexerDeclaration.GetAccessor != null) {
+			
+			if (!indexerDeclaration.GetAccessor.IsNull) {
 				FixIndentation (indexerDeclaration.GetAccessor.StartLocation);
-				if (indexerDeclaration.GetAccessor.Body != null) {
+				if (!indexerDeclaration.GetAccessor.Body.IsNull) {
 					if (!policy.AllowPropertyGetBlockInline || indexerDeclaration.GetAccessor.Body.LBrace.StartLocation.Line != indexerDeclaration.GetAccessor.Body.RBrace.StartLocation.Line) {
 						EnforceBraceStyle (policy.PropertyGetBraceStyle, indexerDeclaration.GetAccessor.Body.LBrace, indexerDeclaration.GetAccessor.Body.RBrace);
 					} else {
@@ -324,10 +324,10 @@ namespace MonoDevelop.CSharp.Formatting
 					VisitBlockWithoutFixIndentation (indexerDeclaration.GetAccessor.Body, policy.IndentBlocks, data);
 				}
 			}
-
-			if (indexerDeclaration.SetAccessor != null) {
+			
+			if (!indexerDeclaration.SetAccessor.IsNull) {
 				FixIndentation (indexerDeclaration.SetAccessor.StartLocation);
-				if (indexerDeclaration.SetAccessor.Body != null) {
+				if (!indexerDeclaration.SetAccessor.Body.IsNull) {
 					if (!policy.AllowPropertySetBlockInline || indexerDeclaration.SetAccessor.Body.LBrace.StartLocation.Line != indexerDeclaration.SetAccessor.Body.RBrace.StartLocation.Line) {
 						EnforceBraceStyle (policy.PropertySetBraceStyle, indexerDeclaration.SetAccessor.Body.LBrace, indexerDeclaration.SetAccessor.Body.RBrace);
 					} else {
@@ -343,11 +343,10 @@ namespace MonoDevelop.CSharp.Formatting
 			return null;
 		}
 		
-
-		static bool IsSimpleEvent (INode node)
+		static bool IsSimpleEvent (DomNode node)
 		{
 			var evt = (EventDeclaration)node;
-			return evt.AddAccessor == null;
+			return evt.AddAccessor.IsNull;
 		}
 
 		public override object VisitEventDeclaration (EventDeclaration eventDeclaration, object data)
@@ -356,10 +355,10 @@ namespace MonoDevelop.CSharp.Formatting
 			EnforceBraceStyle (policy.EventBraceStyle, eventDeclaration.LBrace, eventDeclaration.RBrace);
 			if (policy.IndentEventBody)
 				IndentLevel++;
-
-			if (eventDeclaration.AddAccessor != null) {
+			
+			if (!eventDeclaration.AddAccessor.IsNull) {
 				FixIndentation (eventDeclaration.AddAccessor.StartLocation);
-				if (eventDeclaration.AddAccessor.Body != null) {
+				if (!eventDeclaration.AddAccessor.Body.IsNull) {
 					if (!policy.AllowEventAddBlockInline || eventDeclaration.AddAccessor.Body.LBrace.StartLocation.Line != eventDeclaration.AddAccessor.Body.RBrace.StartLocation.Line) {
 						EnforceBraceStyle (policy.EventAddBraceStyle, eventDeclaration.AddAccessor.Body.LBrace, eventDeclaration.AddAccessor.Body.RBrace);
 					} else {
@@ -369,10 +368,10 @@ namespace MonoDevelop.CSharp.Formatting
 					VisitBlockWithoutFixIndentation (eventDeclaration.AddAccessor.Body, policy.IndentBlocks, data);
 				}
 			}
-
-			if (eventDeclaration.RemoveAccessor != null) {
+			
+			if (!eventDeclaration.RemoveAccessor.IsNull) {
 				FixIndentation (eventDeclaration.RemoveAccessor.StartLocation);
-				if (eventDeclaration.RemoveAccessor.Body != null) {
+				if (!eventDeclaration.RemoveAccessor.Body.IsNull) {
 					if (!policy.AllowEventRemoveBlockInline || eventDeclaration.RemoveAccessor.Body.LBrace.StartLocation.Line != eventDeclaration.RemoveAccessor.Body.RBrace.StartLocation.Line) {
 						EnforceBraceStyle (policy.EventRemoveBraceStyle, eventDeclaration.RemoveAccessor.Body.LBrace, eventDeclaration.RemoveAccessor.Body.RBrace);
 					} else {
@@ -410,6 +409,12 @@ namespace MonoDevelop.CSharp.Formatting
 			return base.VisitFieldDeclaration (fieldDeclaration, data);
 		}
 		
+		public override object VisitEnumMemberDeclaration (EnumMemberDeclaration enumMemberDeclaration, object data)
+		{
+			FixIndentationForceNewLine (enumMemberDeclaration.StartLocation);
+			return base.VisitEnumMemberDeclaration (enumMemberDeclaration, data);
+		}
+		
 		public override object VisitDelegateDeclaration (DelegateDeclaration delegateDeclaration, object data)
 		{
 			FixIndentation (delegateDeclaration.StartLocation);
@@ -422,15 +427,15 @@ namespace MonoDevelop.CSharp.Formatting
 			return base.VisitDelegateDeclaration (delegateDeclaration, data);
 		}
 		
-		static bool IsMember (INode nextSibling)
+		static bool IsMember (DomNode nextSibling)
 		{
-			return nextSibling != null && nextSibling.Role == AbstractNode.Roles.Member;
+			return nextSibling != null && nextSibling.Role == DomNode.Roles.Member;
 		}
 
 		public override object VisitMethodDeclaration (MethodDeclaration methodDeclaration, object data)
 		{
 			FixIndentationForceNewLine (methodDeclaration.StartLocation);
-			if (methodDeclaration.Body != null) {
+			if (!methodDeclaration.Body.IsNull) {
 				EnforceBraceStyle (policy.MethodBraceStyle, methodDeclaration.Body.LBrace, methodDeclaration.Body.RBrace);
 				if (policy.IndentMethodBody)
 					IndentLevel++;
@@ -447,7 +452,7 @@ namespace MonoDevelop.CSharp.Formatting
 		public override object VisitOperatorDeclaration (OperatorDeclaration operatorDeclaration, object data)
 		{
 			FixIndentationForceNewLine (operatorDeclaration.StartLocation);
-			if (operatorDeclaration.Body != null) {
+			if (!operatorDeclaration.Body.IsNull) {
 				EnforceBraceStyle (policy.MethodBraceStyle, operatorDeclaration.Body.LBrace, operatorDeclaration.Body.RBrace);
 				if (policy.IndentMethodBody)
 					IndentLevel++;
@@ -464,7 +469,7 @@ namespace MonoDevelop.CSharp.Formatting
 		public override object VisitConstructorDeclaration (ConstructorDeclaration constructorDeclaration, object data)
 		{
 			FixIndentationForceNewLine (constructorDeclaration.StartLocation);
-			if (constructorDeclaration.Body != null)
+			if (!constructorDeclaration.Body.IsNull)
 				EnforceBraceStyle (policy.ConstructorBraceStyle, constructorDeclaration.Body.LBrace, constructorDeclaration.Body.RBrace);
 			object result = base.VisitConstructorDeclaration (constructorDeclaration, data);
 			if (IsMember (constructorDeclaration.NextSibling))
@@ -475,7 +480,7 @@ namespace MonoDevelop.CSharp.Formatting
 		public override object VisitDestructorDeclaration (DestructorDeclaration destructorDeclaration, object data)
 		{
 			FixIndentationForceNewLine (destructorDeclaration.StartLocation);
-			if (destructorDeclaration.Body != null)
+			if (!destructorDeclaration.Body.IsNull)
 				EnforceBraceStyle (policy.DestructorBraceStyle, destructorDeclaration.Body.LBrace, destructorDeclaration.Body.RBrace);
 			object result = base.VisitDestructorDeclaration (destructorDeclaration, data);
 			if (IsMember (destructorDeclaration.NextSibling))
@@ -508,6 +513,15 @@ namespace MonoDevelop.CSharp.Formatting
 			return result;
 		}
 		
+		public override object VisitComment (MonoDevelop.CSharp.Dom.Comment comment, object data)
+		{
+			System.Console.WriteLine (comment.StartLocation);
+			System.Console.WriteLine (comment.StartsLine);
+			if (comment.StartsLine)
+				FixIndentation (comment.StartLocation);
+			return null;
+		}
+		
 		public override object VisitBreakStatement (BreakStatement breakStatement, object data)
 		{
 			FixStatementIndentation (breakStatement.StartLocation);
@@ -517,7 +531,7 @@ namespace MonoDevelop.CSharp.Formatting
 		public override object VisitCheckedStatement (CheckedStatement checkedStatement, object data)
 		{
 			FixStatementIndentation (checkedStatement.StartLocation);
-			return FixEmbeddedStatment (policy.StatementBraceStyle, policy.FixedBraceForcement, checkedStatement.EmbeddedStatement);
+			return FixEmbeddedStatment (policy.StatementBraceStyle, policy.FixedBraceForcement, checkedStatement.Block);
 		}
 		
 		public override object VisitContinueStatement (ContinueStatement continueStatement, object data)
@@ -544,12 +558,12 @@ namespace MonoDevelop.CSharp.Formatting
 			return FixEmbeddedStatment (policy.StatementBraceStyle, policy.ForEachBraceForcement, foreachStatement.EmbeddedStatement);
 		}
 
-		object FixEmbeddedStatment (MonoDevelop.CSharp.Formatting.BraceStyle braceStyle, MonoDevelop.CSharp.Formatting.BraceForcement braceForcement, ICSharpNode node)
+		object FixEmbeddedStatment (MonoDevelop.CSharp.Formatting.BraceStyle braceStyle, MonoDevelop.CSharp.Formatting.BraceForcement braceForcement, DomNode node)
 		{
 			return FixEmbeddedStatment (braceStyle, braceForcement, null, false, node);
 		}
 		
-		object FixEmbeddedStatment (MonoDevelop.CSharp.Formatting.BraceStyle braceStyle, MonoDevelop.CSharp.Formatting.BraceForcement braceForcement, CSharpTokenNode token, bool allowInLine, ICSharpNode node)
+		object FixEmbeddedStatment (MonoDevelop.CSharp.Formatting.BraceStyle braceStyle, MonoDevelop.CSharp.Formatting.BraceForcement braceForcement, CSharpTokenNode token, bool allowInLine, DomNode node)
 		{
 			if (node == null)
 				return null;
@@ -595,7 +609,7 @@ namespace MonoDevelop.CSharp.Formatting
 
 						AddChange (start, offset1 - start + 1, null);
 						AddChange (end + 1, offset2 - end, null);
-						node = (ICSharpNode)block.FirstChild;
+						node = block.FirstChild;
 						isBlock = false;
 					}
 				}
@@ -655,9 +669,9 @@ namespace MonoDevelop.CSharp.Formatting
 			return result;
 		}
 		
-		void EnforceBraceStyle (MonoDevelop.CSharp.Formatting.BraceStyle braceStyle, ICSharpNode lbrace, ICSharpNode rbrace)
+		void EnforceBraceStyle (MonoDevelop.CSharp.Formatting.BraceStyle braceStyle, DomNode lbrace, DomNode rbrace)
 		{
-			if (lbrace == null || rbrace == null)
+			if (lbrace.IsNull || rbrace.IsNull)
 				return;
 
 //			LineSegment lbraceLineSegment = data.Document.GetLine (lbrace.StartLocation.Line);
@@ -799,14 +813,14 @@ namespace MonoDevelop.CSharp.Formatting
 		{
 			if (!(ifElseStatement.Parent is IfElseStatement && ((IfElseStatement)ifElseStatement.Parent).FalseEmbeddedStatement == ifElseStatement))
 				FixStatementIndentation (ifElseStatement.StartLocation);
-
-			if (ifElseStatement.Condition != null)
+			
+			if (!ifElseStatement.Condition.IsNull)
 				ifElseStatement.Condition.AcceptVisitor (this, data);
-
-			if (ifElseStatement.TrueEmbeddedStatement != null)
+			
+			if (!ifElseStatement.TrueEmbeddedStatement.IsNull)
 				FixEmbeddedStatment (policy.StatementBraceStyle, policy.IfElseBraceForcement, ifElseStatement.IfKeyword, policy.AllowIfBlockInline, ifElseStatement.TrueEmbeddedStatement);
-
-			if (ifElseStatement.FalseEmbeddedStatement != null) {
+			
+			if (!ifElseStatement.FalseEmbeddedStatement.IsNull) {
 				PlaceOnNewLine (policy.PlaceElseOnNewLine, ifElseStatement.ElseKeyword);
 				if (ifElseStatement.FalseEmbeddedStatement is IfElseStatement) {
 					PlaceOnNewLine (policy.PlaceElseIfOnNewLine, ((IfElseStatement)ifElseStatement.FalseEmbeddedStatement).IfKeyword);
@@ -854,8 +868,8 @@ namespace MonoDevelop.CSharp.Formatting
 			}
 			if (policy.IndentCaseBody)
 				curIndent.Level++;
-
-			foreach (ICSharpNode stmt in switchSection.Statements) {
+			
+			foreach (var stmt in switchSection.Statements) {
 				stmt.AcceptVisitor (this, null);
 			}
 			if (policy.IndentCaseBody)
@@ -881,8 +895,8 @@ namespace MonoDevelop.CSharp.Formatting
 		public override object VisitTryCatchStatement (TryCatchStatement tryCatchStatement, object data)
 		{
 			FixStatementIndentation (tryCatchStatement.StartLocation);
-
-			if (tryCatchStatement.TryBlock != null)
+			
+			if (!tryCatchStatement.TryBlock.IsNull)
 				FixEmbeddedStatment (policy.StatementBraceStyle, BraceForcement.DoNotChange, tryCatchStatement.TryBlock);
 
 			foreach (CatchClause clause in tryCatchStatement.CatchClauses) {
@@ -890,8 +904,8 @@ namespace MonoDevelop.CSharp.Formatting
 
 				FixEmbeddedStatment (policy.StatementBraceStyle, BraceForcement.DoNotChange, clause.Block);
 			}
-
-			if (tryCatchStatement.FinallyBlock != null) {
+			
+			if (!tryCatchStatement.FinallyBlock.IsNull) {
 				PlaceOnNewLine (policy.PlaceFinallyOnNewLine, tryCatchStatement.FinallyKeyword);
 
 				FixEmbeddedStatment (policy.StatementBraceStyle, BraceForcement.DoNotChange, tryCatchStatement.FinallyBlock);
@@ -909,7 +923,7 @@ namespace MonoDevelop.CSharp.Formatting
 		public override object VisitUncheckedStatement (UncheckedStatement uncheckedStatement, object data)
 		{
 			FixStatementIndentation (uncheckedStatement.StartLocation);
-			return FixEmbeddedStatment (policy.StatementBraceStyle, policy.FixedBraceForcement, uncheckedStatement.EmbeddedStatement);
+			return FixEmbeddedStatment (policy.StatementBraceStyle, policy.FixedBraceForcement, uncheckedStatement.Block);
 		}
 		
 		public override object VisitUnsafeStatement (UnsafeStatement unsafeStatement, object data)
@@ -927,7 +941,7 @@ namespace MonoDevelop.CSharp.Formatting
 		
 		public override object VisitVariableDeclarationStatement (VariableDeclarationStatement variableDeclarationStatement, object data)
 		{
-			if (variableDeclarationStatement.Semicolon != null)
+			if (!variableDeclarationStatement.Semicolon.IsNull)
 				FixStatementIndentation (variableDeclarationStatement.StartLocation);
 			return null;
 		}
@@ -949,8 +963,8 @@ namespace MonoDevelop.CSharp.Formatting
 		}
 		
 		#endregion
-
-		void PlaceOnNewLine (bool newLine, ICSharpNode keywordNode)
+		
+		void PlaceOnNewLine (bool newLine, DomNode keywordNode)
 		{
 			if (keywordNode == null)
 				return;

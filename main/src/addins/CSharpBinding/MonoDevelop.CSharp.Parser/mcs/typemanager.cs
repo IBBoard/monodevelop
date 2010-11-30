@@ -12,15 +12,9 @@
 //
 
 using System;
-using System.IO;
 using System.Globalization;
 using System.Collections.Generic;
-using System.Reflection;
-using System.Reflection.Emit;
 using System.Text;
-using System.Runtime.CompilerServices;
-using System.Diagnostics;
-using System.Linq;
 
 namespace Mono.CSharp {
 
@@ -69,6 +63,7 @@ namespace Mono.CSharp {
 	static public TypeSpec asynccallback_type;
 	static public TypeSpec runtime_argument_handle_type;
 	static public TypeSpec void_ptr_type;
+	static public TypeSpec interop_charset;
 
 	// 
 	// C# 2.0
@@ -114,6 +109,7 @@ namespace Mono.CSharp {
 	static public MethodSpec delegate_remove_delegate_delegate;
 	static public PropertySpec int_get_offset_to_string_data;
 	static public MethodSpec int_interlocked_compare_exchange;
+	public static MethodSpec gen_interlocked_compare_exchange;
 	static public PropertySpec ienumerator_getcurrent;
 	public static MethodSpec methodbase_get_type_from_handle;
 	public static MethodSpec methodbase_get_type_from_handle_generic;
@@ -128,8 +124,6 @@ namespace Mono.CSharp {
 	static public MethodSpec void_decimal_ctor_int_arg;
 	public static MethodSpec void_decimal_ctor_long_arg;
 
-	static Dictionary<Assembly, bool> assembly_internals_vis_attrs;
-
 	static TypeManager ()
 	{
 		Reset ();
@@ -139,8 +133,6 @@ namespace Mono.CSharp {
 	{
 //		object_type = null;
 	
-		assembly_internals_vis_attrs = new Dictionary<Assembly, bool> ();
-		
 		// TODO: I am really bored by all this static stuff
 		system_type_get_type_from_handle =
 		bool_movenext_void =
@@ -149,6 +141,7 @@ namespace Mono.CSharp {
 		void_monitor_exit_object =
 		void_initializearray_array_fieldhandle =
 		int_interlocked_compare_exchange =
+		gen_interlocked_compare_exchange =
 		methodbase_get_type_from_handle =
 		methodbase_get_type_from_handle_generic =
 		fieldinfo_get_field_from_handle =
@@ -176,7 +169,7 @@ namespace Mono.CSharp {
 		runtime_helpers_type = iasyncresult_type = asynccallback_type =
 		runtime_argument_handle_type = void_ptr_type = isvolatile_type =
 		generic_ilist_type = generic_icollection_type = generic_ienumerator_type =
-		generic_ienumerable_type = generic_nullable_type = expression_type =
+		generic_ienumerable_type = generic_nullable_type = expression_type = interop_charset =
 		parameter_expression_type = fieldinfo_type = methodinfo_type = ctorinfo_type = null;
 
 		expression_type_expr = null;
@@ -355,15 +348,16 @@ namespace Mono.CSharp {
 	///   population of the type has happened (for example, to
 	///   bootstrap the corlib.dll
 	/// </remarks>
-	public static bool InitCoreTypes (CompilerContext ctx, IList<PredefinedTypeSpec> predefined)
+	public static bool InitCoreTypes (ModuleContainer module, IList<PredefinedTypeSpec> predefined)
 	{
+		var ctx = module.Compiler;
 		foreach (var p in predefined) {
 			var found = CoreLookupType (ctx, p.Namespace, p.Name, p.Kind, true);
 			if (found == null || found == p)
 				continue;
 
 			if (!RootContext.StdLib) {
-				var ns = ctx.GlobalRootNamespace.GetNamespace (p.Namespace, false);
+				var ns = module.GlobalRootNamespace.GetNamespace (p.Namespace, false);
 				ns.ReplaceTypeWithPredefined (found, p);
 
 				var tc = found.MemberDefinition as TypeContainer;
@@ -412,6 +406,8 @@ namespace Mono.CSharp {
 		generic_icollection_type = CoreLookupType (ctx, "System.Collections.Generic", "ICollection", 1, MemberKind.Interface, false);
 		generic_ienumerable_type = CoreLookupType (ctx, "System.Collections.Generic", "IEnumerable", 1, MemberKind.Interface, false);
 		generic_nullable_type = CoreLookupType (ctx, "System", "Nullable", 1, MemberKind.Struct, false);
+
+		isvolatile_type = CoreLookupType (ctx, "System.Runtime.CompilerServices", "IsVolatile", MemberKind.Class, false);
 
 		//
 		// Optional types which are used as types and for member lookup
@@ -589,91 +585,6 @@ namespace Mono.CSharp {
 	public static bool IsSpecialType (TypeSpec t)
 	{
 		return t == arg_iterator_type || t == typed_reference_type;
-	}
-
-	//
-	// Checks whether `invocationAssembly' is same or a friend of the assembly
-	//
-	public static bool IsThisOrFriendAssembly (Assembly invocationAssembly, Assembly assembly)
-	{
-		if (assembly == null)
-			throw new ArgumentNullException ("assembly");
-
-		// TODO: This can happen for constants used at assembly level and
-		// predefined members
-		// But there is no way to test for it for now, so it could be abused
-		// elsewhere too.
-		if (invocationAssembly == null)
-			invocationAssembly = CodeGen.Assembly.Builder;
-
-		if (invocationAssembly == assembly)
-			return true;
-
-		bool value;
-		if (assembly_internals_vis_attrs.TryGetValue (assembly, out value))
-			return value;
-
-		object[] attrs = assembly.GetCustomAttributes (typeof (InternalsVisibleToAttribute), false);
-		if (attrs.Length == 0) {
-			assembly_internals_vis_attrs.Add (assembly, false);
-			return false;
-		}
-
-		bool is_friend = false;
-
-		AssemblyName this_name = CodeGen.Assembly.Name;
-		if (this_name == null)
-			return false;
-
-		byte [] this_token = this_name.GetPublicKeyToken ();
-		foreach (InternalsVisibleToAttribute attr in attrs) {
-			if (attr.AssemblyName == null || attr.AssemblyName.Length == 0)
-				continue;
-			
-			AssemblyName aname = null;
-			try {
-				aname = new AssemblyName (attr.AssemblyName);
-			} catch (FileLoadException) {
-			} catch (ArgumentException) {
-			}
-
-			if (aname == null || aname.Name != this_name.Name)
-				continue;
-			
-			byte [] key_token = aname.GetPublicKeyToken ();
-			if (key_token != null) {
-				if (this_token.Length == 0) {
-					// Same name, but assembly is not strongnamed
-					Error_FriendAccessNameNotMatching (aname.FullName, RootContext.ToplevelTypes.Compiler.Report);
-					break;
-				}
-				
-				if (!CompareKeyTokens (this_token, key_token))
-					continue;
-			}
-
-			is_friend = true;
-			break;
-		}
-
-		assembly_internals_vis_attrs.Add (assembly, is_friend);
-		return is_friend;
-	}
-
-	static bool CompareKeyTokens (byte [] token1, byte [] token2)
-	{
-		for (int i = 0; i < token1.Length; i++)
-			if (token1 [i] != token2 [i])
-				return false;
-
-		return true;
-	}
-
-	static void Error_FriendAccessNameNotMatching (string other_name, Report Report)
-	{
-		Report.Error (281,
-			"Friend access was granted to `{0}', but the output assembly is named `{1}'. Try adding a reference to `{0}' or change the output assembly name to match it",
-			other_name, CodeGen.Assembly.Name.FullName);
 	}
 
 	public static TypeSpec GetElementType (TypeSpec t)

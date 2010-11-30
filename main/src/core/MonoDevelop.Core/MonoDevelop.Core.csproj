@@ -21,7 +21,6 @@
     <Execution>
       <Execution clr-version="Net_2_0" />
     </Execution>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>none</DebugType>
@@ -491,6 +490,7 @@
     <Compile Include="MonoDevelop.Core.Text\LaneStringMatcher.cs" />
     <Compile Include="MonoDevelop.Core.Text\BacktrackingStringMatcher.cs" />
     <Compile Include="MonoDevelop.Projects.Text\DocGenerator.cs" />
+    <Compile Include="MonoDevelop.Core\EventArgsChain.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="ChangeLog" />
