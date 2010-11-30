@@ -91,6 +91,7 @@ namespace MonoDevelop.CSharp.Formatting
 		{
 			if (!CorrectBlankLines)
 				return;
+
 			int editLocation = GetNodeStartOffset (node);
 			string actualIndentString = GetCurrentIndent (editLocation);
 			editLocation -= actualIndentString.Length;
@@ -174,7 +175,7 @@ namespace MonoDevelop.CSharp.Formatting
 		{
 			INode previous = node.PrevSibling;
 			int requiredNewLineCount = Math.Max (GetBlankLineAfterSectionCount (previous, node), GetBlankLineBeforeSectionCount (previous, node));
-			requiredNewLineCount = Math.Max (requiredNewLineCount, GetBlankLineRepeatCount (previous, node));
+			requiredNewLineCount = Math.Max (requiredNewLineCount, GetBlankLineRepeatCount (node));
 			if (!IsNodeAtDocStart (node))
 				requiredNewLineCount++;
 			return requiredNewLineCount;
@@ -214,18 +215,18 @@ namespace MonoDevelop.CSharp.Formatting
 			return prevNode;
 		}
 
-		int GetBlankLineRepeatCount (INode firstNode, INode secondNode)
+		int GetBlankLineRepeatCount (INode secondNode)
 		{
 			int lineCount = 0;
 
 			if (GetPreviousMemberSibling (secondNode) == null) {
 				lineCount = 0;
-			} else if (secondNode is TypeDeclaration || secondNode is DelegateDeclaration) {
+			} else if (secondNode is TypeDeclaration) {
 				lineCount = policy.BlankLinesBetweenTypes;
-			} else if (secondNode is FieldDeclaration && firstNode is FieldDeclaration) {
+			} else if (secondNode is DelegateDeclaration) {
+				lineCount = policy.BlankLinesBetweenTypes;
+			} else if (secondNode is FieldDeclaration) {
 				lineCount = policy.BlankLinesBetweenFields;
-			} else if (secondNode is EventDeclaration) {
-				lineCount = policy.BlankLinesBetweenEventFields;
 			} else if (IsMember (secondNode)) {
 				lineCount = policy.BlankLinesBetweenMembers;
 			}
@@ -510,6 +511,7 @@ namespace MonoDevelop.CSharp.Formatting
 
 			if (policy.IndentEventBody)
 				IndentLevel--;
+
 			return null;
 		}
 
@@ -533,9 +535,9 @@ namespace MonoDevelop.CSharp.Formatting
 			return base.VisitDelegateDeclaration (delegateDeclaration, data);
 		}
 
-		static bool IsMember (INode node)
+		static bool IsMember (INode nextSibling)
 		{
-			return node != null && node.Role == AbstractNode.Roles.Member;
+			return nextSibling != null && nextSibling.Role == AbstractNode.Roles.Member;
 		}
 
 		public override object VisitMethodDeclaration (MethodDeclaration methodDeclaration, object data)
