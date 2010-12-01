@@ -515,8 +515,6 @@ namespace MonoDevelop.CSharp.Formatting
 		
 		public override object VisitComment (MonoDevelop.CSharp.Dom.Comment comment, object data)
 		{
-			System.Console.WriteLine (comment.StartLocation);
-			System.Console.WriteLine (comment.StartsLine);
 			if (comment.StartsLine)
 				FixIndentation (comment.StartLocation);
 			return null;
@@ -574,8 +572,10 @@ namespace MonoDevelop.CSharp.Formatting
 				break;
 			case BraceForcement.AddBraces:
 				if (!isBlock) {
-					int offset = data.Document.LocationToOffset (node.StartLocation.Line, node.StartLocation.Column);
-					int start = SearchWhitespaceStart (offset);
+					DomNode n = node.Parent.GetAstNodeBefore (node);
+					int start = data.Document.LocationToOffset (n.EndLocation.Line, n.EndLocation.Column);
+					var next = n.GetNextNode ();
+					int offset = data.Document.LocationToOffset (next.StartLocation.Line, next.StartLocation.Column);
 					string startBrace = "";
 					switch (braceStyle) {
 					case BraceStyle.EndOfLineWithoutSpace:
@@ -593,7 +593,7 @@ namespace MonoDevelop.CSharp.Formatting
 						break;
 					}
 					if (IsLineIsEmptyUpToEol (data.Document.LocationToOffset (node.StartLocation.Line, node.StartLocation.Column)))
-						startBrace += data.EolMarker;
+						startBrace += data.EolMarker + data.Document.GetLineIndent (node.StartLocation.Line);
 					AddChange (start, offset - start, startBrace);
 				}
 				break;
@@ -641,7 +641,9 @@ namespace MonoDevelop.CSharp.Formatting
 				break;
 			case BraceForcement.AddBraces:
 				if (!isBlock) {
-					int offset = data.Document.LocationToOffset (node.EndLocation.Line, node.EndLocation.Column) + 1;
+					int offset = data.Document.LocationToOffset (node.EndLocation.Line, node.EndLocation.Column);
+					if (!char.IsWhiteSpace (data.GetCharAt (offset)))
+						offset++;
 					string startBrace = "";
 					switch (braceStyle) {
 					case BraceStyle.DoNotChange:
@@ -822,10 +824,12 @@ namespace MonoDevelop.CSharp.Formatting
 			
 			if (!ifElseStatement.FalseEmbeddedStatement.IsNull) {
 				PlaceOnNewLine (policy.PlaceElseOnNewLine, ifElseStatement.ElseKeyword);
+				var forcement = policy.IfElseBraceForcement;
 				if (ifElseStatement.FalseEmbeddedStatement is IfElseStatement) {
+					forcement = BraceForcement.DoNotChange;
 					PlaceOnNewLine (policy.PlaceElseIfOnNewLine, ((IfElseStatement)ifElseStatement.FalseEmbeddedStatement).IfKeyword);
 				}
-				FixEmbeddedStatment (policy.StatementBraceStyle, policy.IfElseBraceForcement, ifElseStatement.ElseKeyword, policy.AllowIfBlockInline, ifElseStatement.FalseEmbeddedStatement);
+				FixEmbeddedStatment (policy.StatementBraceStyle, forcement, ifElseStatement.ElseKeyword, policy.AllowIfBlockInline, ifElseStatement.FalseEmbeddedStatement);
 			}
 
 			return null;
