@@ -1,21 +1,21 @@
-//
+// 
 // GitRepository.cs
-//
+//  
 // Author:
 //       Dale Ragan <dale.ragan@sinesignal.com>
-//
+// 
 // Copyright (c) 2010 SineSignal, LLC
-//
+// 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-//
+// 
 // The above copyright notice and this permission notice shall be included in
 // all copies or substantial portions of the Software.
-//
+// 
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -147,6 +147,7 @@ namespace MonoDevelop.VersionControl.Git
 		}
 
 
+
 		public override VersionInfo GetVersionInfo (FilePath localPath, bool getRemoteStatus)
 		{
 			if (Directory.Exists (localPath)) {
@@ -233,7 +234,7 @@ namespace MonoDevelop.VersionControl.Git
 				VersionInfo vi = new VersionInfo (file, "", false, VersionStatus.Versioned, rev, VersionStatus.Versioned, null);
 				versions.Add (vi);
 			}
-
+			
 			return versions.ToArray ();
 		}
 
@@ -377,7 +378,7 @@ namespace MonoDevelop.VersionControl.Git
 					if (commit)
 						git.Commit ().Call ();
 				}
-
+				
 			} finally {
 				// Restore local changes
 				if (stash != null) {
@@ -385,7 +386,6 @@ namespace MonoDevelop.VersionControl.Git
 					stashes.Remove (stash);
 				}
 			}
-
 			monitor.Step (1);
 			
 			// Notify changes
@@ -424,10 +424,6 @@ namespace MonoDevelop.VersionControl.Git
 			return res;
 		}
 
-<<<<<<< HEAD
-
-=======
->>>>>>> master
 		public override void Commit (ChangeSet changeSet, IProgressMonitor monitor)
 		{
 			PersonIdent author = new PersonIdent (repo);
@@ -593,13 +589,8 @@ namespace MonoDevelop.VersionControl.Git
 			// Create new trees if there is any change
 			return SaveTree (tree, modifiedTrees);
 		}
-<<<<<<< HEAD
-
-		public void GetUserInfo (out string name, out string email)
-=======
 		
 		ObjectId SaveTree (NGit.Tree tree, HashSet<NGit.Tree> modifiedTrees)
->>>>>>> master
 		{
 			// Saves tree that have been modified (that is, which are in the provided list or
 			// which have child trees that have been modified)
@@ -625,13 +616,8 @@ namespace MonoDevelop.VersionControl.Git
 			} else
 				return null;
 		}
-<<<<<<< HEAD
-
-		public void SetUserInfo (string name, string email)
-=======
 		
 		List<string> GetFilesInPaths (IEnumerable<FilePath> paths)
->>>>>>> master
 		{
 			int basePathLength = Path.GetFullPath (this.path).TrimEnd ('/','\\').Length;
 			
@@ -650,13 +636,8 @@ namespace MonoDevelop.VersionControl.Git
 			}
 			return filePaths;
 		}
-<<<<<<< HEAD
-
-		public override void Checkout (FilePath targetLocalPath, Revision rev, bool recurse, IProgressMonitor monitor)
-=======
 		
 		IEnumerable<string> GetDirectoryFiles (DirectoryInfo dir)
->>>>>>> master
 		{
 			FileTreeIterator iter = new FileTreeIterator (dir.FullName, repo.FileSystem, WorkingTreeOptions.CreateConfigurationInstance(repo.GetConfig()));
 			while (!iter.Eof ()) {
@@ -666,24 +647,6 @@ namespace MonoDevelop.VersionControl.Git
 				iter.Next (1);
 			}
 		}
-<<<<<<< HEAD
-
-
-		public override void Revert (FilePath[] localPaths, bool recurse, IProgressMonitor monitor)
-		{
-			RunCommand ("reset --" + ToCmdPathList (localPaths), false, monitor);
-
-			// Reset again. If a file is in conflict, the first reset will only
-			// reset the conflict state, but it won't unstage the file
-			RunCommand ("reset --" + ToCmdPathList (localPaths), false, monitor);
-
-			// The checkout command may fail if a file is not tracked anymore after
-			// the reset, so the checkouts have to be run one by one.
-			foreach (FilePath p in localPaths)
-				RunCommand ("checkout -- " + ToCmdPath (p), false, monitor);
-
-			foreach (FilePath p in localPaths)
-=======
 		
 		void Unstage (IEnumerable<string> files)
 		{
@@ -811,7 +774,6 @@ namespace MonoDevelop.VersionControl.Git
 			monitor.BeginTask (null, localPaths.Length);
 
 			foreach (FilePath p in changedFiles) {
->>>>>>> master
 				FileService.NotifyFileChanged (p);
 				monitor.Step (1);
 			}
@@ -821,8 +783,6 @@ namespace MonoDevelop.VersionControl.Git
 			}
 			monitor.EndTask ();
 		}
-<<<<<<< HEAD
-=======
 		
 		bool IsSubpath (string basePath, string childPath)
 		{
@@ -830,7 +790,6 @@ namespace MonoDevelop.VersionControl.Git
 				return childPath.StartsWith (basePath);
 			return childPath.StartsWith (basePath + "/");
 		}
->>>>>>> master
 
 		public override void RevertRevision (FilePath localPath, Revision revision, IProgressMonitor monitor)
 		{
@@ -892,8 +851,6 @@ namespace MonoDevelop.VersionControl.Git
 			}
 		}
 
-<<<<<<< HEAD
-=======
 		string GetCommitContent (RevCommit c, FilePath file)
 		{
 			TreeWalk tw = TreeWalk.ForPath (repo, ToGitPath (file), c.Tree);
@@ -915,7 +872,6 @@ namespace MonoDevelop.VersionControl.Git
 			return Encoding.UTF8.GetString (s.ToArray ());
 		}
 
->>>>>>> master
 		DiffInfo[] GetUnifiedDiffInfo (string diffContent, FilePath basePath, FilePath[] localPaths)
 		{
 			basePath = basePath.FullPath;
@@ -924,7 +880,7 @@ namespace MonoDevelop.VersionControl.Git
 				string line;
 				StringBuilder content = new StringBuilder ();
 				string fileName = null;
-
+				
 				while ((line = sr.ReadLine ()) != null) {
 					if (line.StartsWith ("+++ ") || line.StartsWith ("--- ")) {
 						string newFile = path.Combine (line.Substring (6));
@@ -948,13 +904,8 @@ namespace MonoDevelop.VersionControl.Git
 		{
 			List<string> remotes = new List<string> (GetRemotes ().Select (r => r.Name));
 			if (remotes.Count == 0)
-<<<<<<< HEAD
-				throw new InvalidOperationException ("There are no remote repositories defined");
-
-=======
 				return null;
 			
->>>>>>> master
 			if (remotes.Contains ("origin"))
 				return "origin";
 			else
@@ -1052,22 +1003,12 @@ namespace MonoDevelop.VersionControl.Git
 		{
 			if (string.IsNullOrEmpty (remote.FetchUrl))
 				throw new InvalidOperationException ("Fetch url can't be empty");
-<<<<<<< HEAD
-
-			RunCommand ("remote set-url " + remote.Name + " " + remote.FetchUrl, true);
-
-			if (!string.IsNullOrEmpty (remote.PushUrl))
-				RunCommand ("remote set-url --push " + remote.Name + " " + remote.PushUrl, true);
-			else
-				RunCommand ("remote set-url --push --delete " + remote.Name + " " + remote.PushUrl, true);
-=======
 			
 			if (remote.RepoRemote == null)
 				throw new InvalidOperationException ("Remote not created");
 			
 			remote.Update ();
 			remote.cfg.Save ();
->>>>>>> master
 		}
 
 		public void RemoveRemote (string name)
@@ -1082,28 +1023,6 @@ namespace MonoDevelop.VersionControl.Git
 
 		public IEnumerable<Branch> GetBranches ()
 		{
-<<<<<<< HEAD
-			StringReader sr = RunCommand ("branch -vv", true);
-			List<Branch> list = new List<Branch> ();
-			string line;
-			while ((line = sr.ReadLine ()) != null) {
-				if (line.Length < 2)
-					continue;
-				line = line.Substring (2);
-				int i = line.IndexOf (' ');
-				if (i == -1)
-					continue;
-
-				Branch b = new Branch ();
-				b.Name = line.Substring (0, i);
-
-				i = line.IndexOf ('[', i);
-				if (i != -1) {
-					int j = line.IndexOf (']', ++i);
-					b.Tracking = line.Substring (i, j - i);
-				}
-				list.Add (b);
-=======
 			IDictionary<string, NGit.Ref> refs = repo.RefDatabase.GetRefs (Constants.R_HEADS);
 			foreach (var pair in refs) {
 				string name = NGit.Repository.ShortenRefName (pair.Key);
@@ -1111,7 +1030,6 @@ namespace MonoDevelop.VersionControl.Git
 				br.Name = name;
 				br.Tracking = GitUtil.GetUpstreamSource (repo, name);
 				yield return br;
->>>>>>> master
 			}
 		}
 
@@ -1135,11 +1053,7 @@ namespace MonoDevelop.VersionControl.Git
 			return repo.GetBranch ();
 		}
 
-<<<<<<< HEAD
-		public void SwitchToBranch (string branch)
-=======
 		public void SwitchToBranch (IProgressMonitor monitor, string branch)
->>>>>>> master
 		{
 			monitor.BeginTask (GettextCatalog.GetString ("Switching to branch {0}", branch), 4);
 			
@@ -1147,19 +1061,6 @@ namespace MonoDevelop.VersionControl.Git
 			
 			// Remove the stash for this branch, if exists
 			string currentBranch = GetCurrentBranch ();
-<<<<<<< HEAD
-			string sid = GetStashId (currentBranch);
-			if (sid != null)
-				RunCommand ("stash drop " + sid, true);
-
-			// Get a list of files that are different in the target branch
-			var statusList = ToList (RunCommand ("diff " + branch + " --name-status", true));
-
-			// Create a new stash for the branch. This allows switching branches
-			// without losing local changes
-			RunCommand ("stash save " + GetStashName (currentBranch), true);
-
-=======
 			Stash stash = GetStashForBranch (stashes, currentBranch);
 			if (stash != null)
 				stashes.Remove (stash);
@@ -1173,7 +1074,6 @@ namespace MonoDevelop.VersionControl.Git
 			
 			monitor.Step (1);
 			
->>>>>>> master
 			// Switch to the target branch
 			DirCache dc = repo.LockDirCache ();
 			try {
@@ -1198,17 +1098,6 @@ namespace MonoDevelop.VersionControl.Git
 			}
 			
 			// Restore the branch stash
-<<<<<<< HEAD
-
-			sid = GetStashId (branch);
-			if (sid != null)
-				RunCommand ("stash pop " + sid, true);
-
-			// Notify file changes
-
-			NotifyFileChanges (statusList);
-
-=======
 			
 			stash = GetStashForBranch (stashes, branch);
 			if (stash != null) {
@@ -1221,18 +1110,13 @@ namespace MonoDevelop.VersionControl.Git
 			
 			NotifyFileChanges (monitor, statusList);
 			
->>>>>>> master
 			if (BranchSelectionChanged != null)
 				BranchSelectionChanged (this, EventArgs.Empty);
 			
 			monitor.EndTask ();
 		}
 
-<<<<<<< HEAD
-		void NotifyFileChanges (List<string> statusList)
-=======
 		void NotifyFileChanges (IProgressMonitor monitor, IEnumerable<Change> statusList)
->>>>>>> master
 		{
 			List<Change> changes = new List<Change> (statusList);
 			monitor.BeginTask (null, changes.Count);
@@ -1252,11 +1136,7 @@ namespace MonoDevelop.VersionControl.Git
 			return "__MD_" + branchName;
 		}
 
-<<<<<<< HEAD
-		string GetStashId (string branchName)
-=======
 		Stash GetStashForBranch (StashCollection stashes, string branchName)
->>>>>>> master
 		{
 			string sn = GetStashName (branchName);
 			foreach (Stash ss in stashes) {
@@ -1293,15 +1173,12 @@ namespace MonoDevelop.VersionControl.Git
 			}
 			return cset;
 		}
-<<<<<<< HEAD
-=======
 		
 		FilePath FromGitPath (string filePath)
 		{
 			filePath = filePath.Replace ('/', Path.DirectorySeparatorChar);
 			return path.Combine (filePath);
 		}
->>>>>>> master
 
 		public DiffInfo[] GetPushDiff (string remote, string branch)
 		{
@@ -1363,34 +1240,6 @@ namespace MonoDevelop.VersionControl.Git
 
 		public override Annotation[] GetAnnotations (FilePath repositoryPath)
 		{
-<<<<<<< HEAD
-			Dictionary<string, Annotation> annotationCache = new Dictionary<string, Annotation> ();
-			List<Annotation> alist = new List<Annotation> ();
-			StringReader sr = RunCommand ("blame -p " + ToCmdPath (repositoryPath), true);
-
-			string line;
-			while ((line = sr.ReadLine ()) != null) {
-				string[] header = line.Split (' ');
-				string rev = header[0];
-				int lcount = int.Parse (header[3]);
-				Annotation a;
-
-				if (annotationCache.ContainsKey (rev)) {
-					a = annotationCache[rev];
-					sr.ReadLine (); //Line content
-				} else {
-					a = CreateAnnotation (rev, sr);
-					annotationCache[rev] = a;
-				}
-
-				alist.Add (a);
-				//Skip extra lines - should already have read our initial two
-				while (--lcount > 0) {
-					alist.Add (a);
-					sr.ReadLine (); // Next header
-					sr.ReadLine (); // Next line content
-				}
-=======
 			RevCommit hc = GetHeadCommit ();
 			if (hc == null)
 				return new Annotation [0];
@@ -1399,123 +1248,29 @@ namespace MonoDevelop.VersionControl.Git
 			for (int n = 0; n < lines.Length; n++) {
 				RevCommit c = lineCommits[n];
 				lines[n] = new Annotation (c.Name, c.GetAuthorIdent ().GetName () + "<" + c.GetAuthorIdent().GetEmailAddress () + ">", c.GetCommitterIdent ().GetWhen ());
->>>>>>> master
 			}
 			return lines;
 		}
-
-		public static Annotation CreateAnnotation (string revision, StringReader sr)
-		{
-			string author = null;
-			string mail = null;
-			string date = null;
-			string tz = null;
-
-			string line = sr.ReadLine ();
-			while (line != null && line.Length > 0 && line[0] != '\t') {
-				int i = line.IndexOf (' ');
-				string val;
-				string field;
-				if (i != -1) {
-					val = line.Substring (i + 1);
-					field = line.Substring (0, i);
-				} else {
-					val = null;
-					field = line;
-				}
-				switch (field) {
-				case "author": author = val; break;
-				case "author-mail": mail = val; break;
-				case "author-time": date = val; break;
-				case "author-tz": tz = val; break;
-				}
-				line = sr.ReadLine ();
-			}
-
-			// Convert from git date format
-			double secs = double.Parse (date);
-			DateTime t = new DateTime (1970, 1, 1) + TimeSpan.FromSeconds (secs);
-			string st = t.ToString ("yyyy-MM-ddTHH:mm:ss") + tz.Substring (0, 3) + ":" + tz.Substring (3);
-			DateTime sdate = DateTime.Parse (st);
-
-			string sauthor = author;
-			if (!string.IsNullOrEmpty (mail))
-				sauthor += " " + mail;
-			return new Annotation (revision, sauthor, sdate);
-		}
-
+		
 		internal GitRevision GetPreviousRevisionFor (GitRevision revision)
 		{
-<<<<<<< HEAD
-			StringReader sr = RunCommand ("log -1 --name-status --date=iso " + revision + "^", true);
-			string rev = ReadWithPrefix (sr, "commit ");
-			string author = ReadWithPrefix  (sr, "Author: ");
-			string dateStr = ReadWithPrefix (sr, "Date:   ");
-			DateTime date;
-			DateTime.TryParse (dateStr, out date);
-
-			List<RevisionPath> paths = new List<RevisionPath> ();
-			bool readingComment = true;
-			StringBuilder message = new StringBuilder ();
-			StringBuilder interline = new StringBuilder ();
-
-			string line;
-			while ((line = sr.ReadLine ()) != null) {
-				if (line.Length > 2 && ("ADM".IndexOf (line[0]) != -1) && line [1] == '\t') {
-					readingComment = false;
-					string file = line.Substring (2);
-					RevisionAction ra;
-					switch (line[0]) {
-					case 'A': ra = RevisionAction.Add; break;
-					case 'D': ra = RevisionAction.Delete; break;
-					default: ra = RevisionAction.Modify; break;
-					}
-					RevisionPath p = new RevisionPath (path.Combine (file), ra, null);
-					paths.Add (p);
-				}
-				else if (readingComment) {
-					if (IsEmptyLine (line))
-						interline.AppendLine (line);
-					else {
-						message.Append (interline);
-						message.AppendLine (line);
-						interline = new StringBuilder ();
-					}
-				}
-				else
-					break;
-			}
-
-			return new GitRevision (this, rev, date, author, message.ToString ().Trim ('\n','\r'), paths.ToArray ());
-=======
 			ObjectId id = repo.Resolve (revision.ToString () + "^");
 			if (id == null)
 				return null;
 			return new GitRevision (this, id.Name);
->>>>>>> master
 		}
 	}
-
+	
 	public class GitRevision: Revision
 	{
 		string rev;
 
-<<<<<<< HEAD
-		public GitRevision (Repository repo, string rev)
-			: base (repo)
-=======
 		public GitRevision (Repository repo, string rev) : base(repo)
->>>>>>> master
 		{
 			this.rev = rev;
 		}
 
-<<<<<<< HEAD
-		public GitRevision (Repository repo, string rev, DateTime time, string author, string message, RevisionPath[] changedFiles)
-			: base (repo, time, author, message, changedFiles)
-=======
 		public GitRevision (Repository repo, string rev, DateTime time, string author, string message, RevisionPath[] changedFiles) : base(repo, time, author, message, changedFiles)
->>>>>>> master
 		{
 			this.rev = rev;
 		}
@@ -1616,3 +1371,4 @@ namespace MonoDevelop.VersionControl.Git
 		}
 	}
 }
+
