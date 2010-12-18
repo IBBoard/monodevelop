@@ -49,6 +49,7 @@ using MonoDevelop.Ide.Projects;
 using MonoDevelop.Core.Assemblies;
 using MonoDevelop.Core.Instrumentation;
 using Mono.TextEditor;
+using System.Diagnostics;
 
 namespace MonoDevelop.Ide
 {
@@ -623,22 +624,23 @@ namespace MonoDevelop.Ide
 		{
 			WorkspaceItem res = null;
 			
-			FileSelector fdiag = new FileSelector (GettextCatalog.GetString ("Add to Workspace"));
-			try {
-				fdiag.SetCurrentFolder (parentWorkspace.BaseDirectory);
-				fdiag.SelectMultiple = false;
-				if (MessageService.RunCustomDialog (fdiag) == (int) Gtk.ResponseType.Ok) {
-					try {
-						res = AddWorkspaceItem (parentWorkspace, fdiag.Filename);
-					}
-					catch (Exception ex) {
-						MessageService.ShowException (ex, GettextCatalog.GetString ("The file '{0}' could not be loaded.", fdiag.Filename));
-					}
-				}
-			} finally {
-				fdiag.Destroy ();
-			}
+			var dlg = new SelectFileDialog () {
+				Action = Gtk.FileChooserAction.Open,
+				CurrentFolder = parentWorkspace.BaseDirectory,
+				SelectMultiple = false,
+			};
+		
+			dlg.AddAllFilesFilter ();
+			dlg.DefaultFilter = dlg.AddFilter (GettextCatalog.GetString ("Solution Files"), "*.mds", "*.sln");
 			
+			if (dlg.Run ()) {
+				try {
+					res = AddWorkspaceItem (parentWorkspace, dlg.SelectedFile);
+				} catch (Exception ex) {
+					MessageService.ShowException (ex, GettextCatalog.GetString ("The file '{0}' could not be loaded.", dlg.SelectedFile));
+				}
+			}
+
 			return res;
 		}
 		
@@ -667,20 +669,21 @@ namespace MonoDevelop.Ide
 		{
 			SolutionItem res = null;
 			
-			FileSelector fdiag = new FileSelector (GettextCatalog.GetString ("Add to Solution"));
-			try {
-				fdiag.SetCurrentFolder (parentFolder.BaseDirectory);
-				fdiag.SelectMultiple = false;
-				if (MessageService.RunCustomDialog (fdiag) == (int) Gtk.ResponseType.Ok) {
-					try {
-						res = AddSolutionItem (parentFolder, fdiag.Filename);
-					}
-					catch (Exception ex) {
-						MessageService.ShowException (ex, GettextCatalog.GetString ("The file '{0}' could not be loaded.", fdiag.Filename));
-					}
+			var dlg = new SelectFileDialog () {
+				Action = Gtk.FileChooserAction.Open,
+				CurrentFolder = parentFolder.BaseDirectory,
+				SelectMultiple = false,
+			};
+		
+			dlg.AddAllFilesFilter ();
+			dlg.DefaultFilter = dlg.AddFilter (GettextCatalog.GetString ("Project Files"), "*.*proj", "*.mdp");
+			
+			if (dlg.Run ()) {
+				try {
+					res = AddSolutionItem (parentFolder, dlg.SelectedFile);
+				} catch (Exception ex) {
+					MessageService.ShowException (ex, GettextCatalog.GetString ("The file '{0}' could not be loaded.", dlg.SelectedFile));
 				}
-			} finally {
-				fdiag.Destroy ();
 			}
 			
 			if (res != null)
@@ -1222,12 +1225,30 @@ namespace MonoDevelop.Ide
 			return AddFilesToProject (project, files, targetDirectory, null);
 		}
 		
-		/// <summary>
-		/// Adds files to a project, potentially asking the user whether to move, copy or link the files.
-		/// </summary>
 		public IList<ProjectFile> AddFilesToProject (Project project, FilePath[] files, FilePath targetDirectory,
 			string buildAction)
 		{
+			Debug.Assert (targetDirectory.CanonicalPath == project.BaseDirectory.CanonicalPath
+				|| targetDirectory.IsChildPathOf (project.BaseDirectory));
+			
+			var targetPaths = new FilePath[files.Length];
+			for (int i = 0; i < files.Length; i++)
+				targetPaths[i] = targetDirectory.Combine (files[i].FileName);
+			
+			return AddFilesToProject (project, files, targetPaths, buildAction);
+		}
+		
+		/// <summary>
+		/// Adds files to a project, potentially asking the user whether to move, copy or link the files.
+		/// </summary>
+		public IList<ProjectFile> AddFilesToProject (Project project, FilePath[] files, FilePath[] targetPaths,
+			string buildAction)
+		{
+			Debug.Assert (project != null);
+			Debug.Assert (files != null);
+			Debug.Assert (targetPaths != null);
+			Debug.Assert (files.Length == targetPaths.Length);
+			
 			int action = -1;
 			IProgressMonitor monitor = null;
 			
@@ -1238,8 +1259,17 @@ namespace MonoDevelop.Ide
 			
 			var newFileList = new List<ProjectFile> ();
 			
+			//project.AddFile (string) does linear search for duplicate file, so instead we use this HashSet and 
+			//and add the ProjectFiles directly. With large project and many files, this should really help perf.
+			//Also, this is a better check because we handle vpaths and links.
+			//FIXME: it would be really nice if project.Files maintained these hashmaps
+			var vpathsInProject = new HashSet<FilePath> (project.Files.Select (pf => pf.ProjectVirtualPath));
+			var filesInProject = new HashSet<FilePath> (project.Files.Select (pf => pf.FilePath));
+			
 			using (monitor) {
-				foreach (FilePath file in files) {
+				for (int i = 0; i < files.Length; i++) {
+					FilePath file = files[i];
+					
 					if (monitor != null) {
 						monitor.Log.WriteLine (file);
 						monitor.Step (1);
@@ -1251,9 +1281,34 @@ namespace MonoDevelop.Ide
 						continue;
 					}
 					
-					//files in the project directory get added directly in their current location without moving/copying
-					if (file.IsChildPathOf (project.BaseDirectory)) {
-						newFileList.Add (project.AddFile (file, buildAction));
+					FilePath targetPath = targetPaths[i].CanonicalPath;
+					Debug.Assert (targetPath.IsChildPathOf (project.BaseDirectory));
+					
+					var vpath = targetPath.ToRelative (project.BaseDirectory);
+					if (vpathsInProject.Contains (vpath)) {
+						MessageService.ShowWarning (GettextCatalog.GetString (
+							"There is a already a file or link in the project with the name '{0}'", vpath));
+						continue;
+					}
+					
+					string fileBuildAction = buildAction;
+					if (string.IsNullOrEmpty (buildAction))
+						fileBuildAction = project.GetDefaultBuildAction (file);
+					
+					//files in the target directory get added directly in their current location without moving/copying
+					if (file.CanonicalPath == targetPath) {
+						//FIXME: MD project system doesn't cope with duplicate includes - project save/load will remove the file
+						if (filesInProject.Contains (targetPath)) {
+							var link = project.Files.GetFile (targetPath).Link;
+							MessageService.ShowWarning (GettextCatalog.GetString (
+								"The link '{0}' in the project already includes the file '{1}'", link, file));
+							continue;
+						}
+						var pf = new ProjectFile (file, fileBuildAction);
+						project.AddFile (pf);
+						vpathsInProject.Add (pf.ProjectVirtualPath);
+						filesInProject.Add (pf.FilePath);
+						newFileList.Add (pf);
 						continue;
 					}
 					
@@ -1262,7 +1317,7 @@ namespace MonoDevelop.Ide
 						 IdeApp.Workbench.RootWindow,
 						 Gtk.DialogFlags.Modal | Gtk.DialogFlags.DestroyWithParent,
 						 Gtk.MessageType.Question, Gtk.ButtonsType.None,
-						 GettextCatalog.GetString ("The file {0} is outside the project directory. What would you like to do?", file));
+						 GettextCatalog.GetString ("The file {0} is outside the target directory. What would you like to do?", file));
 
 					try {
 						Gtk.CheckButton remember = null;
@@ -1291,20 +1346,39 @@ namespace MonoDevelop.Ide
 							ret = action;
 						}
 						
-						var targetName = targetDirectory.Combine (file.FileName);
-						
 						if (ret == ACTION_LINK) {
-							var pf = project.AddFile (file, buildAction);
-							pf.Link = project.GetRelativeChildPath (targetName);
+							//FIXME: MD project system doesn't cope with duplicate includes - project save/load will remove the file
+							if (filesInProject.Contains (file)) {
+								var link = project.Files.GetFile (file).Link;
+								MessageService.ShowWarning (GettextCatalog.GetString (
+									"The link '{0}' in the project already includes the file '{1}'", link, file));
+								continue;
+							}
+							
+							var pf = new ProjectFile (file, fileBuildAction) {
+								Link = vpath
+							};
+							project.AddFile (pf);
+							vpathsInProject.Add (pf.ProjectVirtualPath);
+							filesInProject.Add (pf.FilePath);
 							newFileList.Add (pf);
 							continue;
 						}
 						
 						try {
-							if (MoveCopyFile (file, targetName, ret == ACTION_MOVE))
-								newFileList.Add (project.AddFile (targetName, buildAction));
-							else
+							if (!Directory.Exists (targetPath.ParentDirectory))
+								FileService.CreateDirectory (targetPath.ParentDirectory);
+							
+							if (MoveCopyFile (file, targetPath, ret == ACTION_MOVE)) {
+								var pf = new ProjectFile (targetPath, fileBuildAction);
+								project.AddFile (pf);
+								vpathsInProject.Add (pf.ProjectVirtualPath);
+								filesInProject.Add (pf.FilePath);
+								newFileList.Add (pf);
+							}
+							else {
 								newFileList.Add (null);
+							}
 						}
 						catch (Exception ex) {
 							MessageService.ShowException (ex, GettextCatalog.GetString (

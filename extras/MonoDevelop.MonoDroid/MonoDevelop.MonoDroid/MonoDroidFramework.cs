@@ -43,26 +43,29 @@ namespace MonoDevelop.MonoDroid
 		{
 			EnvironmentOverrides = new Dictionary<string, string> ();
 			DeviceManager = new DeviceManager ();
+			VirtualDeviceManager = new VirtualDeviceManager ();
 			UpdateSdkLocations ();
 		}
 		
 		internal static void UpdateSdkLocations ()
 		{
 			try {
+				var oldAndroidBinDir = AndroidBinDir;
+				
 				BinDir = FrameworkDir = AndroidBinDir = JavaBinDir = null;
 				Toolbox = null;
 				EnvironmentOverrides.Remove ("PATH");
 				
-				string monodroidPath, javaPath, androidPath;
-				MonoDroidSdk.GetPaths (out monodroidPath, out androidPath, out javaPath);
+				string monoDroidBinDir, monoDroidFrameworkDir, javaPath, androidPath;
+				MonoDroidSdk.GetPaths (out monoDroidBinDir, out monoDroidFrameworkDir, out androidPath, out javaPath, true);
 				
-				if (monodroidPath == null) {
+				if (monoDroidBinDir == null) {
 					LoggingService.LogInfo ("MonoDroid SDK not found, disabling MonoDroid addin");
 					return;
 				}
 				
-				BinDir = Path.Combine (monodroidPath, "bin");
-				FrameworkDir = ((FilePath)monodroidPath).Combine ("lib", "mono", "2.1");
+				BinDir = monoDroidBinDir;
+				FrameworkDir = monoDroidFrameworkDir;
 				
 				if (androidPath == null) {
 					LoggingService.LogError ("Android SDK not found, needed by MonoDroid addin");
@@ -75,7 +78,7 @@ namespace MonoDevelop.MonoDroid
 				}
 				
 				JavaBinDir = Path.Combine (javaPath, "bin");
-				AndroidBinDir = Path.Combine (androidPath, "tools");
+				AndroidBinDir = androidPath;
 				
 				EnvironmentOverrides ["PATH"] =
 					AndroidBinDir + Path.PathSeparator + 
@@ -83,10 +86,16 @@ namespace MonoDevelop.MonoDroid
 					Environment.GetEnvironmentVariable ("PATH");
 				
 				Toolbox = new AndroidToolbox (AndroidBinDir, JavaBinDir);
+				
+				if (oldAndroidBinDir != AndroidBinDir)
+					DeviceManager.AndroidSdkChanged ();
+				
 			} catch (Exception ex) {
 				LoggingService.LogError ("Error detecting MonoDroid SDK", ex);
 			}
 		}
+		
+		
 		
 		/// <summary>
 		/// Ensures all required SDKs are installed. If not, prompts the user to select the locations.
@@ -158,31 +167,17 @@ namespace MonoDevelop.MonoDroid
 			}
 		}
 		
+		public static IEnumerable<string> GetToolsPaths ()
+		{
+			yield return MonoDroidFramework.FrameworkDir;
+			yield return MonoDroidFramework.BinDir;
+			yield return MonoDroidFramework.AndroidBinDir;
+			yield return MonoDroidFramework.JavaBinDir;
+		}
+		
 		public static AndroidToolbox Toolbox { get; private set; }
 		public static DeviceManager DeviceManager { get; private set; }
-		
-		static AndroidDevice defaultDevice;
-
-		public static AndroidDevice DefaultDevice {
-			get {
-				return defaultDevice;
-			}
-			set {
-				defaultDevice = value;
-
-				var proj = DefaultUploadToDeviceHandler.GetActiveExecutableMonoDroidProject ();
-				var conf = (MonoDroidProjectConfiguration) proj.GetConfiguration (IdeApp.Workspace.ActiveConfiguration);
-				proj.SetDeviceTarget (conf, value);
-			}
-		}
-
-		public static IList<AndroidDevice> Devices {
-			get {
-				//FIXME: use DeviceManager
-				return new AndroidDevice[0];
-				//return Toolbox.GetDevices (new MonoDevelop.Core.ProgressMonitoring.SimpleProgressMonitor ());
-			}
-		}
+		public static VirtualDeviceManager VirtualDeviceManager { get; private set; }
 		
 		public static readonly string[] Permissions = new [] {
 			"ACCESS_CHECKIN_PROPERTIES",

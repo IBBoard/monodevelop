@@ -28,6 +28,7 @@ using System;
 using MonoDevelop.Core.Execution;
 using System.Collections.Generic;
 using System.Linq;
+using MonoDevelop.Core;
 
 namespace MonoDevelop.MonoDroid
 {
@@ -37,7 +38,7 @@ namespace MonoDevelop.MonoDroid
 		
 		public IEnumerable<IExecutionMode> ExecutionModes {
 			get {
-				return MonoDroidFramework.Devices.Select (t => (IExecutionMode) new MonoDroidExecutionMode (t));
+				return MonoDroidFramework.DeviceManager.Devices.Select (t => (IExecutionMode) new MonoDroidExecutionMode (t));
 			}
 		}
 	}
@@ -52,9 +53,7 @@ namespace MonoDevelop.MonoDroid
 		MonoDroidExecutionHandler handler;
 		
 		public string Name {
-			get {
-				throw new NotImplementedException ();
-			}
+			get { return GettextCatalog.GetString ("Android Device {0}", Target.ID); }
 		}
 		
 		public string Id { get { return "MonoDroidExecutionMode"; } }

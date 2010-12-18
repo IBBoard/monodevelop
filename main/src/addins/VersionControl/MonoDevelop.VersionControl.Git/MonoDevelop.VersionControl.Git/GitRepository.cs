@@ -2,9 +2,9 @@
 // GitRepository.cs
 //  
 // Author:
-//       Dale Ragan <dale.ragan@sinesignal.com>
+//       Lluis Sanchez Gual <lluis@novell.com>
 // 
-// Copyright (c) 2010 SineSignal, LLC
+// Copyright (c) 2010 Novell, Inc (http://www.novell.com)
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -59,7 +59,7 @@ namespace MonoDevelop.VersionControl.Git
 
 		public GitRepository ()
 		{
-			Method = "git";
+			Url = "git://";
 		}
 
 		public GitRepository (FilePath path, string url)
@@ -68,6 +68,22 @@ namespace MonoDevelop.VersionControl.Git
 			Url = url;
 			repo = new FileRepository (path.Combine (Constants.DOT_GIT));
 		}
+		
+		public override string[] SupportedProtocols {
+			get {
+				return new string[] {"git", "ssh", "http", "https", "ftp", "ftps", "rsync"};
+			}
+		}
+		
+		public override bool IsUrlValid (string url)
+		{
+			try {
+				NGit.Transport.URIish u = new NGit.Transport.URIish (url);
+				return true;
+			} catch {
+				return false;
+			}
+		}
 
 		public FilePath RootPath {
 			get { return path; }
@@ -75,9 +91,9 @@ namespace MonoDevelop.VersionControl.Git
 
 		public override void CopyConfigurationFrom (Repository other)
 		{
+			base.CopyConfigurationFrom (other);
 			GitRepository r = (GitRepository)other;
 			path = r.path;
-			Url = r.Url;
 			if (r.repo != null)
 				repo = new FileRepository (path);
 		}
@@ -140,7 +156,10 @@ namespace MonoDevelop.VersionControl.Git
 				}
 				if (paths.Count > 0) {
 					PersonIdent author = commit.GetAuthorIdent ();
-					revs.Add (new GitRevision (this, commit.Id.Name, author.GetWhen().ToLocalTime (), author.GetName (), commit.GetShortMessage (), paths.ToArray ()));
+					GitRevision rev = new GitRevision (this, commit.Id.Name, author.GetWhen().ToLocalTime (), author.GetName (), commit.GetFullMessage (), paths.ToArray ());
+					rev.Email = author.GetEmailAddress ();
+					rev.ShortMessage = commit.GetShortMessage ();
+					revs.Add (rev);
 				}
 			}
 			return revs.ToArray ();
@@ -639,8 +658,8 @@ namespace MonoDevelop.VersionControl.Git
 		
 		IEnumerable<string> GetDirectoryFiles (DirectoryInfo dir)
 		{
-			FileTreeIterator iter = new FileTreeIterator (dir.FullName, repo.FileSystem, WorkingTreeOptions.CreateConfigurationInstance(repo.GetConfig()));
-			while (!iter.Eof ()) {
+			FileTreeIterator iter = new FileTreeIterator (dir.FullName, repo.FileSystem, WorkingTreeOptions.KEY.Parse(repo.GetConfig()));
+			while (!iter.Eof) {
 				var file = iter.GetEntryFile ();
 				if (file != null && !iter.IsEntryIgnored ())
 					yield return file.GetPath ();
@@ -743,10 +762,10 @@ namespace MonoDevelop.VersionControl.Git
 							string rpath = FromGitPath (r.PathString);
 							DirCacheEntry e = new DirCacheEntry (r.PathString);
 							e.SetObjectId (r.GetObjectId (0));
-							e.SetFileMode (r.GetFileMode (0));
+							e.FileMode = r.GetFileMode (0);
 							if (!Directory.Exists (Path.GetDirectoryName (rpath)))
 								Directory.CreateDirectory (rpath);
-							DirCacheCheckout.CheckoutEntry (repo, rpath, e, true);
+							DirCacheCheckout.CheckoutEntry (repo, rpath, e);
 							builder.Add (e);
 							changedFiles.Add (rpath);
 						} while (r.Next ());
@@ -758,7 +777,7 @@ namespace MonoDevelop.VersionControl.Git
 				int count = dc.GetEntryCount ();
 				for (int n=0; n<count; n++) {
 					DirCacheEntry e = dc.GetEntry (n);
-					string path = e.GetPathString ();
+					string path = e.PathString;
 					if (!entriesToRemove.Contains (path) && !foldersToRemove.Any (f => IsSubpath (f,path)))
 						builder.Add (e);
 				}
@@ -810,6 +829,36 @@ namespace MonoDevelop.VersionControl.Git
 			foreach (FilePath fp in localPaths)
 				cmd.AddFilepattern (ToGitPath (fp));
 			cmd.Call ();
+		}
+		
+		public override void DeleteFiles (FilePath[] localPaths, bool force, IProgressMonitor monitor)
+		{
+			NGit.Api.Git git = new NGit.Api.Git (repo);
+			RmCommand rm = git.Rm ();
+			foreach (var f in localPaths)
+				rm.AddFilepattern (repo.ToGitPath (f));
+			rm.Call ();
+			
+			// Untracked files are not deleted by the rm command, so delete them now
+			foreach (var f in localPaths) {
+				if (File.Exists (f))
+					File.Delete (f);
+			}
+		}
+		
+		public override void DeleteDirectories (FilePath[] localPaths, bool force, IProgressMonitor monitor)
+		{
+			NGit.Api.Git git = new NGit.Api.Git (repo);
+			RmCommand rm = git.Rm ();
+			foreach (var f in localPaths)
+				rm.AddFilepattern (repo.ToGitPath (f));
+			rm.Call ();
+			
+			// Untracked files are not deleted by the rm command, so delete them now
+			foreach (var f in localPaths) {
+				if (Directory.Exists (f))
+					Directory.Delete (f, true);
+			}
 		}
 
 		public override string GetTextAtRevision (FilePath repositoryPath, Revision revision)
@@ -1278,6 +1327,15 @@ namespace MonoDevelop.VersionControl.Git
 		public override string ToString ()
 		{
 			return rev;
+		}
+		
+		public override string ShortName {
+			get {
+				if (rev.Length > 10)
+					return rev.Substring (0, 10);
+				else
+					return rev;
+			}
 		}
 
 		public override Revision GetPrevious ()

@@ -11,8 +11,6 @@ namespace MonoDevelop.VersionControl.Subversion
 {
 	public abstract class SubversionVersionControl : VersionControlSystem
 	{
-		readonly string[] protocolsSvn = {"svn", "svn+ssh", "http", "https", "file"};
-		
 		public override string Name {
 			get { return "Subversion"; }
 		}
@@ -22,9 +20,9 @@ namespace MonoDevelop.VersionControl.Subversion
 			return new SubversionRepository ();
 		}
 		
-		public override Gtk.Widget CreateRepositoryEditor (Repository repo)
+		public override IRepositoryEditor CreateRepositoryEditor (Repository repo)
 		{
-			return new UrlBasedRepositoryEditor ((SubversionRepository)repo, protocolsSvn);
+			return new UrlBasedRepositoryEditor ((SubversionRepository)repo);
 		}
 
 		public override Repository GetRepositoryReference (FilePath path, string id)
@@ -33,7 +31,7 @@ namespace MonoDevelop.VersionControl.Subversion
 				if (!IsVersioned (path))
 					return null;
 				string url = GetPathUrl (path);
-				return new SubversionRepository (this, url);
+				return new SubversionRepository (this, url, path);
 			} catch (Exception ex) {
 				// No SVN
 				LoggingService.LogError (ex.ToString ());
@@ -89,10 +87,23 @@ namespace MonoDevelop.VersionControl.Subversion
 
 		public bool CanAdd (Repository repo, FilePath sourcepath)
 		{
+			SubversionRepository srepo = (SubversionRepository) repo;
+			
 			// Do some trivial checks
 			
-			if (!Directory.Exists (GetDirectoryDotSvn (Path.GetDirectoryName (sourcepath))))
+			if (!sourcepath.IsChildPathOf (srepo.RootPath))
 				return false;
+			
+			bool foundSvnDir = false;
+			FilePath parentDir = sourcepath.CanonicalPath;
+			do {
+				parentDir = parentDir.ParentDirectory;
+				if (Directory.Exists (GetDirectoryDotSvn (parentDir))) {
+					foundSvnDir = true;
+					break;
+				}
+			}
+			while (parentDir != srepo.RootPath);
 			
 			if (File.Exists (sourcepath)) {
 				if (File.Exists (GetTextBase (sourcepath)))

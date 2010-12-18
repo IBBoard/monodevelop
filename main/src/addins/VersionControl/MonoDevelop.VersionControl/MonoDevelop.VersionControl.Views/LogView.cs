@@ -30,7 +30,7 @@ namespace MonoDevelop.VersionControl.Views
 				if (!item.IsDirectory) {
 					var document = IdeApp.Workbench.OpenDocument (item.Path);
 					DiffView.AttachViewContents (document, item);
-					document.Window.SwitchView (4);
+					document.Window.SwitchView (document.Window.FindView (typeof(LogView)));
 				} else if (item.Repository.IsHistoryAvailable (item.Path)) {
 					new Worker (item.Repository, item.Path, item.IsDirectory, since).Start ();
 				}
@@ -261,8 +261,10 @@ namespace MonoDevelop.VersionControl.Views
 		#region IAttachableViewContent implementation
 		public void Selected ()
 		{
-			if (info != null)
+			if (info != null && !info.Started) {
+				widget.ShowLoading ();
 				info.Start ();
+			}
 		}
 
 		public void Deselected ()

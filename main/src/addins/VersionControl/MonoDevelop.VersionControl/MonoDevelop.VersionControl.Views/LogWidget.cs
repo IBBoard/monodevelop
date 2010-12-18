@@ -32,6 +32,7 @@ using MonoDevelop.Ide.Gui;
 using MonoDevelop.Ide;
 using System.Text;
 using System.Threading;
+using MonoDevelop.Components;
 
 namespace MonoDevelop.VersionControl.Views
 {
@@ -65,6 +66,9 @@ namespace MonoDevelop.VersionControl.Views
 		CellRendererDiff diffRenderer = new CellRendererDiff ();
 		CellRendererText messageRenderer = new CellRendererText ();
 		CellRendererText textRenderer = new CellRendererText ();
+		CellRendererPixbuf pixRenderer = new CellRendererPixbuf ();
+		
+		bool currentRevisionShortened;
 		
 		class RevisionGraphCellRenderer : Gtk.CellRenderer
 		{
@@ -125,18 +129,22 @@ namespace MonoDevelop.VersionControl.Views
 			colRevMessage.SetCellDataFunc (messageRenderer, MessageFunc);
 			colRevMessage.Sizing = TreeViewColumnSizing.Autosize;
 			
+			treeviewLog.AppendColumn (colRevMessage);
 			colRevMessage.MinWidth = 350;
 			colRevMessage.Resizable = true;
-			treeviewLog.AppendColumn (colRevMessage);
-
+			
 			
 			TreeViewColumn colRevDate = new TreeViewColumn (GettextCatalog.GetString ("Date"), textRenderer);
 			colRevDate.SetCellDataFunc (textRenderer, DateFunc);
 			colRevDate.Resizable = true;
 			treeviewLog.AppendColumn (colRevDate);
 			
-			TreeViewColumn colRevAuthor = new TreeViewColumn (GettextCatalog.GetString ("Author"), textRenderer);
+			TreeViewColumn colRevAuthor = new TreeViewColumn ();
+			colRevAuthor.Title = GettextCatalog.GetString ("Author");
+			colRevAuthor.PackStart (pixRenderer, false);
+			colRevAuthor.PackStart (textRenderer, true);
 			colRevAuthor.SetCellDataFunc (textRenderer, AuthorFunc);
+			colRevAuthor.SetCellDataFunc (pixRenderer, AuthorIconFunc);
 			colRevAuthor.Resizable = true;
 			treeviewLog.AppendColumn (colRevAuthor);
 
@@ -190,6 +198,16 @@ namespace MonoDevelop.VersionControl.Views
 			treeviewFiles.Events |= Gdk.EventMask.PointerMotionMask;
 			
 			textviewDetails.WrapMode = Gtk.WrapMode.Word;
+			
+			labelAuthor.Text = "";
+			labelDate.Text = "";
+			labelRevision.Text = "";
+		}
+		
+		public void ShowLoading ()
+		{
+			scrolledLoading.Show ();
+			scrolledLog.Hide ();
 		}
 
 		void HandleTreeviewFilesDiffLineActivated (object sender, EventArgs e)
@@ -263,7 +281,7 @@ namespace MonoDevelop.VersionControl.Views
 					if (prevRev == null) {
 						lines = new string[changedDocument.LineCount];
 						for (int i = 0; i < changedDocument.LineCount; i++) {
-							lines[i] = "+ " + changedDocument.GetLineText (i);
+							lines[i] = "+ " + changedDocument.GetLineText (i + 1).TrimEnd ('\r','\n');
 						}
 						
 					} else {
@@ -380,6 +398,25 @@ namespace MonoDevelop.VersionControl.Views
 			renderer.Text = author;
 		}
 		
+		void AuthorIconFunc (Gtk.TreeViewColumn tree_column, Gtk.CellRenderer cell, Gtk.TreeModel model, Gtk.TreeIter iter)
+		{
+			CellRendererPixbuf renderer = (CellRendererPixbuf)cell;
+			var rev = (Revision)model.GetValue (iter, 0);
+			if (string.IsNullOrEmpty (rev.Email))
+				return;
+			ImageLoader img = ImageService.GetUserIcon (rev.Email, 16);
+			if (img.LoadOperation.IsCompleted)
+				renderer.Pixbuf = img.Pixbuf;
+			else {
+				img.LoadOperation.Completed += delegate {
+					Gtk.Application.Invoke (delegate {
+						if (logstore.IterIsValid (iter))
+							model.EmitRowChanged (model.GetPath (iter), iter);
+					});
+				};
+			}
+		}
+		
 		static void RevisionFunc (Gtk.TreeViewColumn tree_column, Gtk.CellRenderer cell, Gtk.TreeModel model, Gtk.TreeIter iter)
 		{
 			CellRendererText renderer = (CellRendererText)cell;
@@ -464,14 +501,24 @@ namespace MonoDevelop.VersionControl.Views
 					select = true;
 				}
 			}
-			StringBuilder sb = new StringBuilder ();
-			sb.AppendLine (string.Format (GettextCatalog.GetString ("Author: {0}"), d.Author));
-			sb.AppendLine (string.Format (GettextCatalog.GetString ("Date: {0}"), d.Time));
-			sb.AppendLine (string.Format (GettextCatalog.GetString ("Revision: {0}"), d.ToString ()));
-			sb.AppendLine ();
-			sb.AppendLine (d.Message);
+			if (!string.IsNullOrEmpty (d.Email)) {
+				imageUser.Show ();
+				imageUser.LoadUserIcon (d.Email, 32);
+			}
+			else
+				imageUser.Hide ();
 			
-			textviewDetails.Buffer.Text = sb.ToString ();
+			labelAuthor.Text = d.Author;
+			labelDate.Text = d.Time.ToString ();
+			string rev = d.Name;
+			if (rev.Length > 15) {
+				currentRevisionShortened = true;
+				rev = d.ShortName;
+			} else
+				currentRevisionShortened = false;
+			
+			labelRevision.Text = GettextCatalog.GetString ("revision: {0}", rev);
+			textviewDetails.Buffer.Text = d.Message;
 			
 			if (select)
 				treeviewFiles.Selection.SelectIter (selectIter);
@@ -479,12 +526,24 @@ namespace MonoDevelop.VersionControl.Views
 		
 		void UpdateHistory ()
 		{
+			scrolledLoading.Hide ();
+			scrolledLog.Show ();
 			var h = History;
 			if (h == null)
 				return;
 			logstore.Clear ();
 			foreach (var rev in h) {
 				logstore.AppendValues (rev);
+			}
+		}
+		
+		[GLib.ConnectBeforeAttribute]
+		protected virtual void OnLabelRevisionButtonPressEvent (object o, Gtk.ButtonPressEventArgs args)
+		{
+			if (currentRevisionShortened) {
+				Revision d = SelectedRevision;
+				labelRevision.Text = GettextCatalog.GetString ("revision: {0}", d.Name);
+				currentRevisionShortened = false;
 			}
 		}
 	}

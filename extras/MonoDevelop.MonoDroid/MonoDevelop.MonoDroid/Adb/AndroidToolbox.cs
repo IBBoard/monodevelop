@@ -38,11 +38,13 @@ namespace MonoDevelop.MonoDroid
 	public class AndroidToolbox
 	{
 		FilePath androidToolsPath, javaBinPath;
+		FilePath androidPlatformToolsPath;
 		string pathOverride;
 		
-		public AndroidToolbox (FilePath androidToolsPath, FilePath javaBinPath)
+		public AndroidToolbox (FilePath androidPath, FilePath javaBinPath)
 		{
-			this.androidToolsPath = androidToolsPath;
+			this.androidToolsPath = androidPath.Combine ("tools");
+			this.androidPlatformToolsPath = androidPath.Combine ("platform-tools");
 			this.javaBinPath = javaBinPath;
 			
 			pathOverride = Environment.GetEnvironmentVariable ("PATH");
@@ -54,7 +56,7 @@ namespace MonoDevelop.MonoDroid
 		
 		public string AdbExe {
 			get {
-				return androidToolsPath.Combine (PropertyService.IsWindows? "adb.exe" : "adb");
+				return androidPlatformToolsPath.Combine (PropertyService.IsWindows? "adb.exe" : "adb");
 			}
 		}
 		
@@ -85,21 +87,37 @@ namespace MonoDevelop.MonoDroid
 		public IProcessAsyncOperation SignPackage (AndroidSigningOptions options, string unsignedApk,
 			string signedApk, TextWriter outputLog, TextWriter errorLog)
 		{
-			var args = string.Format (
-				"-keystore \"{0}\" -storepass \"{1}\" -keypass \"{2}\" -signedjar \"{3}\" \"{4}\" \"{5}\"",
-				options.KeyStore, options.StorePass, options.KeyPass , signedApk, unsignedApk, options.KeyAlias);
-			return StartProcess (JarsignerExe, args, outputLog, errorLog);
+			var args = new ProcessArgumentBuilder ();
+			args.Add ("-keystore");
+			args.AddQuoted (options.KeyStore);
+			args.Add ("-storepass");
+			args.AddQuoted (options.StorePass);
+			args.Add ("-keypass");
+			args.AddQuoted (options.KeyPass);
+			args.Add ("-signedjar");
+			args.AddQuoted (signedApk, unsignedApk, options.KeyAlias);
+			
+			return StartProcess (JarsignerExe, args.ToString (), outputLog, errorLog);
 		}
 		
 		//string dname = "CN=Android Debug,O=Android,C=US";
 		public IProcessAsyncOperation Genkeypair (AndroidSigningOptions options, string dname,
 			TextWriter outputLog, TextWriter errorLog)
 		{
+			var args = new ProcessArgumentBuilder ();
+			args.Add ("-genkeypair");
+			args.Add ("-alias");
+			args.AddQuoted (options.KeyAlias);
+			args.Add ("-dname");
+			args.AddQuoted (dname);
+			args.Add ("-storepass");
+			args.AddQuoted (options.StorePass);
+			args.Add ("-keypass");
+			args.AddQuoted (options.KeyPass);
+			args.Add ("-keystore");
+			args.AddQuoted (options.KeyStore);
 			
-			var args = string.Format (
-				"-genkeypair -alias \"{0}\" -dname \"{1}\" -storepass \"{3}\" -keypass \"{2}\" -keystore \"{4}\"",
-				options.KeyAlias, dname, options.StorePass, options.KeyPass, options.KeyStore);
-			return StartProcess (KeytoolExe, args, outputLog, errorLog);
+			return StartProcess (KeytoolExe, args.ToString (), outputLog, errorLog);
 		}
 		
 		ProcessWrapper StartProcess (string name, string args, TextWriter outputLog, TextWriter errorLog)
@@ -133,134 +151,142 @@ namespace MonoDevelop.MonoDroid
 			return StartProcess (AdbExe, "start-server", outputLog, errorLog);
 		}
 		
-		public GetDevicesOperation GetDevices (TextWriter errorLog)
-		{
-			var output = new StringWriter ();
-			return new GetDevicesOperation (StartProcess (AdbExe, "devices", output, errorLog), output);
-		}
-		
-		public GetVirtualDevicesOperation GetAllVirtualDevices (TextWriter errorLog)
-		{
-			var output = new StringWriter ();
-			return new GetVirtualDevicesOperation (StartProcess (AndroidExe, "list avd", output, errorLog), output);
-		}
-		
 		public StartAvdOperation StartAvd (AndroidVirtualDevice avd)
 		{
+			var args = new ProcessArgumentBuilder ();
+			args.Add ("-partition-size", "512", "-avd");
+			args.AddQuoted (avd.Name);
+			
 			var error = new StringWriter ();
-			string args = string.Format ("-partition-size 512 -avd '{0}'", avd.Name);
-			var process = StartProcess (EmulatorExe, args, null, error);
+			var process = StartProcess (EmulatorExe, args.ToString (), null, error);
 			return new StartAvdOperation (process, error);
 		}
 		
 		public ProcessWrapper StartAvdManager ()
 		{
 			//FIXME: don't create multiple instances. if it's running, focus it.
+			//and kill it when quitting MD, or it will keep MD open
 			return Runtime.ProcessService.StartProcess (AndroidExe, "", null, (TextWriter)null, null, null);
 		}
 
-		public ProcessWrapper GetDeviceDate (AndroidDevice device, TextWriter outputLog, TextWriter errorLog)
+		public GetDateOperation GetDeviceDate (AndroidDevice device)
 		{
-			var args = String.Format ("-s '{0}' shell date +%s", device.ID);
-			return StartProcess (AdbExe, args, outputLog, errorLog);
+			var args = String.Format ("-s {0} shell date +%s", device.ID);
+			var sw = new StringWriter ();
+			return new GetDateOperation (StartProcess (AdbExe, args, sw, sw), sw);
 		}
-
-		public ProcessWrapper SetProperty (AndroidDevice device, string property, string value, TextWriter outputLog, TextWriter errorLog)
+		
+		public AdbOutputOperation SetProperty (AndroidDevice device, string property, string value)
+		{
+			var sw = new StringWriter ();
+			return new AdbOutputOperation (SetProperty (device, property, value, sw, sw), sw);
+		}
+		
+		public IProcessAsyncOperation SetProperty (AndroidDevice device, string property, string value, TextWriter outputLog, TextWriter errorLog)
 		{
 			if (property == null)
 				throw new ArgumentNullException ("property");
 			if (value == null)
 				throw new ArgumentNullException ("value");
-
-			var args = String.Format ("-s '{0}' shell setprop '{1}' '{2}'", device.ID, property, value);
-			return StartProcess (AdbExe, args, outputLog, errorLog);
+			
+			var args = new ProcessArgumentBuilder ();
+			args.Add ("-s", device.ID, "shell", "setprop");
+			args.AddQuoted (property, value);
+			
+			return StartProcess (AdbExe, args.ToString (), outputLog, errorLog);
 		}
 		
 		public IProcessAsyncOperation PushFile (AndroidDevice device, string source, string destination,
 			TextWriter outputLog, TextWriter errorLog)
 		{
-			var args = string.Format ("-s '{0}' push '{1} '{2}'", device.ID, source, destination);
-			return StartProcess (AdbExe, args, outputLog, errorLog);
+			var args = new ProcessArgumentBuilder ();
+			args.Add ("-s", device.ID, "push");
+			args.AddQuoted (source, destination);
+			
+			return StartProcess (AdbExe, args.ToString (), outputLog, errorLog);
 		}
 
 		public IProcessAsyncOperation WaitForDevice (AndroidDevice device, TextWriter outputLog, TextWriter errorLog)
 		{
-			var args = string.Format ("-s '{0}' wait-for-device", device.ID);
+			var args = string.Format ("-s {0} wait-for-device", device.ID);
 			return StartProcess (AdbExe, args, outputLog, errorLog);
 		}
 
 		public IProcessAsyncOperation PullFile (AndroidDevice device, string source, string destination,
 			TextWriter outputLog, TextWriter errorLog)
 		{
-			var args = string.Format ("-s '{0}' pull '{1} '{2}'", device.ID, source, destination);
-			return StartProcess (AdbExe, args, outputLog, errorLog);
+			var args = new ProcessArgumentBuilder ();
+			args.Add ("-s", device.ID, "pull");
+			args.AddQuoted (source, destination);
+			
+			return StartProcess (AdbExe, args.ToString (), outputLog, errorLog);
 		}
 
 		public InstallPackageOperation Install (AndroidDevice device, string package, TextWriter outputLog, TextWriter errorLog)
 		{
-			var args = string.Format ("-s '{0}' install '{1}'", device.ID, package);
+			var args = new ProcessArgumentBuilder ();
+			args.Add ("-s", device.ID, "install");
+			args.AddQuoted (package);
+			
 			var errorCapture = new StringWriter ();
 			var errorWriter = TeeTextWriter.ForNonNull (errorCapture, errorCapture);
-			return new InstallPackageOperation (StartProcess (AdbExe, args, outputLog, errorWriter), errorCapture);
+			return new InstallPackageOperation (StartProcess (AdbExe, args.ToString (), outputLog, errorWriter), errorCapture);
 		}
 
 		public IProcessAsyncOperation Uninstall (AndroidDevice device, string package, TextWriter outputLog, TextWriter errorLog)
 		{
-			var args = string.Format ("-s '{0}' uninstall '{1}'", device.ID, package);
-			return StartProcess (AdbExe, args, outputLog, errorLog);
+			var args = new ProcessArgumentBuilder ();
+			args.Add ("-s", device.ID, "uninstall");
+			args.AddQuoted (package);
+			
+			return StartProcess (AdbExe, args.ToString (), outputLog, errorLog);
 		}
 		
 		public IProcessAsyncOperation StartActivity (AndroidDevice device, string activity,
 			TextWriter outputLog, TextWriter errorLog)
 		{
-			var args = string.Format ("-s '{0}' shell am start -a android.intent.action.MAIN -n '{1}'",
-				device.ID, activity);
+			var args = new ProcessArgumentBuilder ();
+			args.Add ("-s", device.ID, "shell", "am", "start", "-a", "android.intent.action.MAIN", "-n");
+			args.AddQuoted (activity);
 			
-			return StartProcess (AdbExe, args, outputLog, errorLog);
+			return StartProcess (AdbExe, args.ToString (), outputLog, errorLog);
 		}
 		
 		public IProcessAsyncOperation StartActivity (AndroidDevice device, string activity,
 			ProcessEventHandler outputLog, ProcessEventHandler errorLog)
 		{
-			var args = string.Format ("-s '{0}' shell am start -a android.intent.action.MAIN -n '{1}'",
-				device.ID, activity);
+			var args = new ProcessArgumentBuilder ();
+			args.Add ("-s", device.ID, "shell", "am", "start", "-a", "android.intent.action.MAIN", "-n");
+			args.AddQuoted (activity);
 			
-			return StartProcess (AdbExe, args, outputLog, errorLog);
+			return StartProcess (AdbExe, args.ToString (), outputLog, errorLog);
 		}
 
 		public IProcessAsyncOperation ForwardPort (AndroidDevice device, int devicePort, int localPort,
 			TextWriter outputLog, TextWriter errorLog)
 		{
-			var args = string.Format ("-s '{0}' forward tcp:{1} tcp:{2}", device.ID, localPort, devicePort);
+			var args = string.Format ("-s {0} forward tcp:{1} tcp:{2}", device.ID, localPort, devicePort);
 			return StartProcess (AdbExe, args, outputLog, errorLog);
-		}
-		
-		public GetPackagesOperation GetInstalledPackagesOnDevice (AndroidDevice device, TextWriter errorWriter)
-		{
-			var output = new StringWriter ();
-			var args = string.Format ("-s '{0}' shell pm list packages", device.ID);
-			return new GetPackagesOperation (StartProcess (AdbExe, args, output, errorWriter), output);
 		}
 		
 		public ProcessWrapper LogCat (AndroidDevice device, ProcessEventHandler outputLog,
 			ProcessEventHandler errorLog)
 		{
-			var args = string.Format ("-s '{0}' logcat", device.ID);
+			var args = string.Format ("-s {0} logcat", device.ID);
 			return StartProcess (AdbExe, args, outputLog, errorLog);
 		}
 
 		public bool IsSharedRuntimeInstalled (List<string> packages)
 		{
-			return packages.Contains ("package:com.novell.monodroid.runtimeservice");
+			return packages.Contains ("com.novell.monodroid.runtimeservice");
 		}
 		
-		public abstract class AdbParseOperation<T> : WrapperOperation
+		public class AdbOutputOperation : WrapperOperation
 		{
-			IProcessAsyncOperation process;
 			StringWriter output;
-			T result;
+			IProcessAsyncOperation process;
 			
-			public AdbParseOperation (IProcessAsyncOperation process, StringWriter output)
+			public AdbOutputOperation (IProcessAsyncOperation process, StringWriter output)
 			{
 				this.process = process;
 				this.output = output;
@@ -270,110 +296,39 @@ namespace MonoDevelop.MonoDroid
 				get { return process; }
 			}
 			
-			protected abstract T Parse (string result);
+			public string GetOutput ()
+			{
+				return output.ToString ();
+			}
+		}
+		
+		public class GetDateOperation : AdbOutputOperation
+		{
+			long? date;
 			
-			public T Result {
+			public GetDateOperation (IProcessAsyncOperation process, StringWriter output) : base (process, output)
+			{
+			}
+			
+			public override bool Success {
 				get {
-					if (result == null)
-						result = Parse (output.ToString ());
-					return result;
-				}
-			}
-		}
-	
-		public class GetPackagesOperation : AdbParseOperation<List<string>>
-		{
-			public GetPackagesOperation (IProcessAsyncOperation process, StringWriter output)
-				: base (process, output)
-			{
-			}
-			
-			protected override List<string> Parse (string output)
-			{
-				var sr = new StringReader (output);
-				var list = new List<string> ();
-				
-				string s;
-				while ((s = sr.ReadLine ()) != null) {
-					s.Trim ();
-					if (!string.IsNullOrEmpty (s))
-						list.Add (s);
-				}
-				return list;
-			}
-		}
-		
-		public class GetVirtualDevicesOperation : AdbParseOperation<List<AndroidVirtualDevice>>
-		{
-			public GetVirtualDevicesOperation (IProcessAsyncOperation process, StringWriter output)
-				: base (process, output)
-			{
-			}
-			
-			protected override List<AndroidVirtualDevice> Parse (string output)
-			{
-				var devices = new List<AndroidVirtualDevice> ();
-	
-				var sr = new StringReader (output);
-				AndroidVirtualDevice current_device = null;
-	
-				string s;
-	
-				while ((s = sr.ReadLine ()) != null) {
-					s = s.Trim ();
-	
-					if (s.Length == 0)
-						continue;
-	
-					if (s.StartsWith ("Available") || s.StartsWith ("------")) {
-						if (current_device != null)
-							devices.Add (current_device);
-	
-						continue;
+					if (!base.Success)
+						return false;
+					if (!date.HasValue) {
+						long value;
+						date = long.TryParse (GetOutput (), out value)? value : -1;
 					}
-	
-					if (s.StartsWith ("Name:"))
-						current_device = new AndroidVirtualDevice ();
-	
-					string[] data = s.Split (':');
-	
-					// Check for a multi-line property, and ignore it
-					if (data.Length > 1 && current_device != null)
-						current_device.Properties[data[0].Trim ()] = data[1].Trim ();
+					return date >= 0;
 				}
-	
-				if (current_device != null)
-					devices.Add (current_device);
-	
-				return devices;
-			}
-		}
-		
-		public class GetDevicesOperation : AdbParseOperation<List<AndroidDevice>>
-		{
-			public GetDevicesOperation (IProcessAsyncOperation process, StringWriter output)
-				: base (process, output)
-			{
 			}
 			
-			protected override List<AndroidDevice> Parse (string output)
-			{
-				var devices = new List<AndroidDevice> ();
-				
-				using (var sr = new StringReader (output)) {
-					string s;
-		
-					while ((s = sr.ReadLine ()) != null) {
-						s = s.Trim ();
-						
-						if (s.Length == 0 || s == "List of devices attached")
-							continue;
-		
-						string[] data = s.Split ('\t');
-						devices.Add (new AndroidDevice (data[0].Trim (), data[1].Trim ()));
-					}
+			public long Date {
+				get {
+					if (!Success)
+						throw new InvalidOperationException ("Error getting date from device:\n" + GetOutput ());
+					//Success will have parsed the value 
+					return date.Value;
 				}
-				return devices;
 			}
 		}
 		
@@ -449,7 +404,9 @@ namespace MonoDevelop.MonoDroid
 	
 	public class AndroidDevice
 	{
+		[MonoDevelop.Core.Serialization.ItemProperty ("id")]
 		public string ID { get; set; }
+		
 		public string State { get; set; }
 
 		public AndroidDevice () {}
@@ -486,72 +443,6 @@ namespace MonoDevelop.MonoDroid
 					^ (State != null ? State.GetHashCode () : 0)
 					^ IsEmulator.GetHashCode ();
 			}
-		}
-	}
-	
-	public class AndroidVirtualDevice
-	{
-		public Dictionary<string, string> Properties { get; private set; }
-
-		public AndroidVirtualDevice ()
-		{
-			Properties = new Dictionary<string,string> ();
-		}
-
-		#region Convenience Properties
-		public string Name { get { return Properties["Name"]; } }
-		public string Path { get { return Properties["Path"]; } }
-		public string Target { get { return Properties["Target"]; } }
-		public string Skin { get { return Properties["Skin"]; } }
-		#endregion
-
-		public override string ToString ()
-		{
-			return string.Format ("Virtual Device: {0} - {2} [{1}]", Name, Path, Target);
-		}
-		
-		public override bool Equals (object obj)
-		{
-			if (obj == null)
-				return false;
-			if (ReferenceEquals (this, obj))
-				return true;
-			var other = obj as MonoDevelop.MonoDroid.AndroidVirtualDevice;
-			return other != null && DictEqual (Properties, other.Properties);
-		}
-		
-		internal static bool DictEqual<K,V> (Dictionary<K,V> a, Dictionary<K,V> b)
-		{
-			if (a == null && b == null)
-				return true;
-			if (a == null || b == null)
-				return false;
-			if (a.Count != b.Count)
-				return false;
-			foreach (var kv in a) {
-				V otherVal;
-				if (!b.TryGetValue (kv.Key, out otherVal) || !object.Equals (otherVal, kv.Value))
-					return false;
-			}
-			return true;
-		}
-		
-		static int GetStringDictHash (Dictionary<string, string> a)
-		{
-			int val = 0;
-			if (a != null) {
-				foreach (var kvp in a) {
-					unchecked {
-						val = val ^ kvp.Key.GetHashCode () ^ (kvp.Value == null? 0 : kvp.Value.GetHashCode ());
-					}
-				}
-			}
-			return val;
-		}
-	
-		public override int GetHashCode ()
-		{
-			return GetStringDictHash (Properties);
 		}
 	}
 	

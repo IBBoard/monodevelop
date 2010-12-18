@@ -355,7 +355,7 @@ namespace MonoDevelop.VersionControl.Dialogs
 			this.buttonOk.UseStock = true;
 			this.buttonOk.UseUnderline = true;
 			this.buttonOk.Label = "gtk-ok";
-			this.AddActionWidget (this.buttonOk, -5);
+			w30.Add (this.buttonOk);
 			global::Gtk.ButtonBox.ButtonBoxChild w32 = ((global::Gtk.ButtonBox.ButtonBoxChild)(w30 [this.buttonOk]));
 			w32.Position = 1;
 			w32.Expand = false;
@@ -374,6 +374,7 @@ namespace MonoDevelop.VersionControl.Dialogs
 			this.buttonEdit.Clicked += new global::System.EventHandler (this.OnButtonEditClicked);
 			this.entryFolder.Changed += new global::System.EventHandler (this.OnEntryFolderChanged);
 			this.buttonBrowse.Clicked += new global::System.EventHandler (this.OnButtonBrowseClicked);
+			this.buttonOk.Clicked += new global::System.EventHandler (this.OnButtonOkClicked);
 		}
 	}
 }

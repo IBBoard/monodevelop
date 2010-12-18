@@ -49,9 +49,6 @@ namespace MonoDevelop.MonoDroid
 		OpenAvdManager,
 	}
 	
-	//
-	// We may use this one in the future if we properly support full dynamic device listing
-	//
 	class SelectDeviceTargetHandler : CommandHandler
 	{
 		protected override void Update (CommandArrayInfo info)
@@ -67,7 +64,7 @@ namespace MonoDevelop.MonoDroid
 			if (projSetting == null)
 				def.Checked  = true;
 			
-			foreach (var st in MonoDroidFramework.Devices) {
+			foreach (var st in MonoDroidFramework.DeviceManager.Devices) {
 				var i = info.Add (st.ToString (), st);
 				if (projSetting != null && projSetting.Equals (st))
 					i.Checked  = true;
@@ -77,10 +74,8 @@ namespace MonoDevelop.MonoDroid
 		protected override void Run (object dataItem)
 		{
 			var proj = DefaultUploadToDeviceHandler.GetActiveExecutableMonoDroidProject ();
-			if (proj == null)
-				return;
-			
-			throw new NotImplementedException ();
+			var conf = (MonoDroidProjectConfiguration) proj.GetConfiguration (IdeApp.Workspace.ActiveConfiguration);
+			proj.SetDeviceTarget (conf, ((AndroidDevice)dataItem).ID);
 		}
 	}
 
@@ -96,10 +91,13 @@ namespace MonoDevelop.MonoDroid
 		{
 			if (!MonoDroidFramework.EnsureSdksInstalled ())
 				return;
-
+			
+			var proj = DefaultUploadToDeviceHandler.GetActiveExecutableMonoDroidProject ();
+			var conf = (MonoDroidProjectConfiguration) proj.GetConfiguration (IdeApp.Workspace.ActiveConfiguration);
+			
 			var device = MonoDroidUtility.ChooseDevice (null);
 			if (device != null)
-				MonoDroidFramework.DefaultDevice = device;
+				proj.SetDeviceTarget (conf, device.ID);
 		}
 	}
 	
@@ -121,8 +119,8 @@ namespace MonoDevelop.MonoDroid
 			
 			OperationHandler upload = delegate {
 				using (var monitor = new MonoDevelop.Ide.ProgressMonitoring.MessageDialogProgressMonitor ()) {
-					AndroidDevice device;
-					MonoDroidUtility.SignAndUpload (monitor, proj, configSel, true, out device);
+					AndroidDevice device = null;
+					MonoDroidUtility.SignAndUpload (monitor, proj, configSel, true, ref device);
 				}
 			};
 			

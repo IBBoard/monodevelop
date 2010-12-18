@@ -49,6 +49,9 @@ namespace MonoDevelop.MonoDroid
 		
 		#region Properties
 		
+		[ItemProperty ("AndroidApplication")]
+		string androidApplicationUnparsed;
+		
 		[ProjectPathItemProperty ("AndroidResgenFile")]
 		string androidResgenFile;
 		
@@ -67,6 +70,19 @@ namespace MonoDevelop.MonoDroid
 		
 		public override bool IsLibraryBasedProjectType {
 			get { return true; }
+		}
+		
+		bool isAndroidApplication;
+			
+		public bool IsAndroidApplication {
+			get { return isAndroidApplication; }
+			set {
+				if (value == isAndroidApplication)
+					return;
+				isAndroidApplication = value;
+				androidApplicationUnparsed = value.ToString ();
+				NotifyModified ("IsAndroidApplication");
+			}
 		}
 		
 		public FilePath AndroidResgenFile {
@@ -146,8 +162,14 @@ namespace MonoDevelop.MonoDroid
 			if (androidResgenClassAtt != null)
 				this.androidResgenClass = androidResgenClassAtt.Value;
 			
+			var androidApplicationAtt = projectOptions.Attributes ["AndroidApplication"];
+			if (androidApplicationAtt != null) {
+				this.IsAndroidApplication = bool.Parse (androidApplicationAtt.Value);
+			}
+			
 			var androidManifestAtt = projectOptions.Attributes ["AndroidManifest"];
 			if (androidManifestAtt != null) {
+				this.IsAndroidApplication = true;
 				this.AndroidManifest = MakePathNative (androidManifestAtt.Value);
 			}
 			
@@ -164,6 +186,8 @@ namespace MonoDevelop.MonoDroid
 		{
 			//set parameters to ones required for MonoDroid build
 			TargetFramework = Runtime.SystemAssemblyService.GetTargetFramework (FX_MONODROID);
+			
+			MonoDroidFramework.DeviceManager.IncrementOpenProjectCount ();
 		}
 		
 		public override SolutionItemConfiguration CreateConfiguration (string name)
@@ -177,6 +201,23 @@ namespace MonoDevelop.MonoDroid
 		{
 			return format.Id == "MSBuild10";
 		}
+		
+		protected override void OnEndLoad ()
+		{
+			// Migration logic for AndroidManifest element is run if it exists and AndroidApplication is empty
+			// In order to do this, we don't let the deserializer handle AndroidApplicatio, but parse it here
+			if (!string.IsNullOrEmpty (androidApplicationUnparsed)) {
+				isAndroidApplication = string.Equals (androidApplicationUnparsed, "true", StringComparison.OrdinalIgnoreCase);
+			}
+			else if (!string.IsNullOrEmpty (androidManifest)) {
+				androidApplicationUnparsed = "True";
+				isAndroidApplication = true;
+				if (!File.Exists (androidManifest))
+					androidManifest = null;
+			}
+			
+			base.OnEndLoad ();
+		}
 
 		#endregion
 		
@@ -185,19 +226,23 @@ namespace MonoDevelop.MonoDroid
 		/// <summary>
 		/// User setting of device for running app in simulator. Null means use default.
 		/// </summary>
-		public AndroidDevice GetDeviceTarget (MonoDroidProjectConfiguration conf)
+		public string GetDeviceTarget (MonoDroidProjectConfiguration conf)
 		{
-			return UserProperties.GetValue<AndroidDevice> (GetDeviceTargetKey (conf));
+			//FIXME: do we really want this to be per-project/per-configuration? or should it be a global MD setting?
+			var device = UserProperties.GetValue<string> (GetDeviceTargetKey (conf));
+			if (string.IsNullOrEmpty (device))
+				return null;
+			return device;
 		}
 		
-		public void SetDeviceTarget (MonoDroidProjectConfiguration conf, AndroidDevice value)
+		public void SetDeviceTarget (MonoDroidProjectConfiguration conf, string value)
 		{
-			UserProperties.SetValue<AndroidDevice> (GetDeviceTargetKey (conf), value);
+			UserProperties.SetValue<string> (GetDeviceTargetKey (conf), value);
 		}
 		
 		string GetDeviceTargetKey (MonoDroidProjectConfiguration conf)
 		{
-			return "AndroidDevice-" + conf.Id;
+			return "AndroidDeviceId-" + conf.Id;
 		}
 		
 		bool HackGetUserAssemblyPaths = false;
@@ -257,9 +302,8 @@ namespace MonoDevelop.MonoDroid
 		                                                            DotNetProjectConfiguration configuration)
 		{
 			var conf = (MonoDroidProjectConfiguration) configuration;
-			var devTarget = GetDeviceTarget (conf);
 			
-			return new MonoDroidExecutionCommand (conf.PackageName, devTarget,
+			return new MonoDroidExecutionCommand (conf.PackageName,
 				conf.ApkSignedPath, TargetRuntime, TargetFramework, conf.DebugMode) {
 				UserAssemblyPaths = GetUserAssemblyPaths (configSel)
 			};
@@ -298,26 +342,63 @@ namespace MonoDevelop.MonoDroid
 			}
 			activity = manifest.PackageName + "/" + activity;
 			
+			IConsole console = null;
 			var opMon = new AggregatedOperationMonitor (monitor);
-			try {				
-				AndroidDevice device;
-				var uploadOp = MonoDroidUtility.SignAndUpload (monitor, this, configSel, false, out device);
+			try {
+				var handler = context.ExecutionHandler as MonoDroidExecutionHandler;
+				bool useHandlerDevice = handler != null && handler.DeviceTarget != null;
+				
+				AndroidDevice device = null;
+				
+				if (useHandlerDevice) {
+					device = handler.DeviceTarget;
+				} else {
+					var deviceId = GetDeviceTarget (conf);
+					if (deviceId != null)
+						device = MonoDroidFramework.DeviceManager.GetDevice (deviceId);
+					if (device == null)
+						SetDeviceTarget (conf, null);
+				}
+				
+				var uploadOp = MonoDroidUtility.SignAndUpload (monitor, this, configSel, false, ref device);
+				
+				//user cancelled device selection
+				if (device == null)
+					return;
+				
 				opMon.AddOperation (uploadOp);
 				uploadOp.WaitForCompleted ();
-				if (!uploadOp.Success)
+				
+				if (!uploadOp.Success || monitor.IsCancelRequested)
 					return;
+				
+				//successful, persist the device choice
+				if (!useHandlerDevice)
+					SetDeviceTarget (conf, device.ID);
 				
 				var command = (MonoDroidExecutionCommand) CreateExecutionCommand (configSel, conf);
 				command.Device = device;
 				command.Activity = activity;
 				
-				using (var console = context.ConsoleFactory.CreateConsole (false)) {
-					var executeOp = context.ExecutionHandler.Execute (command, console);
-					opMon.AddOperation (executeOp);
-					executeOp.WaitForCompleted ();
+				//FIXME: would be nice to skip this if it's a debug handler, which will set another value later
+				var propOp = MonoDroidFramework.Toolbox.SetProperty (device, "debug.mono.extra", string.Empty);
+				opMon.AddOperation (propOp);
+				propOp.WaitForCompleted ();
+				if (!propOp.Success) {
+					monitor.ReportError (GettextCatalog.GetString ("Count not clear debug settings on device"),
+						new Exception (propOp.GetOutput ()));
+					return;
 				}
+				
+				console = context.ConsoleFactory.CreateConsole (false);
+				var executeOp = context.ExecutionHandler.Execute (command, console);
+				opMon.AddOperation (executeOp);
+				executeOp.WaitForCompleted ();
+				
 			} finally {
 				opMon.Dispose ();
+				if (console != null)
+					console.Dispose ();
 			}
 		}
 		
@@ -390,35 +471,63 @@ namespace MonoDevelop.MonoDroid
 		protected override void OnFileChangedInProject (ProjectFileEventArgs e)
 		{
 			base.OnFileChangedInProject (e);
-			if (!Loading && e.ProjectFile.BuildAction == MonoDroidBuildAction.AndroidResource)
+			if (Loading)
+				return;
+			
+			if (e.ProjectFile.BuildAction == MonoDroidBuildAction.AndroidResource)
 				QueueResgenUpdate ();
 		}
 		
 		protected override void OnFileRemovedFromProject (ProjectFileEventArgs e)
 		{
 			base.OnFileRemovedFromProject (e);
-			if (!Loading && e.ProjectFile.BuildAction == MonoDroidBuildAction.AndroidResource)
+			if (Loading)
+				return;
+			
+			if (e.ProjectFile.BuildAction == MonoDroidBuildAction.AndroidResource)
 				QueueResgenUpdate ();
+			//clear the manifest element if the file is removed
+			else if (!AndroidManifest.IsNullOrEmpty && e.ProjectFile.FilePath == AndroidManifest)
+				AndroidManifest = null;
 		}
 		
 		protected override void OnFileRenamedInProject (ProjectFileRenamedEventArgs e)
 		{
 			base.OnFileRenamedInProject (e);
-			if (!Loading && e.ProjectFile.BuildAction == MonoDroidBuildAction.AndroidResource)
+			if (Loading)
+				return;
+			
+			if (e.ProjectFile.BuildAction == MonoDroidBuildAction.AndroidResource)
 				QueueResgenUpdate ();
+			//if renaming the file to "AndroidManifest.xml", and the manifest element is not in use, set it as a convenience
+			else if (AndroidManifest.IsNullOrEmpty && e.NewName.ToRelative (BaseDirectory) == "AndroidManifest.xml")
+				AndroidManifest = e.NewName;
+			//track manifest file renames or things will break
+			else if (AndroidManifest == e.OldName)
+				AndroidManifest = e.NewName;
 		}
 		
 		protected override void OnFileAddedToProject (ProjectFileEventArgs e)
 		{
 			base.OnFileAddedToProject (e);
-			if (!Loading && e.ProjectFile.BuildAction == MonoDroidBuildAction.AndroidResource)
+			if (Loading)
+				return;
+			
+			if (e.ProjectFile.BuildAction == MonoDroidBuildAction.AndroidResource)
 				QueueResgenUpdate ();
+			//if adding a file called AndroidManifest.xml, and the manifest element is not in use, set it as a convenience
+			//TODO: is it worth coping with LogicalNames?
+			else if (AndroidManifest.IsNullOrEmpty && e.ProjectFile.FilePath.ToRelative (BaseDirectory) == "AndroidManifest.xml")
+				AndroidManifest = e.ProjectFile.FilePath;
 		}
 		
 		protected override void OnFilePropertyChangedInProject (ProjectFileEventArgs e)
 		{
 			base.OnFilePropertyChangedInProject (e);
-			if (!Loading && e.ProjectFile.BuildAction == MonoDroidBuildAction.AndroidResource)
+			if (Loading)
+				return;
+			
+			if (e.ProjectFile.BuildAction == MonoDroidBuildAction.AndroidResource)
 				QueueResgenUpdate ();
 		}
 		
@@ -533,10 +642,6 @@ namespace MonoDevelop.MonoDroid
 		
 		AndroidPackageNameCache packageNameCache;
 		
-		public bool IsAndroidApplication {
-			get { return !AndroidManifest.IsNullOrEmpty; }
-		}
-		
 		public string GetPackageName (MonoDroidProjectConfiguration conf)
 		{
 			var pf = GetManifestFile (conf);
@@ -586,7 +691,7 @@ namespace MonoDevelop.MonoDroid
 		{
 			string sanitized = SanitizeName (Name);
 			if (sanitized.Length == 0)
-				sanitized = "Application";
+				sanitized = "application";
 			return sanitized + "." + sanitized;
 		}
 		
@@ -595,12 +700,22 @@ namespace MonoDevelop.MonoDroid
 			var sb = new StringBuilder ();
 			foreach (char c in name)
 				if (char.IsLetterOrDigit (c))
-					sb.Append (c);
+					sb.Append (char.ToLowerInvariant (c));
 			return sb.ToString ();
 		}
 		
+		bool disposed = false;
+		
 		public override void Dispose ()
 		{
+			lock (this) {
+				if (disposed)
+					return;
+				disposed = true;
+			}
+			
+			MonoDroidFramework.DeviceManager.DecrementOpenProjectCount ();
+			
 			if (packageNameCache != null) {
 				packageNameCache.Dispose ();
 				packageNameCache = null;

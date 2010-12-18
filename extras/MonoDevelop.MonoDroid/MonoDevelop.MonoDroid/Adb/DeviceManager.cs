@@ -29,32 +29,113 @@ using System.Collections.Generic;
 
 using MonoDevelop.Core.ProgressMonitoring;
 using MonoDevelop.Core;
+using System.IO;
+using System.Linq;
 
 namespace MonoDevelop.MonoDroid
 {
 	public class DeviceManager
 	{
 		EventHandler devicesUpdated;
-		List<AndroidToolbox.StartAvdOperation> emulatorHandles = new List<AndroidToolbox.StartAvdOperation> ();
-		
-		DevicePoller poller = new DevicePoller ();
+		IAsyncOperation op;
+		object lockObj = new object ();
+		int openProjects = 0;
 		
 		//this should be a singleton created from MonoDroidFramework
 		internal DeviceManager ()
 		{
-			poller.Changed += OnChanged;
-			MonoDevelop.Ide.IdeApp.Exited += IdeAppExited;
 		}
-
-		void IdeAppExited (object sender, EventArgs e)
+		
+		internal void IncrementOpenProjectCount ()
 		{
-			lock (emulatorHandles) {
-				foreach (var p in emulatorHandles) {
-					p.Completed -= HandleEmulatorStarted;
-					p.Cancel ();
-					p.Dispose ();
-				}
+			lock (lockObj) {
+				openProjects++;
+				CheckTracker ();
 			}
+		}
+		
+		internal void DecrementOpenProjectCount ()
+		{
+			lock (lockObj) {
+				openProjects--;
+				CheckTracker ();
+			}
+		}
+		
+		internal void AndroidSdkChanged ()
+		{
+			lock (lockObj) {
+				if (op != null)
+					StopTracker ();
+				CheckTracker ();
+			}
+		}
+		
+		void CheckTracker ()
+		{
+			bool needed = openProjects > 0 || devicesUpdated != null;
+			if (op == null) {
+				if (needed)
+					StartTracker ();
+			} else {
+				if (!needed)
+					StopTracker ();
+			}
+		}
+		
+		void StartTracker ()
+		{
+			LoggingService.LogInfo ("Starting Android device monitor");
+			var stdOut = new StringWriter ();
+			op = MonoDroidFramework.Toolbox.EnsureServerRunning (stdOut, stdOut);
+			op.Completed += delegate (IAsyncOperation esop) {
+				if (!esop.Success) {
+					LoggingService.LogError ("Error starting adb server: " + stdOut);
+					((IDisposable)esop).Dispose ();
+					op = null;
+					return;
+				}	
+				try {
+					lock (lockObj) {
+						if (op != null) {
+							op = CreateTracker ();
+						}
+					}
+					((IDisposable)esop).Dispose ();
+				} catch (Exception ex) {
+					LoggingService.LogError ("Error creating device tracker: ", ex);
+					op = null;
+				}
+			};
+		}
+		
+		AdbTrackDevicesOperation CreateTracker ()
+		{
+			var trackerOp = new AdbTrackDevicesOperation ();
+			trackerOp.DevicesChanged += delegate (List<AndroidDevice> list) {
+				Devices = list;
+				OnChanged (null, null);
+			};
+			trackerOp.Completed += delegate (IAsyncOperation op) {
+				var err = ((AdbTrackDevicesOperation)op).Error;
+				if (err != null) {
+					lock (lockObj) {
+						((IDisposable)op).Dispose ();
+						op = null;
+					}
+					LoggingService.LogError ("Error in device tracker", err);
+				}
+			};
+			Devices = trackerOp.Devices;
+			return trackerOp;
+		}
+		
+		void StopTracker ()
+		{
+			LoggingService.LogInfo ("Stopping Android device monitor");
+			((IDisposable)op).Dispose ();
+			Devices = new AndroidDevice[0];
+			op = null;
 		}
 
 		void OnChanged (object sender, EventArgs e)
@@ -65,184 +146,33 @@ namespace MonoDevelop.MonoDroid
 		
 		public event EventHandler DevicesUpdated {
 			add {
-				if (devicesUpdated == null)
-					poller.Start ();
-				devicesUpdated += value;
+				lock (lockObj) {
+					devicesUpdated += value;
+					CheckTracker ();
+				}
 			}
 			remove {
-				devicesUpdated -= value;
-				if (devicesUpdated == null)
-					poller.Stop ();
-			}
-		}
-		
-		public void Refresh ()
-		{			
-			poller.Refresh ();
-		}
-		
-		public void StartEmulator (AndroidVirtualDevice avd)
-		{
-			//FIXME: actually log the output and status
-			var op = MonoDroidFramework.Toolbox.StartAvd (avd);
-			op.Completed += HandleEmulatorStarted;
-		}
-
-		void HandleEmulatorStarted (IAsyncOperation op)
-		{
-			var p = (AndroidToolbox.StartAvdOperation)op;
-			lock (emulatorHandles) {
-				emulatorHandles.Remove (p);
-				op.Completed -= HandleEmulatorStarted;
-			}
-			if (!op.Success) {
-				MonoDevelop.Ide.MessageService.ShowError (
-					"Failed to start AVD", p.ErrorText);
-			}
-			Refresh ();
-		}
-		
-		public List<AndroidDevice> Devices {
-			get { return poller.Devices; }
-		}
-		
-		public List<AndroidVirtualDevice> VirtualDevices {
-			get { return poller.VirtualDevices; }
-		}
-		
-		class DevicePoller : AsyncPoller
-		{
-			AndroidToolbox.GetDevicesOperation devicesOp;
-			AndroidToolbox.GetVirtualDevicesOperation virtualDevicesOp;
-			
-			public List<AndroidDevice> Devices { get; private set; }
-			public List<AndroidVirtualDevice> VirtualDevices { get; private set; }
-						
-			protected override void BeginRefresh ()
-			{
-				var op = new AggregatedAsyncOperation ();
-				devicesOp = MonoDroidFramework.Toolbox.GetDevices (Console.Out);
-				virtualDevicesOp = MonoDroidFramework.Toolbox.GetAllVirtualDevices (Console.Out);
-				op.Add (devicesOp);
-				op.Add (virtualDevicesOp);
-				op.StartMonitoring ();
-				op.Completed += PollCompleted;
-			}
-
-			void PollCompleted (IAsyncOperation op)
-			{
-				List<AndroidDevice> devices = null;
-				List<AndroidVirtualDevice> virtualDevices = null;
-				try {
-					devices = devicesOp.Result;
-					virtualDevices = virtualDevicesOp.Result;
-					devicesOp.Dispose ();
-					virtualDevicesOp.Dispose ();
-				} catch (Exception ex) {
-					LoggingService.LogError ("Error loading device data", ex);
+				lock (lockObj) {
+					devicesUpdated -= value;
+					CheckTracker ();
 				}
-				
-				Gtk.Application.Invoke (delegate {
-					bool changed = false;
-					if (!ListEqual (this.Devices, devices)) {
-						this.Devices = devices;
-						changed = true;
-					}
-					
-					if (!ListEqual (this.VirtualDevices, virtualDevices)) {
-						this.VirtualDevices = virtualDevices;
-						changed = true;
-					}
-					OnRefreshed (changed);
-				});
-			}
-			
-			static bool ListEqual<T> (List<T> a, List<T> b)
-			{
-				if (a == null && b == null)
-					return true;
-				if (a == null || b == null)
-					return false;
-				if (a.Count != b.Count)
-					return false;
-				var hashSet = new HashSet<T> (a);
-				foreach (var item in b)
-					if (!hashSet.Contains (item))
-						return false;
-				return true;
-			}
-		}
-	}
-	
-	// MUST BE USED FROM GUI THREAD ONLY
-	// polls in the GUI thread. each poll is async, and when it returns, another is queued up
-	class AsyncPoller
-	{
-		bool active;
-		uint source;
-		
-		public int Timeout { get; set; }
-		
-		public bool Active {
-			get { return active; }
-		}
-		
-		public void Start ()
-		{
-#if DEBUG
-			MonoDevelop.Ide.DispatchService.AssertGuiThread ();
-#endif
-			if (!active) {
-				active = true;
-				Refresh ();
 			}
 		}
 		
-		public void Stop ()
+		public IList<AndroidDevice> Devices { get; set; }
+		
+		public AndroidDevice GetDevice (string id)
 		{
-#if DEBUG
-			MonoDevelop.Ide.DispatchService.AssertGuiThread ();
-#endif
-			if (active) {
-				active = false;
-				if (source > 0)
-					GLib.Source.Remove (source);
-			}
+			return Devices.FirstOrDefault (d => d.ID == id);
 		}
 		
-		public AsyncPoller ()
+		public bool GetDeviceIsOnline (string id)
 		{
-			Timeout = 2000; //ms
-		}
-		
-		public void Refresh ()
-		{
-#if DEBUG
-			MonoDevelop.Ide.DispatchService.AssertGuiThread ();
-#endif
-			Stop ();
-			BeginRefresh ();
-		}
-		
-		//must call OnRefreshed when done, whether succeeds or fails
-		protected virtual void BeginRefresh ()
-		{
-		}
-		
-		protected void OnRefreshed (bool changed)
-		{
-#if DEBUG
-			MonoDevelop.Ide.DispatchService.AssertGuiThread ();
-#endif
-			source = GLib.Timeout.Add ((uint)Timeout, delegate {
-				BeginRefresh ();
+			var device = GetDevice (id);
+			if (device == null)
 				return false;
-			});
-			if (changed && Changed != null)
-				Changed (this, EventArgs.Empty);
+			return device.State == "device";
 		}
-		
-		public event EventHandler Changed;
 	}
 }
 
