@@ -9,22 +9,24 @@
        version     = "2.4">
 	
 	<Runtime>
-		<import file = "templates/MonoDroidActivity.xft.xml"/>
-		<import file = "templates/MonoDroidApplication/AboutResources.txt"/>
-		<import file = "templates/MonoDroidApplication/Activity1.cs"/>
-		<import file = "templates/MonoDroidApplication/icon-hd.png"/>
-		<import file = "templates/MonoDroidApplication/icon-ld.png"/>
-		<import file = "templates/MonoDroidApplication/icon-md.png"/>
-		<import file = "templates/MonoDroidApplication/main.xml"/>
-		<import file = "templates/MonoDroidApplication/R.cs"/>
-		<import file = "templates/MonoDroidApplicationProject.xpt.xml"/>
-		<import file = "templates/MonoDroidLibraryProject.xpt.xml"/>
-		<import file = "templates/MonoDroidOpenGLProject.xpt.xml"/>
-		<import file = "templates/MonoDroidView.xft.xml"/>
-		<import file = "templates/OpenGLApplication/Activity1.cs"/>
-		<import file = "templates/OpenGLApplication/GLView1.cs"/>
-		<import file = "templates/OpenGLApplication/main.xml"/>
-		<import file = "templates/OpenGLApplication/R.cs"/>
+		<Import file = "templates/MonoDroidActivity.xft.xml" />
+		<Import file = "templates/MonoDroidApplication/AboutResources.txt" />
+		<Import file = "templates/MonoDroidApplication/Activity1.cs" />
+		<Import file = "templates/MonoDroidApplication/icon-hd.png" />
+		<Import file = "templates/MonoDroidApplication/icon-ld.png" />
+		<Import file = "templates/MonoDroidApplication/icon-md.png" />
+		<Import file = "templates/MonoDroidApplication/main.xml" />
+		<Import file = "templates/MonoDroidApplication/Resource.cs" />
+		<Import file = "templates/MonoDroidApplicationProject.xpt.xml" />
+		<Import file = "templates/MonoDroidLibraryProject.xpt.xml" />
+		<Import file = "templates/MonoDroidOpenGLProject.xpt.xml" />
+		<Import file = "templates/MonoDroidView.xft.xml" />
+		<Import file = "templates/OpenGLApplication/Activity1.cs" />
+		<Import file = "templates/OpenGLApplication/GLView1.cs" />
+		<Import file = "templates/OpenGLApplication/main.xml" />
+		<Import file = "templates/OpenGLApplication/Resource.cs" />
+		<Import file = "icons/monodroid-project-16.png" />
+		<Import file = "icons/monodroid-project-32.png" />
 	</Runtime>
 	
 	<Dependencies>
@@ -102,6 +104,14 @@
 		<ModeSetType class="MonoDevelop.MonoDroid.MonoDroidExecutionModeSet"/>
 	</Extension>
 	
+	<Extension path = "/MonoDevelop/Ide/Pads">
+		<Pad id = "MonoDevelop.MonoDroid.MonoDroidDeviceLogPad"
+			_label = "Android Log"
+			class = "MonoDevelop.MonoDroid.MonoDroidDeviceLogPad"
+			defaultPlacement = "Bottom"
+			defaultStatus="AutoHide" />
+	</Extension>
+		
 	<Extension path = "/MonoDevelop/Ide/Commands/Project">
 		<Condition id="MonoDroidInstalled">
 			<Command id = "MonoDevelop.MonoDroid.MonoDroidCommands.UploadToDevice" 
@@ -112,6 +122,10 @@
 				type = "radio|array"
 				defaultHandler = "MonoDevelop.MonoDroid.SelectDeviceTargetHandler"
 				_label = "MonoDroid Device" />
+			<Command id = "MonoDevelop.MonoDroid.MonoDroidCommands.ManageDevices"
+				_description = "Manage Android Devices" 
+				defaultHandler = "MonoDevelop.MonoDroid.ManageDevicesHandler"
+				_label = "Manage Devices..." />
 		</Condition>
 	</Extension>
 	
@@ -121,18 +135,16 @@
 				_description = "Open the Android Virtual Device Manager" 
 				defaultHandler = "MonoDevelop.MonoDroid.DefaultOpenAvdManagerHandler"
 				_label = "Open AVD Manager" />
-			<Command id = "MonoDevelop.MonoDroid.MonoDroidCommands.ViewDeviceConsole" 
-				_description = "View the MonoDroid Device Console" 
-				defaultHandler = "MonoDevelop.MonoDroid.ViewDeviceConsoleHandler"
-				_label = "MonoDroid Console" />
 		</Condition>
 	</Extension>
 	
 	<Extension path = "/MonoDevelop/Ide/MainMenu/Project">
 		<Condition id="MonoDroidInstalled">
-			<ItemSet id = "SelectSimulatorTarget" _label = "MonoDroid Device Target" autohide = "true" 
+			<ItemSet id = "SelectSimulatorTarget" _label = "MonoDroid Device Target" 
 			         insertafter = "SelectActiveRuntime"  >
 				<CommandItem id = "MonoDevelop.MonoDroid.MonoDroidCommands.SelectDeviceTarget" />
+				<SeparatorItem />
+				<CommandItem id = "MonoDevelop.MonoDroid.MonoDroidCommands.ManageDevices" />
 			</ItemSet>
 		</Condition>
 	</Extension>
@@ -147,7 +159,6 @@
 	<Extension path = "/MonoDevelop/Ide/MainMenu/Tools">
 		<Condition id="MonoDroidInstalled">
 			<CommandItem id = "MonoDevelop.MonoDroid.MonoDroidCommands.OpenAvdManager" />
-			<CommandItem id = "MonoDevelop.MonoDroid.MonoDroidCommands.ViewDeviceConsole" />
 		</Condition>
 	</Extension>
 	

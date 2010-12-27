@@ -49,6 +49,14 @@ namespace MonoDevelop.MonoDroid
 		}
 	}
 	
+	public class AdbKillServerOperation : AdbOperation
+	{
+		protected override void OnConnected ()
+		{
+			WriteCommand ("host:kill", () => GetStatus (() => SetCompleted (true)));
+		}
+	}
+	
 	public class AdbTrackDevicesOperation : AdbOperation
 	{
 		protected override void OnConnected ()
@@ -102,9 +110,11 @@ namespace MonoDevelop.MonoDroid
 			
 			string s;
 			while ((s = sr.ReadLine ()) != null) {
-				s = s.Trim ();
+				//"Error: Could not access the Package Manager.  Is the system running?"
+				if (s.StartsWith ("Error:"))
+					throw new GetPackageListException (s.Substring ("Error:".Length));
 				if (!s.StartsWith ("package:"))
-					throw new Exception ("Unexpected output from package list: '" + s + "'");
+					throw new GetPackageListException ("Unexpected package list output: '" + s + "'");
 				s = s.Substring ("package:".Length);
 				if (!string.IsNullOrEmpty (s))
 					list.Add (s);
@@ -115,5 +125,139 @@ namespace MonoDevelop.MonoDroid
 		}
 		
 		public List<string> Packages { get; private set; }
+	}
+	
+	class GetPackageListException : Exception
+	{
+		public GetPackageListException (string message) : base (message)
+		{
+		}
+	}
+	
+	public class AdbGetPropertiesOperation : AdbTransportOperation
+	{
+		public AdbGetPropertiesOperation (AndroidDevice device) : base (device) {}
+		
+		protected override void OnGotTransport ()
+		{
+			var sr = new StringWriter ();
+			WriteCommand ("shell:getprop", () => GetStatus (() => ReadResponse (sr, OnGotResponse)));
+		}
+		
+		void OnGotResponse (TextWriter tw)
+		{
+			var sr = new StringReader (tw.ToString ());
+			var props = new Dictionary<string,string> ();
+			
+			string s;
+			var split = new char[] { '[', ']' };
+			while ((s = sr.ReadLine ()) != null) {
+				var arr = s.Split (split);
+				if (arr.Length != 5 || string.IsNullOrEmpty (arr[1]) || arr[2] != ": ")
+					throw new Exception ("Unknown property format: '" + s + "'");
+				props [arr[1]] = arr[3];
+			}
+			Properties = props;
+			
+			SetCompleted (true);
+		}
+		
+		public Dictionary<string,string> Properties { get; private set; }
+	}
+
+	public class AdbGetProcessIdOperation : AdbTransportOperation
+	{
+		int pid = -1;
+		string packageName;
+
+		public AdbGetProcessIdOperation (AndroidDevice device, string packageName) :
+			base (device)
+		{
+			if (packageName == null)
+				throw new ArgumentNullException ("packageName");
+
+			this.packageName = packageName;
+		}
+
+		protected override void OnGotTransport ()
+		{
+			// Valid package names never start with a '.'
+			// Process names use the format ".lastPartOfPackageName"
+			int idx = packageName.LastIndexOf ('.');
+			var processName = idx > -1 ? packageName.Substring (idx) : "." + packageName;
+
+			var sr = new StringWriter ();
+			WriteCommand ("shell:ps " + processName, () => GetStatus (() => ReadResponse (sr, OnGotResponse)));
+		}
+
+		void OnGotResponse (TextWriter tw)
+		{
+			pid = ParseResponse (packageName, tw.ToString ());
+			SetCompleted (true);
+		}
+
+		// Values:
+		// -1 - value hasn't been computed, or an error happened
+		// 0 - no associated process was found
+		// any other - actual pid
+		public int ProcessId {
+			get {
+				return pid;
+			}
+		}
+
+		// The first line is the header, so we ignore it.
+		// The information we are looking are is contained in the members:
+		// 1 - Process ID
+		// 8 - Package name
+		static int ParseResponse (string packageName, string response)
+		{
+			using (var sr = new StringReader (response)) {
+				string line = sr.ReadLine (); // ignore header
+				if (line == null)
+					throw new Exception ("'ps' output not recognized: '" + response + "'");
+
+				char [] space = new char [] { ' ' };
+				while ((line = sr.ReadLine ()) != null) {
+					line = line.Trim ();
+					if (line.Length == 0)
+						continue;
+
+					string [] stats = line.Split (space, StringSplitOptions.RemoveEmptyEntries);
+					if (stats.Length != 9)
+						throw new Exception ("'ps' output not recognized: '" + response + "'");
+
+					if (stats [8].Trim () == packageName)
+						return Int32.Parse (stats [1]);
+				}
+			}
+
+			return 0;
+		}
+
+	}
+
+	public class AdbShellOperation : AdbTransportOperation
+	{
+		string command;
+		
+		public AdbShellOperation (AndroidDevice device, string command) : base (device)
+		{
+			this.command = command;
+		}
+		
+		protected override void OnGotTransport ()
+		{
+			var sr = new StringWriter ();
+			WriteCommand ("shell:" + command, () => GetStatus (() => ReadResponse (sr, OnGotResponse)));
+		}
+
+		void OnGotResponse (TextWriter tw)
+		{
+			Output = tw.ToString ();
+			SetCompleted (true);
+		}
+		
+		public string Output { get; private set; }
 	}
 }

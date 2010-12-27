@@ -43,9 +43,8 @@ namespace MonoDevelop.MonoDroid
 	public enum MonoDroidCommands
 	{
 		UploadToDevice,
-		ExportToXcode,
-		SelectSimulatorTarget,
-		ViewDeviceConsole,
+		SelectDeviceTarget,
+		ManageDevices,
 		OpenAvdManager,
 	}
 	
@@ -60,12 +59,8 @@ namespace MonoDevelop.MonoDroid
 			var conf = (MonoDroidProjectConfiguration) proj.GetConfiguration (IdeApp.Workspace.ActiveConfiguration);
 			var projSetting = proj.GetDeviceTarget (conf);
 			
-			var def = info.Add ("Default", null);
-			if (projSetting == null)
-				def.Checked  = true;
-			
 			foreach (var st in MonoDroidFramework.DeviceManager.Devices) {
-				var i = info.Add (st.ToString (), st);
+				var i = info.Add (st.ID, st);
 				if (projSetting != null && projSetting.Equals (st))
 					i.Checked  = true;
 			}
@@ -76,6 +71,24 @@ namespace MonoDevelop.MonoDroid
 			var proj = DefaultUploadToDeviceHandler.GetActiveExecutableMonoDroidProject ();
 			var conf = (MonoDroidProjectConfiguration) proj.GetConfiguration (IdeApp.Workspace.ActiveConfiguration);
 			proj.SetDeviceTarget (conf, ((AndroidDevice)dataItem).ID);
+		}
+	}
+	
+	class ManageDevicesHandler : CommandHandler
+	{
+		protected override void Update (CommandInfo info)
+		{
+			var proj = DefaultUploadToDeviceHandler.GetActiveExecutableMonoDroidProject ();
+			info.Visible = info.Enabled = proj != null;
+		}
+		
+		protected override void Run ()
+		{
+			var proj = DefaultUploadToDeviceHandler.GetActiveExecutableMonoDroidProject ();
+			var conf = (MonoDroidProjectConfiguration) proj.GetConfiguration (IdeApp.Workspace.ActiveConfiguration);
+			var dlg = new MonoDevelop.MonoDroid.Gui.DeviceChooserDialog ();
+			if (MessageService.ShowCustomDialog (dlg) == (int)Gtk.ResponseType.Ok)
+				proj.SetDeviceTarget (conf, dlg.Device.ID);
 		}
 	}
 
@@ -120,6 +133,14 @@ namespace MonoDevelop.MonoDroid
 			OperationHandler upload = delegate {
 				using (var monitor = new MonoDevelop.Ide.ProgressMonitoring.MessageDialogProgressMonitor ()) {
 					AndroidDevice device = null;
+
+					var conf = (MonoDroidProjectConfiguration) proj.GetConfiguration (configSel);
+					var deviceId = proj.GetDeviceTarget (conf);
+					if (deviceId != null)
+						device = MonoDroidFramework.DeviceManager.GetDevice (deviceId);
+					if (device == null)
+						proj.SetDeviceTarget (conf, null);
+
 					MonoDroidUtility.SignAndUpload (monitor, proj, configSel, true, ref device);
 				}
 			};
@@ -159,23 +180,6 @@ namespace MonoDevelop.MonoDroid
 				return;
 
 			MonoDroidFramework.Toolbox.StartAvdManager ();
-		}
-	}
-	
-	class ViewDeviceConsoleHandler : CommandHandler
-	{
-		protected override void Update (CommandInfo info)
-		{
-			var proj = DefaultUploadToDeviceHandler.GetActiveExecutableMonoDroidProject ();
-			info.Visible = info.Enabled = proj != null;
-		}
-		
-		protected override void Run ()
-		{
-			if (!MonoDroidFramework.EnsureSdksInstalled ())
-				return;
-
-			MonoDroidDeviceConsole.Run ();
 		}
 	}
 }

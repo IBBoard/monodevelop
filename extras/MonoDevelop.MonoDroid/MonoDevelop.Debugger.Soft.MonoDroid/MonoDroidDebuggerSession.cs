@@ -42,6 +42,10 @@ namespace MonoDevelop.Debugger.Soft.MonoDroid
 {
 	public class MonoDroidDebuggerSession : RemoteSoftDebuggerSession
 	{
+		const int WAIT_BEFORE_CONNECT_MS = 500;
+		const int WAIT_BEFORE_RETRY_MS = 800;
+		const int DEBUGGER_TIMEOUT_MS = 30 * 1000;
+		
 		ChainedAsyncOperationSequence launchOp;
 		
 		protected override void OnRun (DebuggerStartInfo startInfo)
@@ -49,13 +53,20 @@ namespace MonoDevelop.Debugger.Soft.MonoDroid
 			var dsi = (MonoDroidDebuggerStartInfo) startInfo;
 			var cmd = dsi.ExecutionCommand;
 			
+			bool alreadyForwarded = MonoDroidFramework.DeviceManager.GetDeviceIsForwarded (cmd.Device.ID);
+			if (!alreadyForwarded)
+				MonoDroidFramework.DeviceManager.SetDeviceLastForwarded (null);
+			
 			long date = 0;
+			int runningProcessId = 0; // Already running activity
+			DateTime setPropertyTime = DateTime.MinValue;
 			launchOp = new ChainedAsyncOperationSequence (
 				new ChainedAsyncOperation<AndroidToolbox.GetDateOperation> () {
 					Create = () => MonoDroidFramework.Toolbox.GetDeviceDate (cmd.Device),
 					Completed = (op) => {
 						if (op.Success) {
 							date = op.Date;
+							setPropertyTime = DateTime.Now;
 						} else {
 							this.OnDebuggerOutput (true, GettextCatalog.GetString ("Failed to get date from device"));
 							this.OnDebuggerOutput (true, op.GetOutput ());
@@ -64,7 +75,8 @@ namespace MonoDevelop.Debugger.Soft.MonoDroid
 				},
 				new ChainedAsyncOperation<AndroidToolbox.AdbOutputOperation> () {
 					Create = () => {
-						long expireDate = date + 30; // 30 seconds
+						this.OnDebuggerOutput (false, GettextCatalog.GetString ("Setting debug property") + "\n");
+						long expireDate = date + (DEBUGGER_TIMEOUT_MS / 1000);
 						string monoOptions = string.Format ("debug={0}:{1}:{2},timeout={3},server=y", dsi.Address, dsi.DebugPort, 0, expireDate);
 						return MonoDroidFramework.Toolbox.SetProperty (cmd.Device, "debug.mono.extra", monoOptions);
 					},
@@ -76,7 +88,11 @@ namespace MonoDevelop.Debugger.Soft.MonoDroid
 					}
 				},
 				new ChainedAsyncOperation () {
-					Create = () => MonoDroidFramework.Toolbox.ForwardPort (cmd.Device, dsi.DebugPort, dsi.DebugPort, null, null),
+					Skip = () => alreadyForwarded? "" : null,
+					Create = () => {
+						this.OnDebuggerOutput (false, GettextCatalog.GetString ("Forwarding debugger port") + "\n");
+						return MonoDroidFramework.Toolbox.ForwardPort (cmd.Device, dsi.DebugPort, dsi.DebugPort, DebuggerOutput, DebuggerError);
+					},
 					Completed = (op) => {
 						if (!op.Success) {
 							this.OnDebuggerOutput (true, GettextCatalog.GetString ("Failed to forward port on device"));
@@ -84,28 +100,65 @@ namespace MonoDevelop.Debugger.Soft.MonoDroid
 					}
 				},
 				new ChainedAsyncOperation () {
-					Create = () => MonoDroidFramework.Toolbox.ForwardPort (cmd.Device, dsi.OutputPort, dsi.OutputPort, null, null),
+					Skip = () => alreadyForwarded? "" : null,
+					Create = () => {
+						this.OnDebuggerOutput (false, GettextCatalog.GetString ("Forwarding console port") + "\n");
+						return MonoDroidFramework.Toolbox.ForwardPort (cmd.Device, dsi.OutputPort, dsi.OutputPort, DebuggerOutput, DebuggerError);
+					},
 					Completed = (op) => {
 						if (!op.Success) {
 							this.OnDebuggerOutput (true, GettextCatalog.GetString ("Failed to forward port on device"));
+						} else {
+							MonoDroidFramework.DeviceManager.SetDeviceLastForwarded (cmd.Device.ID);
+						}
+					}
+				},
+				new ChainedAsyncOperation<AdbGetProcessIdOperation> () {
+					Create = () => new AdbGetProcessIdOperation (cmd.Device, cmd.PackageName),
+					Completed = (op) => {
+						if (!op.Success) {
+							this.OnDebuggerOutput (true, "Error trying to detect already running process");
+						} else if (op.ProcessId > 0) {
+							this.OnDebuggerOutput (false, GettextCatalog.GetString ("Already running activity detected, restarting it in debug mode") + "\n");
+							runningProcessId = op.ProcessId;
 						}
 					}
 				},
 				new ChainedAsyncOperation () {
-					Create = () => MonoDroidFramework.Toolbox.StartActivity (cmd.Device, cmd.Activity,
-						(s, m) => OnTargetOutput (false, m),
-						(s, m) => OnTargetOutput (true, m)
-					),
+					Skip = () => runningProcessId <= 0 ? "" : null,
+					Create = () => new AdbShellOperation (cmd.Device, "kill " + runningProcessId),
+					Completed = (op) => {
+						if (!op.Success) {
+							this.OnDebuggerOutput (true, GettextCatalog.GetString ("Failed to stop already running activity"));
+						}
+					}
+				},
+				new ChainedAsyncOperation () {
+					Create = () => MonoDroidFramework.Toolbox.StartActivity (cmd.Device, cmd.Activity, DebuggerOutput, DebuggerError),
 					Completed = (op) => {
 						if (!op.Success)
 							this.OnDebuggerOutput (true, GettextCatalog.GetString ("Failed to start activity"));
 					}
 				}
 			);
-			launchOp.Completed += delegate(IAsyncOperation op) {
-				if (!op.Success)
+			launchOp.Completed += delegate (IAsyncOperation op) {
+				if (!op.Success) {
 					EndSession ();
+					return;
+				}
 				launchOp = null;
+				
+				System.Threading.Thread.Sleep (WAIT_BEFORE_CONNECT_MS);
+				
+				var msSinceSetProperty = (long) Math.Floor ((DateTime.Now - setPropertyTime).TotalMilliseconds);
+				long msTillPropertyExpires = DEBUGGER_TIMEOUT_MS - msSinceSetProperty;
+				
+				if (msTillPropertyExpires < 100 || msTillPropertyExpires > DEBUGGER_TIMEOUT_MS)
+					return;
+				
+				int retries = (int) Math.Floor ((double)  msTillPropertyExpires / WAIT_BEFORE_RETRY_MS) - 2;
+				
+				StartConnecting (dsi, retries, WAIT_BEFORE_RETRY_MS);
 			};
 			
 			TargetExited += delegate {
@@ -113,28 +166,16 @@ namespace MonoDevelop.Debugger.Soft.MonoDroid
 			};
 			
 			launchOp.Start ();
-			
-			// Connect to the process, giving it a time to start.
-			System.Threading.Thread.Sleep (200);
-
-			StartConnecting (dsi, -1, 800);
-		}
-
-		void ProcessOutput (object sender, string message)
-		{
-			OnTargetOutput (true, message);
 		}
 		
-		void ProcessError (object sender, string message)
+		void DebuggerOutput (object sender, string message)
 		{
-			OnTargetOutput (false, message);
+			OnDebuggerOutput (true, message);
 		}
 		
-		protected override string GetListenMessage (RemoteDebuggerStartInfo dsi)
+		void DebuggerError (object sender, string message)
 		{
-			//var cmd = ((MonoDroidDebuggerStartInfo)dsi).ExecutionCommand;
-			string message = GettextCatalog.GetString ("Waiting for debugger to connect on {0}:{1}...", dsi.Address, dsi.DebugPort);
-			return message;
+			OnDebuggerOutput (false, message);
 		}
 		
 		protected override void EndSession ()
@@ -160,15 +201,14 @@ namespace MonoDevelop.Debugger.Soft.MonoDroid
 			base.OnExit ();
 			EndLaunch ();
 		}
-		//FIXME: ShouldRetryConnection only works on master, not 2.4.x
-		/*
+		
 		protected override bool ShouldRetryConnection (Exception exc, int attemptNumber)
 		{
 			if (exc is IOException)
 				return true;
 
 			return base.ShouldRetryConnection (exc, attemptNumber);
-		}*/
+		}
 	}
 	
 	class MonoDroidDebuggerStartInfo : RemoteDebuggerStartInfo

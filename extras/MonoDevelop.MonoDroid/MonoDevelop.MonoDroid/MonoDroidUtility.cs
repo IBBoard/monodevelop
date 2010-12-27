@@ -78,7 +78,7 @@ namespace MonoDevelop.MonoDroid
 		{
 			try {
 				var file = GetUploadFlagFileName (conf);
-				if (!File.Exists (file))
+				if (File.Exists (file))
 					File.Delete (file);
 			} catch (Exception ex) {
 				LoggingService.LogError ("Error clearing upload flags", ex);
@@ -210,7 +210,7 @@ namespace MonoDevelop.MonoDroid
 				},
 				new ChainedAsyncOperation () {
 					TaskName = GettextCatalog.GetString ("Uninstalling old version of package"),
-					Skip = () => (!replaceIfExists || !packages.Contains ("package:" + packageName))? "" : null,
+					Skip = () => (!replaceIfExists || !packages.Contains (packageName))? "" : null,
 					Create = () => toolbox.Uninstall (device, packageName, monitor.Log, monitor.Log),
 					ErrorMessage = GettextCatalog.GetString ("Failed to uninstall package")
 				},
@@ -356,6 +356,7 @@ namespace MonoDevelop.MonoDroid
 						if (op is AdbOperation)
 							ex = ((AdbOperation)op).Error;
 						monitor.ReportError (chop.ErrorMessage, ex);
+						LoggingService.LogError (chop.ErrorMessage, ex);
 					}
 				}
 				
@@ -421,13 +422,13 @@ namespace MonoDevelop.MonoDroid
 
 		public bool Success {
 			get {
-				return IsCompleted && success;
+				return index == chain.Length && success;
 			}
 		}
 
 		public bool SuccessWithWarnings {
 			get {
-				return IsCompleted && success;
+				return Success;
 			}
 		}
 		

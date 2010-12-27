@@ -40,7 +40,7 @@ using MonoDevelop.Projects.Dom.Output;
 
 using Gtk;
 
-namespace MonoDevelop.ValaBinding
+namespace CBinding.Parser
 {
 	// Yoinked from C# binding
 	public class DataProvider : DropDownBoxListWindow.IListDataProvider

@@ -156,7 +156,9 @@ namespace MonoDevelop.MonoDroid
 			var args = new ProcessArgumentBuilder ();
 			args.Add ("-partition-size", "512", "-avd");
 			args.AddQuoted (avd.Name);
-			
+			args.Add ("-prop");
+			args.AddQuoted ("monodroid.avdname=" + avd.Name);
+
 			var error = new StringWriter ();
 			var process = StartProcess (EmulatorExe, args.ToString (), null, error);
 			return new StartAvdOperation (process, error);
@@ -263,7 +265,7 @@ namespace MonoDevelop.MonoDroid
 		}
 
 		public IProcessAsyncOperation ForwardPort (AndroidDevice device, int devicePort, int localPort,
-			TextWriter outputLog, TextWriter errorLog)
+			ProcessEventHandler outputLog, ProcessEventHandler errorLog)
 		{
 			var args = string.Format ("-s {0} forward tcp:{1} tcp:{2}", device.ID, localPort, devicePort);
 			return StartProcess (AdbExe, args, outputLog, errorLog);
@@ -404,12 +406,9 @@ namespace MonoDevelop.MonoDroid
 	
 	public class AndroidDevice
 	{
-		[MonoDevelop.Core.Serialization.ItemProperty ("id")]
-		public string ID { get; set; }
-		
-		public string State { get; set; }
-
-		public AndroidDevice () {}
+		public string ID { get; private set; }
+		public string State { get; private set; }
+		public IDictionary<string,string> Properties { get; internal set; }
 
 		public AndroidDevice (string id, string state)
 		{
@@ -419,6 +418,10 @@ namespace MonoDevelop.MonoDroid
 
 		public bool IsEmulator {
 			get { return ID.ToLowerInvariant ().StartsWith ("emulator"); }
+		}
+		
+		public bool IsOnline {
+			get { return State == "device"; }
 		}
 
 		public override string ToString ()
