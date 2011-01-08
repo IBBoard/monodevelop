@@ -15,7 +15,7 @@
 		<Import file = "templates/MonoDroidApplication/icon-hd.png" />
 		<Import file = "templates/MonoDroidApplication/icon-ld.png" />
 		<Import file = "templates/MonoDroidApplication/icon-md.png" />
-		<Import file = "templates/MonoDroidApplication/main.xml" />
+		<Import file = "templates/MonoDroidApplication/main.axml" />
 		<Import file = "templates/MonoDroidApplication/Resource.cs" />
 		<Import file = "templates/MonoDroidApplicationProject.xpt.xml" />
 		<Import file = "templates/MonoDroidLibraryProject.xpt.xml" />
@@ -23,7 +23,7 @@
 		<Import file = "templates/MonoDroidView.xft.xml" />
 		<Import file = "templates/OpenGLApplication/Activity1.cs" />
 		<Import file = "templates/OpenGLApplication/GLView1.cs" />
-		<Import file = "templates/OpenGLApplication/main.xml" />
+		<Import file = "templates/OpenGLApplication/main.axml" />
 		<Import file = "templates/OpenGLApplication/Resource.cs" />
 		<Import file = "icons/monodroid-project-16.png" />
 		<Import file = "icons/monodroid-project-32.png" />
@@ -201,6 +201,28 @@
 			<UpdateInfo file="/Developer/MonoDroid/Source/updateinfo" />
 		</Condition>
 	</Extension>
+
+	<!-- xml editing -->
+	<Module>
+		<Runtime>
+			<Import file="schemas/android-layout-xml.xsd" />
+			<Import file="schemas/schemas.android.com.apk.res.android.xsd" />
+		</Runtime>
+
+		<Dependencies>
+			<Addin id="Core" version="2.4"/>
+			<Addin id="Ide"  version="2.4"/>
+			<Addin id="XmlEditor" version="2.4"/>
+		</Dependencies>
+		
+		<Extension path = "/MonoDevelop/XmlEditor/XmlFileAssociations">
+			<Association extension = ".axml" schemaFile="schemas/android-layout-xml.xsd" />
+		</Extension>
+		
+		<Extension path = "/MonoDevelop/XmlEditor/XmlSchemas">
+			<Schema file="schemas/schemas.android.com.apk.res.android.xsd" />
+		</Extension>
+	</Module>
 
 	<!-- debugger addin -->
 	<Module>

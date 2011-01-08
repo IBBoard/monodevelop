@@ -43,6 +43,7 @@ using MonoDevelop.CSharp.Dom;
 using MonoDevelop.Projects.Text;
 using MonoDevelop.Projects.Dom.Output;
 using MonoDevelop.CSharp.Resolver;
+using MonoDevelop.CSharp.Formatting;
 
 namespace MonoDevelop.CSharp.Refactoring.ExtractMethod
 {
@@ -67,6 +68,8 @@ namespace MonoDevelop.CSharp.Refactoring.ExtractMethod
 //			if (options.SelectedItem != null)
 //				return false;
 			var buffer = options.Document.Editor;
+			if (buffer.Document.MimeType != CSharpFormatter.MimeType)
+				return false;
 			if (buffer.IsSomethingSelected) {
 				ParsedDocument doc = options.ParseDocument ();
 				if (doc != null && doc.CompilationUnit != null) {
@@ -336,7 +339,7 @@ namespace MonoDevelop.CSharp.Refactoring.ExtractMethod
 		
 		static string GenerateMethodCall (RefactoringOptions options, ExtractMethodParameters param)
 		{
-			var data = options.GetTextEditorData ();
+//			var data = options.GetTextEditorData ();
 			StringBuilder sb = new StringBuilder ();
 			
 	/*		LineSegment line = data.Document.GetLine (Math.Max (0, data.Document.OffsetToLineNumber (data.SelectionRange.Offset) - 1));

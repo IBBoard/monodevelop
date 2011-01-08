@@ -47,11 +47,18 @@ namespace MonoDevelop.Debugger.Soft.MonoDroid
 		const int DEBUGGER_TIMEOUT_MS = 30 * 1000;
 		
 		ChainedAsyncOperationSequence launchOp;
+		AndroidDevice debugDevice;
+		string packageName;
+		bool debugPropertySet;
+		bool alreadyEnded;
+		bool activityStarted;
 		
 		protected override void OnRun (DebuggerStartInfo startInfo)
 		{
 			var dsi = (MonoDroidDebuggerStartInfo) startInfo;
 			var cmd = dsi.ExecutionCommand;
+			debugDevice = cmd.Device;
+			packageName = cmd.PackageName;
 			
 			bool alreadyForwarded = MonoDroidFramework.DeviceManager.GetDeviceIsForwarded (cmd.Device.ID);
 			if (!alreadyForwarded)
@@ -84,6 +91,8 @@ namespace MonoDevelop.Debugger.Soft.MonoDroid
 						if (!op.Success) {
 							this.OnDebuggerOutput (true, GettextCatalog.GetString ("Failed to set debug property on device"));
 							this.OnDebuggerOutput (true, op.GetOutput ());
+						} else {
+							debugPropertySet = true;
 						}
 					}
 				},
@@ -138,6 +147,8 @@ namespace MonoDevelop.Debugger.Soft.MonoDroid
 					Completed = (op) => {
 						if (!op.Success)
 							this.OnDebuggerOutput (true, GettextCatalog.GetString ("Failed to start activity"));
+						else
+							activityStarted = true;
 					}
 				}
 			);
@@ -186,14 +197,42 @@ namespace MonoDevelop.Debugger.Soft.MonoDroid
 		
 		void EndLaunch ()
 		{
-			if (launchOp == null)
+			if (alreadyEnded)
 				return;
-			if (!launchOp.IsCompleted) {
+			alreadyEnded = true;
+
+			if (launchOp != null && !launchOp.IsCompleted) {
 				try {
 					launchOp.Cancel ();
 					launchOp = null;
 				} catch {}
 			}
+
+			if (debugPropertySet) {
+				try {
+					MonoDroidFramework.Toolbox.SetProperty (debugDevice, "debug.mono.extra", String.Empty);
+				} catch {}
+			}
+
+			if (activityStarted) {
+				KillActivity (debugDevice, packageName);
+			}
+		}
+
+		static void KillActivity (AndroidDevice device, string packageName)
+		{
+			int runningProcessId = 0;
+			var killOp = new ChainedAsyncOperationSequence (
+				new ChainedAsyncOperation<AdbGetProcessIdOperation> () {
+					Create = () => new AdbGetProcessIdOperation (device, packageName),
+					Completed = (op) => runningProcessId = op.ProcessId
+				},
+				new ChainedAsyncOperation () {
+					Skip = () => runningProcessId <= 0 ? "" : null,
+					Create = () => new AdbShellOperation (device, "kill " + runningProcessId)
+				}
+			);
+			killOp.Start ();
 		}
 		
 		protected override void OnExit ()

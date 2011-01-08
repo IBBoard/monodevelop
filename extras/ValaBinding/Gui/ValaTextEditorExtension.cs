@@ -54,7 +54,7 @@ using MonoDevelop.ValaBinding.Parser;
 
 namespace MonoDevelop.ValaBinding
 {
-	public class ValaTextEditorExtension : CompletionTextEditorExtension
+	public class ValaTextEditorExtension : CompletionTextEditorExtension, IPathedDocument
 	{
 		// Allowed chars to be next to an identifier
 		private static char[] allowedChars = new char[] { ' ', '\t', '\r', '\n', 
@@ -127,6 +127,7 @@ namespace MonoDevelop.ValaBinding
 			case '\t':
 			case ' ':
 				lineText = Editor.GetLineText (line);
+				if (0 == lineText.Length){ return null; }
 				if (column > lineText.Length){ column = lineText.Length; }
 				lineText = lineText.Substring (0, column-1).Trim ();
 				

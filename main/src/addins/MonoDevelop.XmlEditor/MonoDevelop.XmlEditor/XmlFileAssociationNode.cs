@@ -21,23 +21,31 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+using System;
 using Mono.Addins;
-using System.Collections;
 
 namespace MonoDevelop.XmlEditor
 {
-	public class XmlFileExtensionNode : ExtensionNode
+	class XmlFileAssociationNode : ExtensionNode
 	{
-		[NodeAttribute("extension", true)]
+		[NodeAttribute ("extension", true)]
 		string fileExtension;
 		
-		public string FileExtension {
-			get {
-				return fileExtension;
-			}
-			set {
-				fileExtension = value;
-			}
+		[NodeAttribute ("namespacePrefix", false)]
+		string namespacePrefix;
+		
+		[NodeAttribute ("namespaceUri", false)]
+		string namespaceUri;
+		
+		[NodeAttribute ("schemaFile", false)]
+		string schemaFile;
+		
+		public XmlFileAssociation GetAssociation ()
+		{
+			var ns = namespaceUri;
+			if (!string.IsNullOrEmpty (schemaFile))
+				ns = new Uri (Addin.GetFilePath (schemaFile), UriKind.Absolute).ToString ();
+			return new XmlFileAssociation (fileExtension, ns, namespacePrefix);
 		}
 	}
 }

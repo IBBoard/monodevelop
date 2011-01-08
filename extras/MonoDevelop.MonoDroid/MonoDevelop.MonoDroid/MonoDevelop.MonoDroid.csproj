@@ -164,10 +164,10 @@
     <None Include="templates\MonoDroidApplicationProject.xpt.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="templates\OpenGLApplication\main.xml">
+    <None Include="templates\OpenGLApplication\main.axml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="templates\MonoDroidApplication\main.xml">
+    <None Include="templates\MonoDroidApplication\main.axml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="templates\OpenGLApplication\Activity1.cs">
@@ -192,6 +192,12 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="TODO.txt" />
+    <None Include="schemas\android-layout-xml.xsd">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="schemas\schemas.android.com.apk.res.android.xsd">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
 </Project>

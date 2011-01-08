@@ -102,7 +102,7 @@ namespace MonoDevelop.CSharp.Formatting
 				if (File.Exists (fileName)) 
 					File.Delete (fileName);
 			} catch (Exception e) {
-				
+				System.Console.WriteLine (e);
 			}
 		}
 	}

@@ -128,7 +128,13 @@ namespace MonoDevelop.Debugger.Win32
             // The second parameter of CreateProcess is the command line, and it includes the application being launched
             string cmdLine = "\"" + startInfo.Command + "\" " + startInfo.Arguments;
 
-            process = dbg.CreateProcess(startInfo.Command, cmdLine, startInfo.WorkingDirectory, env);
+			int flags = 0;
+			if (!startInfo.UseExternalConsole) {
+				flags = 0x08000000; /* CREATE_NO_WINDOW*/
+				flags |= CorDebugger.CREATE_REDIRECT_STD;
+			}
+
+			process = dbg.CreateProcess (startInfo.Command, cmdLine, startInfo.WorkingDirectory, env, flags);
 			processId = process.Id;
 
 			process.OnCreateProcess += new CorProcessEventHandler (OnCreateProcess);
@@ -148,10 +154,23 @@ namespace MonoDevelop.Debugger.Win32
 			process.OnNameChange += new CorThreadEventHandler (OnNameChange);
 			process.OnEvalComplete += new EvalEventHandler (OnEvalComplete);
 			process.OnEvalException += new EvalEventHandler (OnEvalException);
+			process.OnLogMessage += new LogMessageEventHandler (OnLogMessage);
+			process.OnStdOutput += new CorTargetOutputEventHandler (OnStdOutput);
 
 			process.Continue (false);
 
 			OnStarted ();
+		}
+
+		void OnStdOutput (object sender, CorTargetOutputEventArgs e)
+		{
+			OnTargetOutput (e.IsStdError, e.Text);
+		}
+
+		void OnLogMessage (object sender, CorLogMessageEventArgs e)
+		{
+			OnTargetOutput (false, e.Message);
+			e.Continue = true;
 		}
 
 		void OnEvalException (object sender, CorEvalEventArgs e)
@@ -368,6 +387,7 @@ namespace MonoDevelop.Debugger.Win32
 		{
 			// Required to avoid the jit to get rid of variables too early
 			e.Process.DesiredNGENCompilerFlags = CorDebugJITCompilerFlags.CORDEBUG_JIT_DISABLE_OPTIMIZATION;
+			e.Process.EnableLogMessages (true);
 			e.Continue = true;
 		}
 

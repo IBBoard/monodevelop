@@ -25,22 +25,32 @@
 		<Addin id="DesignerSupport" version="2.4"/>
 		<Addin id="SourceEditor2" version="2.4"/>
 	</Dependencies>
-
-	<!-- Defines the Xml file extension node -->
-	<ExtensionPoint path = "/MonoDevelop/XmlEditor/XmlFileExtensions">
-		<ExtensionNode name = "XmlFileExtension" type = "MonoDevelop.XmlEditor.XmlFileExtensionNode"/>
+	
+	<ExtensionPoint path = "/MonoDevelop/XmlEditor/XmlFileAssociations">
+		<ExtensionNode name = "Association" type = "MonoDevelop.XmlEditor.XmlFileAssociationNode"/>
+	</ExtensionPoint>
+	
+	<ExtensionPoint path = "/MonoDevelop/XmlEditor/XmlSchemas">
+		<ExtensionNode name = "Schema" type = "MonoDevelop.XmlEditor.XmlSchemaNode" />
 	</ExtensionPoint>
 
-	<!-- File extensions that will be opened in the XML editor -->
-	<Extension path = "/MonoDevelop/XmlEditor/XmlFileExtensions"
-	           extension-nodes = "XmlFileExtension">
-		<XmlFileExtension extension = ".build"/>
-		<XmlFileExtension extension = ".config"/>
-		<XmlFileExtension extension = ".stetic"/> 
-		<XmlFileExtension extension = ".xml"/> 
-		<XmlFileExtension extension = ".xsd"/> 
-		<XmlFileExtension extension = ".xsl"/> 
-		<XmlFileExtension extension = ".xslt"/> 
+	<!-- Additional file extensions that will be opened in the XML editor -->
+	<Extension path = "/MonoDevelop/XmlEditor/XmlFileAssociations">
+		<Association extension = ".build"  namespaceUri="http://nant.sf.net/release/0.85-rc3/nant.xsd" />
+		<Association extension = ".config" namespaceUri="urn:app-config" />
+		<Association extension = ".xsd"    namespaceUri="http://www.w3.org/2001/XMLSchema" namespacePrefix="xs" /> 
+		<Association extension = ".xsl"    namespaceUri="http://www.w3.org/1999/XSL/Transform" namespacePrefix="xsl" /> 
+		<Association extension = ".xslt"   namespaceUri="http://www.w3.org/1999/XSL/Transform" namespacePrefix="xsl" /> 
+		<Association extension = ".stetic" />
+	</Extension>
+	
+	<Extension path = "/MonoDevelop/XmlEditor/XmlSchemas">
+		<Schema file="schemas/appconfig.xsd" />
+		<Schema file="schemas/MonoDevelopAddIn.xsd" />
+		<Schema file="schemas/XMLSchema.xsd" />
+		<Schema file="schemas/xslt.xsd" />
+		<Schema file="schemas/manifest.xsd" />
+		<Schema file="schemas/nant.xsd" />
 	</Extension>
 	
 	<Extension path = "/MonoDevelop/Ide/TextEditorExtensions">
@@ -77,9 +87,6 @@
 			<Command id = "MonoDevelop.XmlEditor.Commands.GoToSchemaDefinition"
 					_label = "_Go to Schema Definition"
 					description = "Jumps to the schema definition"/>
-			<Command id = "MonoDevelop.XmlEditor.Commands.Format"
-					_label = "_Format"
-					description = "Pretty prints the XML"/>
 		</Category>
 	</Extension>
 
@@ -95,9 +102,7 @@
 			<SeparatorItem id = "StylesheetCommandsSeparator"/>-->
 			<CommandItem id = "MonoDevelop.XmlEditor.Commands.AssignStylesheet"/>
 			<CommandItem id = "MonoDevelop.XmlEditor.Commands.OpenStylesheet"/>
-			<CommandItem id = "MonoDevelop.XmlEditor.Commands.RunXslTransform"/>				
-			<SeparatorItem id = "FormatSeparator"/>
-			<CommandItem id = "MonoDevelop.XmlEditor.Commands.Format" />
+			<CommandItem id = "MonoDevelop.XmlEditor.Commands.RunXslTransform"/>
 			<SeparatorItem/>
 		</ItemSet>
 	</Extension>
@@ -129,8 +134,9 @@
 		<Parser class = "MonoDevelop.XmlEditor.XmlDocumentParser" id = "XmlParser" />
 	</Extension>
 	
-	<Extension path = "/MonoDevelop/ProjectModel/TextPrettyPrinters">
-		<Class class="MonoDevelop.Xml.Formatting.XmlFormatter" />
+	<Extension path = "/MonoDevelop/Ide/CodeFormatters">
+		<Formatter mimeType="text/xml" class="MonoDevelop.Xml.Formatting.XmlFormatter" />
+		<Formatter mimeType="application/xml" class="MonoDevelop.Xml.Formatting.XmlFormatter" />
 	</Extension>
 	
 	<Extension path = "/MonoDevelop/ProjectModel/PolicyTypes" >

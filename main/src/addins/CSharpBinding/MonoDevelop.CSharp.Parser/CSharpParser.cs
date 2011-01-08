@@ -1671,9 +1671,7 @@ namespace MonoDevelop.CSharp.Parser
 				var result = new BinaryOperatorExpression ();
 				result.BinaryOperatorType = BinaryOperatorType.NullCoalescing;
 				result.AddChild ((DomNode)nullCoalescingOperator.Left.Accept (this), BinaryOperatorExpression.LeftExpressionRole);
-				var location = LocationsBag.GetLocations (nullCoalescingOperator);
-				if (location != null)
-					result.AddChild (new CSharpTokenNode (Convert (location[0]), 2), BinaryOperatorExpression.OperatorRole);
+				result.AddChild (new CSharpTokenNode (Convert (nullCoalescingOperator.Location), 2), BinaryOperatorExpression.OperatorRole);
 				result.AddChild ((DomNode)nullCoalescingOperator.Right.Accept (this), BinaryOperatorExpression.RightExpressionRole);
 				return result;
 			}
@@ -1775,7 +1773,7 @@ namespace MonoDevelop.CSharp.Parser
 				for (int i = 0; i < d.Constraints.Count; i++) {
 					Constraints c = d.Constraints[i];
 					var location = LocationsBag.GetLocations (c);
-					var constraint = new Constraint ();
+//					var constraint = new Constraint ();
 					parent.AddChild (new CSharpTokenNode (Convert (location[0]), "where".Length), InvocationExpression.Roles.Keyword);
 					parent.AddChild (new Identifier (c.TypeParameter.Value, Convert (c.TypeParameter.Location)), InvocationExpression.Roles.Identifier);
 					parent.AddChild (new CSharpTokenNode (Convert (location[1]), 1), InvocationExpression.Roles.Colon);
@@ -2373,7 +2371,7 @@ namespace MonoDevelop.CSharp.Parser
 			lock (CompilerCallableEntryPoint.parseLock) {
 				CompilerCompilationUnit top;
 				using (Stream stream = data.OpenStream ()) {
-					top = CompilerCallableEntryPoint.ParseFile (new string[] { "-v", "-unsafe"}, stream, data.Document.FileName, Console.Out);
+					top = CompilerCallableEntryPoint.ParseFile (new string[] { "-v", "-unsafe"}, stream, data.Document.FileName ?? "empty.cs", Console.Out);
 				}
 	
 				if (top == null)

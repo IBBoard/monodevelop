@@ -384,9 +384,9 @@ namespace Mono.TextEditor
 				int line2 = highlightBracketOffset >= 0 ? Document.OffsetToLineNumber (highlightBracketOffset) : -1;
 				//DocumentLocation matchingBracketLocation = Document.OffsetToLocation (matchingBracket);
 				Application.Invoke (delegate {
-					if (line1 >= 0)
+					if (!worker.CancellationPending && line1 >= 0)
 						textEditor.RedrawLine (line1);
-					if (line1 != line2 && line2 >= 0)
+					if (!worker.CancellationPending && line1 != line2 && line2 >= 0)
 						textEditor.RedrawLine (line2);
 				});
 			}
@@ -1237,7 +1237,7 @@ namespace Mono.TextEditor
 			SyntaxMode mode = Document.SyntaxMode != null && textEditor.Options.EnableSyntaxHighlighting ? Document.SyntaxMode : SyntaxMode.Default;
 			int selectionStart;
 			int selectionEnd;
-			if (BackgroundRenderer != null || this.HideSelection) {
+			if (this.HideSelection) {
 				selectionStart = selectionEnd = -1;
 			} else {
 				GetSelectionOffsets (line, out selectionStart, out selectionEnd);
@@ -1906,8 +1906,6 @@ namespace Mono.TextEditor
 
 		public void DrawRectangleWithRuler (Cairo.Context cr, double x, Cairo.Rectangle area, Cairo.Color color, bool drawDefaultBackground)
 		{
-			if (BackgroundRenderer != null)
-				return;
 			bool isDefaultColor = color.R == defaultBgColor.R && color.G == defaultBgColor.G && color.B == defaultBgColor.B;
 			if (isDefaultColor && !drawDefaultBackground)
 				return;
@@ -2465,8 +2463,11 @@ namespace Mono.TextEditor
 		public double LineToY (int logicalLine)
 		{
 			double delta = 0;
-			LineSegment logicalLineSegment = Document.GetLine (logicalLine);
-			foreach (LineSegment extendedTextMarkerLine in Document.LinesWithExtendingTextMarkers) {
+			var doc = Document;
+			if (doc == null)
+				return 0;
+			LineSegment logicalLineSegment = doc.GetLine (logicalLine);
+			foreach (LineSegment extendedTextMarkerLine in doc.LinesWithExtendingTextMarkers) {
 				if (extendedTextMarkerLine == null)
 					continue;
 				if (logicalLineSegment != null && extendedTextMarkerLine.Offset >= logicalLineSegment.Offset)
@@ -2474,7 +2475,7 @@ namespace Mono.TextEditor
 				delta += GetLineHeight (extendedTextMarkerLine) - LineHeight;
 			}
 			
-			int visualLine = Document.LogicalToVisualLine (logicalLine) - 1;
+			int visualLine = doc.LogicalToVisualLine (logicalLine) - 1;
 			return visualLine * LineHeight + delta;
 		}
 		
