@@ -120,7 +120,7 @@ namespace MonoDevelop.Debugger.Gdb
 					throw;
 				}
 
-				RunCommand ("-environment-directory", Escape (startInfo.WorkingDirectory));
+				RunCommand ("-environment-cd", Escape (startInfo.WorkingDirectory));
 				
 				// Set inferior arguments
 				if (!string.IsNullOrEmpty (startInfo.Arguments))
@@ -253,7 +253,13 @@ namespace MonoDevelop.Debugger.Gdb
 		protected override void OnFinish ()
 		{
 			SelectThread (activeThread);
-			RunCommand ("-exec-finish");
+			GdbCommandResult res = RunCommand ("-stack-info-depth", "2");
+			if (res.GetValue ("depth") == "1") {
+				RunCommand ("-exec-continue");
+			} else {
+				RunCommand ("-stack-select-frame", "0");
+				RunCommand ("-exec-finish");
+			}		
 		}
 
 		protected override object OnInsertBreakEvent (BreakEvent be, bool activate)

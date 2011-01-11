@@ -206,15 +206,13 @@ namespace MonoDevelop.Refactoring.Tests
 	void TestMethod ()
 	{
 		int i = 5;
-		i = NewMethod ();
+		NewMethod (ref i);
 		Console.WriteLine (i);
 	}
 
-	int NewMethod ()
+	void NewMethod (ref int i)
 	{
-		int i;
 		i = member + 1;
-		return i;
 	}
 }
 ");
@@ -266,14 +264,13 @@ namespace MonoDevelop.Refactoring.Tests
 	void TestMethod ()
 	{
 		int i = 5;
-		i = NewMethod (i);
+		NewMethod (ref i);
 		Console.WriteLine (i);
 	}
 
-	static int NewMethod (int i)
+	static void NewMethod (ref int i)
 	{
 		i = i + 1;
-		return i;
 	}
 }
 ");
@@ -368,6 +365,74 @@ namespace MonoDevelop.Refactoring.Tests
 	{
 		Object obj1 = new Object();
 		obj1.ToString();
+	}
+}
+");
+		}
+		
+		
+		/// <summary>
+		/// Bug 616193 - Extract method passes param with does not exists any more in main method
+		/// </summary>
+		[Test()]
+		public void TestBug616193 ()
+		{
+			TestExtractMethod (@"class TestClass
+{
+	void TestMethod ()
+	{
+		string ret;
+		string x;
+		IEnumerable<string> y;
+		<-string z = ret + y;
+		ret = x + z;->
+	}
+}
+", @"class TestClass
+{
+	void TestMethod ()
+	{
+		string ret;
+		string x;
+		IEnumerable<string> y;
+		NewMethod (out ret, x, y);
+	}
+	
+	static void NewMethod (out string ret, string x, IEnumerable<string> y)
+	{
+		string z = ret + y;
+		ret = x + z;
+	}
+}
+");
+		}
+		
+		/// <summary>
+		/// Bug 616199 - Extract method forgets to return a local var which is used in main method
+		/// </summary>
+		[Test()]
+		public void TestBug616199 ()
+		{
+			TestExtractMethod (@"class TestClass
+{
+	void TestMethod ()
+	{
+		<-string z = ""test"" + ""x"";->
+		string ret = ""test1"" + z;
+	}
+}
+", @"class TestClass
+{
+	void TestMethod ()
+	{
+		string z = NewMethod ();
+		string ret = ""test1"" + z;
+	}
+	
+	static string NewMethod ()
+	{
+		string z = ""test"" + ""x"";
+		return z;
 	}
 }
 ");

@@ -71,6 +71,11 @@ namespace MonoDevelop.CSharp.Refactoring.ExtractMethod
 			set;
 		}
 		
+		public VariableDeclarationStatement Declaration {
+			get;
+			set;
+		}
+		
 		public VariableDescriptor (string name)
 		{
 			this.Name = name;
@@ -135,13 +140,14 @@ namespace MonoDevelop.CSharp.Refactoring.ExtractMethod
 			bool isDefinedInsideCutRegion = CutRegion.Contains (variableDeclarationStatement.StartLocation);
 			foreach (var varDecl in variableDeclarationStatement.Variables) {
 				var descr = new VariableDescriptor (varDecl.Name) {
-					IsDefinedInsideCutRegion = isDefinedInsideCutRegion
+					IsDefinedInsideCutRegion = isDefinedInsideCutRegion,
+					Declaration = variableDeclarationStatement
 				};
 				if (varDecl.Initializer != null) {
 					if (isDefinedInsideCutRegion) {
 						descr.UsedInCutRegion = true;
 					} else if (variableDeclarationStatement.StartLocation < CutRegion.Start) {
-						descr.UsedBeforeCutRegion = true;
+						descr.UsedBeforeCutRegion = !varDecl.Initializer.IsNull; 
 					} else {
 						descr.UsedAfterCutRegion = true;
 					}
@@ -172,7 +178,6 @@ namespace MonoDevelop.CSharp.Refactoring.ExtractMethod
 			} else {
 				v.UsedAfterCutRegion = true;
 			}
-			
 			return null;
 		}
 		

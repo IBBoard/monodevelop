@@ -183,7 +183,7 @@ namespace MonoDevelop.IPhone
 				}
 			}
 			
-			var args = new MonoDevelop.MacDev.ProcessArgumentBuilder ();
+			var args = new ProcessArgumentBuilder ();
 			args.AddQuotedFormat ("-xcode={0}", xcodeDir);
 			args.Add ("-v");
 			
@@ -280,7 +280,7 @@ namespace MonoDevelop.IPhone
 				
 				var zipFile = dlg.SelectedFile;
 				var builder = new ProcessArgumentBuilder ();
-				builder.Add ("-r");
+				builder.Add ("-r", "-y");
 				builder.AddQuoted (zipFile);
 				builder.AddQuoted (conf.AppDirectory.FileName);
 				var cmd = builder.ToString ();
