@@ -91,7 +91,6 @@ namespace MonoDevelop.AssemblyBrowser
 			};
 			DomTypeNodeBuilder.settings.EmitNameCallback = delegate (INode domVisitable, ref string outString) {
 				if (domVisitable is IType) {
-					Console.WriteLine (((IType)domVisitable).HelpUrl);
 					outString = "<span style=\"text.link\"><u><a ref=\"" + ((IType)domVisitable).HelpUrl + "\">" + outString + "</a></u></span>";
 				} else {
 					outString = "<span style=\"text\">" + outString + "</span>";
@@ -166,7 +165,9 @@ namespace MonoDevelop.AssemblyBrowser
 			IType type = (IType)navigator.DataItem;
 			StringBuilder result = new StringBuilder ();
 			result.Append (DomMethodNodeBuilder.GetAttributes (Ambience, type.Attributes));
+			settings.OutputFlags |= OutputFlags.IncludeConstraints;
 			result.Append (Ambience.GetString (type, settings));
+			settings.OutputFlags &= ~OutputFlags.IncludeConstraints;
 			bool first = true;
 			
 			if (type.ClassType == ClassType.Enum) {
@@ -317,9 +318,9 @@ namespace MonoDevelop.AssemblyBrowser
 		{
 			IType type = (IType)navigator.DataItem;
 			if (type.ClassType == ClassType.Delegate) {
-				settings.OutputFlags |= OutputFlags.ReformatDelegates;
+				settings.OutputFlags |= OutputFlags.ReformatDelegates | OutputFlags.IncludeConstraints;
 				string result =  Ambience.GetString (type, settings);
-				settings.OutputFlags &= ~OutputFlags.ReformatDelegates;
+				settings.OutputFlags &= ~(OutputFlags.ReformatDelegates | OutputFlags.IncludeConstraints);
 				return result;
 			}
 			return GetDisassembly (navigator);

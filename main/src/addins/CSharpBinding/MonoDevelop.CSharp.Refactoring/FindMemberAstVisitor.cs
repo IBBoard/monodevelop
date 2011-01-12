@@ -383,8 +383,9 @@ namespace MonoDevelop.CSharp.Refactoring
 			if (searchedMember is CompoundType) {
 				foreach (IType part in ((CompoundType)searchedMember).Parts) {
 					if (fileName == part.CompilationUnit.FileName &&
-					    node.StartLocation.Line == part.Location.Line && 
-					    node.StartLocation.Column == part.Location.Column)
+					    node.StartLocation.Line == part.Location.Line 
+//						&& node.StartLocation.Column == part.Location.Column
+						)
 						return true;
 				}
 			}
@@ -556,7 +557,6 @@ namespace MonoDevelop.CSharp.Refactoring
 		public override object VisitTypeDeclaration (TypeDeclaration typeDeclaration, object data)
 		{
 			CheckNode (typeDeclaration);
-			
 			typeStack.Push (typeDeclaration);
 			object result =  base.VisitTypeDeclaration (typeDeclaration, data);
 			typeStack.Pop ();
@@ -718,7 +718,7 @@ namespace MonoDevelop.CSharp.Refactoring
 				if (mrr != null) {
 					IMember resolvedMember = GetUnderlyingMember (mrr.ResolvedMember);
 					
-					if (resolvedMember != null && resolvedMember.DeclaringType != null && ((IMember)searchedMember).DeclaringType != null && resolvedMember.Location == searchedMemberLocation && resolvedMember.DeclaringType.FullName == ((IMember)searchedMember).DeclaringType.FullName) {
+					if (resolvedMember != null && resolvedMember.DeclaringType != null && searchedMember is IMember && ((IMember)searchedMember).DeclaringType != null && resolvedMember.Location == searchedMemberLocation && resolvedMember.DeclaringType.FullName == ((IMember)searchedMember).DeclaringType.FullName) {
 						int line, column;
 						if (SearchText (searchedMemberName, fieldExp.StartLocation.Line, fieldExp.StartLocation.Column, out line, out column))
 							AddUniqueReference (line, column, searchedMemberName);

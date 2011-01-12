@@ -346,6 +346,9 @@ namespace MonoDevelop.CSharp.Parser
 				
 				if ((modifiers & Mono.CSharp.Modifiers.STATIC) != 0)
 					result |= MonoDevelop.Projects.Dom.Modifiers.Static;
+				
+				if ((modifiers & Mono.CSharp.Modifiers.PARTIAL) != 0)
+					result |= MonoDevelop.Projects.Dom.Modifiers.Partial;
 				return result;
 			}
 			
@@ -700,11 +703,11 @@ namespace MonoDevelop.CSharp.Parser
 						if (constraintExpr is SpecialContraintExpr) {
 							var sce = (SpecialContraintExpr)constraintExpr;
 							if (sce.Constraint == SpecialConstraint.Struct)
-								result.ValueTypeRequired = true;
+								result.AddConstraint (DomReturnType.ValueType);
 							if (sce.Constraint == SpecialConstraint.Class)
-								result.ClassRequired = true;
+								result.AddConstraint (DomReturnType.TypeReturnType);
 							if (sce.Constraint == SpecialConstraint.Constructor)
-								result.ConstructorRequired = true;
+								result.TypeParameterModifier |= TypeParameterModifier.HasDefaultConstructorConstraint;
 						} else {
 							result.AddConstraint (ConvertReturnType (constraintExpr));
 						}
@@ -718,9 +721,9 @@ namespace MonoDevelop.CSharp.Parser
 				if (!decl.IsGeneric || decl.CurrentTypeParameters == null)
 					return;
 				
-				foreach (var typeParametr in decl.CurrentTypeParameters) {
-					member.AddTypeParameter (ConvertTemplateDefinition (typeParametr));
-					
+				foreach (var typeParameter in decl.CurrentTypeParameters) {
+					var par = ConvertTemplateDefinition (typeParameter);
+					member.AddTypeParameter (par);
 				}
 			}
 
@@ -943,6 +946,7 @@ namespace MonoDevelop.CSharp.Parser
 			public override void Visit (Indexer i)
 			{
 				DomProperty indexer = new DomProperty ();
+				indexer.PropertyModifier |= PropertyModifier.IsIndexer;
 				indexer.Name = "this";
 				indexer.Documentation = RetrieveDocumentation (i.Location.Row);
 				indexer.Location = Convert (i.Location);

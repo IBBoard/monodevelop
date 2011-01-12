@@ -235,9 +235,7 @@ namespace MonoDevelop.Projects.Dom
 		protected virtual ITypeParameter Visit (ITypeParameter type, T data)
 		{
 			TypeParameter tp = new TypeParameter (type.Name);
-			tp.ClassRequired = type.ClassRequired;
-			tp.ValueTypeRequired = type.ValueTypeRequired;
-			tp.ConstructorRequired = type.ConstructorRequired;
+			tp.TypeParameterModifier = type.TypeParameterModifier;
 			foreach (IAttribute attr in type.Attributes)
 				tp.AddAttribute ((IAttribute) attr.AcceptVisitor (this, data));
 			foreach (IReturnType rt in type.Constraints)
