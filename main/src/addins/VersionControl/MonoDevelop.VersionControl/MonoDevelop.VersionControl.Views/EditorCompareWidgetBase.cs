@@ -140,6 +140,9 @@ namespace MonoDevelop.VersionControl.Views
 		static readonly Cairo.Color lightGreen = new Cairo.Color (190 / 255.0, 240 / 255.0, 190 / 255.0);
 		static readonly Cairo.Color darkGreen = new Cairo.Color (133 / 255.0, 168 / 255.0, 133 / 255.0);
 		
+		static readonly Cairo.Color lightBlue = new Cairo.Color (190 / 255.0, 190 / 255.0, 240 / 255.0);
+		static readonly Cairo.Color darkBlue = new Cairo.Color (133 / 255.0, 133 / 255.0, 168 / 255.0);
+		
 		protected abstract TextEditor MainEditor {
 			get;
 		}
@@ -619,8 +622,9 @@ namespace MonoDevelop.VersionControl.Views
 		public static Cairo.Color GetColor (Mono.TextEditor.Utils.Hunk hunk, bool removeSide, bool dark, double alpha)
 		{
 			Cairo.Color result;
-			
-			if (removeSide) {
+			if (hunk.Removed > 0 && hunk.Inserted > 0) {
+				result = dark ? darkBlue : lightBlue;
+			} else if (removeSide) {
 				if (hunk.Removed > 0) {
 					result = dark ? darkRed : lightRed;
 				} else {
