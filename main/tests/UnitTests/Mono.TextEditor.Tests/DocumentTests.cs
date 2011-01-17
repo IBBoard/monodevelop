@@ -25,9 +25,11 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
-
 using System;
 using NUnit.Framework;
+using Mono.TextEditor.Utils;
+using NUnit.Framework.SyntaxHelpers;
+using System.Collections.Generic;
 
 namespace Mono.TextEditor.Tests
 {
@@ -163,7 +165,111 @@ namespace Mono.TextEditor.Tests
 			}
 			Assert.AreEqual (1, document.LineCount);
 		}
-				
+
+		[Test]
+		public void TestDiffWithNoChangesReturnsNothing ()
+		{
+			string docText = "Some string here";
+			IEnumerable<Hunk> hunks = GenerateDiffHunks(docText, docText);
+			int count = 0;
+			
+			foreach (Hunk hunk in hunks) {
+				count++;
+			}
+			
+			Assert.That (count, Is.EqualTo (0));
+		}
+
+		[Test]
+		public void TestDiffWithOneAdditionReturnsOneHunk ()
+		{
+			string docText = "Some string here";
+			IEnumerable<Hunk> hunks = GenerateDiffHunks(docText + "extra", docText);
+			int count = 0;
+			
+			foreach (Hunk hunk in hunks) {
+				count++;
+			}
+			
+			Assert.That (count, Is.EqualTo (1));
+		}
+
+		[Test]
+		public void TestDiffWithOneAdditionReturnsExpectedHunk ()
+		{
+			string docText = "Some string here";
+			string extra = "extra";
+			IEnumerable<Hunk> hunks = GenerateDiffHunks(docText + extra, docText);
+			Hunk hunk = hunks.GetEnumerator().Current;
+			Assert.That(hunk.Inserted, Is.EqualTo(0));
+			Assert.That(hunk.InsertStart, Is.EqualTo(0));
+			Assert.That(hunk.Removed, Is.EqualTo(0));
+			Assert.That(hunk.RemoveStart, Is.EqualTo(0));
+		}
+		
+		[Test]
+		public void TestMultilineDiffWithOneAdditionReturnsOneHunk ()
+		{
+			string docText = "Some string here\nSomeOtherText";
+			string extra = "extra";
+			IEnumerable<Hunk> hunks = GenerateDiffHunks(docText + extra, docText);
+			int count = 0;
+			
+			foreach (Hunk hunk in hunks) {
+				count++;
+			}
+			
+			Assert.That (count, Is.EqualTo (1));
+		}
+		
+		[Test]
+		public void TestMultilineDiffWithOneAdditionReturnsExpectedHunk ()
+		{
+			string docText = "Some string here\nSomeOtherText";
+			string extra = "extra";
+			IEnumerable<Hunk> hunks = GenerateDiffHunks(docText + extra, docText);
+			Hunk hunk = hunks.GetEnumerator().Current;
+			Assert.That(hunk.Inserted, Is.EqualTo(1));
+			Assert.That(hunk.InsertStart, Is.EqualTo(0));
+			Assert.That(hunk.Removed, Is.EqualTo(0));
+			Assert.That(hunk.RemoveStart, Is.EqualTo(0));
+		}
+		
+		[Test]
+		public void TestMultilineDiffWithAddedLineReturnsOneHunk ()
+		{
+			string docText = "Some string here\nSomeOtherText";
+			string extra = "\nThirdLine";
+			IEnumerable<Hunk> hunks = GenerateDiffHunks(docText + extra, docText);
+			int count = 0;
+			
+			foreach (Hunk hunk in hunks) {
+				count++;
+			}
+			
+			Assert.That (count, Is.EqualTo (1));
+		}
+		
+		[Test]
+		public void TestMultilineDiffWithAddedLineReturnsExpectedHunk ()
+		{
+			string docText = "Some string here\nSomeOtherText";
+			string extra = "\nThirdLine";
+			IEnumerable<Hunk> hunks = GenerateDiffHunks(docText + extra, docText);
+			Hunk hunk = hunks.GetEnumerator().Current;
+			Assert.That(hunk.Inserted, Is.EqualTo(1));
+			Assert.That(hunk.InsertStart, Is.EqualTo(0));
+			Assert.That(hunk.Removed, Is.EqualTo(0));
+			Assert.That(hunk.RemoveStart, Is.EqualTo(0));
+		}
+		
+		private IEnumerable<Hunk> GenerateDiffHunks(string currentDocText, string baseText)
+		{
+			Document document = new Document (baseText);
+			Document changedDocument = new Document (currentDocText);
+			return document.Diff (changedDocument);
+		}
+
 		[TestFixtureSetUp] 
 		public void SetUp()
 		{
