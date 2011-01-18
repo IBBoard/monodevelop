@@ -202,9 +202,9 @@ namespace Mono.TextEditor.Tests
 			IEnumerable<Hunk> hunks = GenerateDiffHunks(docText + extra, docText);
 			Hunk hunk = hunks.GetEnumerator().Current;
 			Assert.That(hunk.Inserted, Is.EqualTo(1));
-			Assert.That(hunk.InsertStart, Is.EqualTo(0));
+			Assert.That(hunk.InsertStart, Is.EqualTo(1));
 			Assert.That(hunk.Removed, Is.EqualTo(1));
-			Assert.That(hunk.RemoveStart, Is.EqualTo(0));
+			Assert.That(hunk.RemoveStart, Is.EqualTo(1));
 		}
 		
 		[Test]
@@ -230,9 +230,9 @@ namespace Mono.TextEditor.Tests
 			IEnumerable<Hunk> hunks = GenerateDiffHunks(docText + extra, docText);
 			Hunk hunk = hunks.GetEnumerator().Current;
 			Assert.That(hunk.Inserted, Is.EqualTo(1));
-			Assert.That(hunk.InsertStart, Is.EqualTo(1));
+			Assert.That(hunk.InsertStart, Is.EqualTo(2));
 			Assert.That(hunk.Removed, Is.EqualTo(1));
-			Assert.That(hunk.RemoveStart, Is.EqualTo(1));
+			Assert.That(hunk.RemoveStart, Is.EqualTo(2));
 		}
 		
 		[Test]
@@ -299,8 +299,8 @@ namespace Mono.TextEditor.Tests
 			"\n";
 			IEnumerable<Hunk> hunks = GenerateDiffHunks(text + "middle line" + text, text + text);
 			Hunk hunk = hunks.GetEnumerator().Current;
-			Assert.That(hunk.Inserted, Is.EqualTo(10));
-			Assert.That(hunk.InsertStart, Is.EqualTo(0));
+			Assert.That(hunk.Inserted, Is.EqualTo(1));
+			Assert.That(hunk.InsertStart, Is.EqualTo(10));
 			Assert.That(hunk.Removed, Is.EqualTo(0));
 			Assert.That(hunk.RemoveStart, Is.EqualTo(0));
 		}
