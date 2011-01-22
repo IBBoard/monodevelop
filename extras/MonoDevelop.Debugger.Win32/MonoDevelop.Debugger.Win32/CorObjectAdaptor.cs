@@ -38,6 +38,7 @@ using Microsoft.Samples.Debugging.CorDebug;
 using Mono.Debugging.Evaluation;
 using CorElementType = Microsoft.Samples.Debugging.CorDebug.NativeApi.CorElementType;
 using CorDebugMappingResult = Microsoft.Samples.Debugging.CorDebug.NativeApi.CorDebugMappingResult;
+using CorDebugHandleType = Microsoft.Samples.Debugging.CorDebug.NativeApi.CorDebugHandleType;
 using System.Diagnostics.SymbolStore;
 using Microsoft.Samples.Debugging.CorMetadata;
 using MonoDevelop.Core.Collections;
@@ -955,6 +956,25 @@ namespace MonoDevelop.Debugger.Win32
 			CorDebugMappingResult mr;
 			wctx.Frame.GetIP (out offset, out mr);
 			return GetLocals (wctx, null, (int) offset, false);
+		}
+		
+		public override ValueReference GetCurrentException (EvaluationContext ctx)
+		{
+			CorEvaluationContext wctx = (CorEvaluationContext) ctx;
+			CorValue exception = wctx.Thread.CurrentException;
+			
+			if (exception != null)
+			{
+				CorHandleValue exceptionHandle = wctx.Session.GetHandle (exception);
+				
+				CorValRef vref = new CorValRef (delegate {
+					return exceptionHandle;
+				});
+				
+				return new VariableReference (ctx, vref, "__EXCEPTION_OBJECT__", ObjectValueFlags.Variable);
+			}
+			else
+				return base.GetCurrentException(ctx);
 		}
 
 		IEnumerable<ValueReference> GetLocals (CorEvaluationContext ctx, ISymbolScope scope, int offset, bool showHidden)

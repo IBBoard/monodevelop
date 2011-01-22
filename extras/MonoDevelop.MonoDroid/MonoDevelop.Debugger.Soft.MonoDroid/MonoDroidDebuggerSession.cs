@@ -66,7 +66,7 @@ namespace MonoDevelop.Debugger.Soft.MonoDroid
 			int runningProcessId = 0; // Already running activity
 			DateTime setPropertyTime = DateTime.MinValue;
 			launchOp = new ChainedAsyncOperationSequence (
-				new ChainedAsyncOperation<AndroidToolbox.GetDateOperation> () {
+				new ChainedAsyncOperation<AdbGetDateOperation> () {
 					Create = () => MonoDroidFramework.Toolbox.GetDeviceDate (cmd.Device),
 					Completed = (op) => {
 						if (op.Success) {
@@ -74,11 +74,11 @@ namespace MonoDevelop.Debugger.Soft.MonoDroid
 							setPropertyTime = DateTime.Now;
 						} else {
 							this.OnDebuggerOutput (true, GettextCatalog.GetString ("Failed to get date from device"));
-							this.OnDebuggerOutput (true, op.GetOutput ());
+							this.OnDebuggerOutput (true, op.Output);
 						}
 					},
 				},
-				new ChainedAsyncOperation<AndroidToolbox.AdbOutputOperation> () {
+				new ChainedAsyncOperation<AdbShellOperation> () {
 					Create = () => {
 						this.OnDebuggerOutput (false, GettextCatalog.GetString ("Setting debug property") + "\n");
 						long expireDate = date + (DEBUGGER_TIMEOUT_MS / 1000);
@@ -88,7 +88,7 @@ namespace MonoDevelop.Debugger.Soft.MonoDroid
 					Completed = (op) => {
 						if (!op.Success) {
 							this.OnDebuggerOutput (true, GettextCatalog.GetString ("Failed to set debug property on device"));
-							this.OnDebuggerOutput (true, op.GetOutput ());
+							this.OnDebuggerOutput (true, op.Output);
 						} else {
 							debugPropertySet = true;
 						}
@@ -140,11 +140,12 @@ namespace MonoDevelop.Debugger.Soft.MonoDroid
 						}
 					}
 				},
-				new ChainedAsyncOperation () {
-					Create = () => MonoDroidFramework.Toolbox.StartActivity (cmd.Device, cmd.Activity, DebuggerOutput, DebuggerError),
+				new ChainedAsyncOperation<AdbShellOperation> () {
+					Create = () => MonoDroidFramework.Toolbox.StartActivity (cmd.Device, cmd.Activity),
 					Completed = (op) => {
 						if (!op.Success)
 							this.OnDebuggerOutput (true, GettextCatalog.GetString ("Failed to start activity"));
+						OnDebuggerOutput (false, op.Output);
 					}
 				}
 			);
@@ -235,10 +236,21 @@ namespace MonoDevelop.Debugger.Soft.MonoDroid
 		
 		protected override bool ShouldRetryConnection (Exception exc, int attemptNumber)
 		{
+			//android tunnel behaviour causes us to get IOExceptions instead of socket exceptions
 			if (exc is IOException)
 				return true;
 
 			return base.ShouldRetryConnection (exc, attemptNumber);
+		}
+		
+		protected override void OnConnectionError (Exception ex)
+		{
+			//if the exception was caused by cancelling the session
+			//as with ShouldRetryConnection, need to handle android tunnel behaviour
+			if (Exited && ex is IOException)
+				return;
+			
+			base.OnConnectionError (ex);
 		}
 	}
 	

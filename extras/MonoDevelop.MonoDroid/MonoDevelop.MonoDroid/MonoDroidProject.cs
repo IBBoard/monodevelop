@@ -45,7 +45,7 @@ namespace MonoDevelop.MonoDroid
 
 	public class MonoDroidProject : DotNetProject
 	{
-		internal const string FX_MONODROID = "MonoDroid";
+		internal const string FX_MONODROID = "2.2";
 		
 		#region Properties
 		
@@ -386,7 +386,7 @@ namespace MonoDevelop.MonoDroid
 				propOp.WaitForCompleted ();
 				if (!propOp.Success) {
 					monitor.ReportError (GettextCatalog.GetString ("Count not clear debug settings on device"),
-						new Exception (propOp.GetOutput ()));
+						propOp.Error);
 					return;
 				}
 				

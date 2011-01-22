@@ -75,6 +75,7 @@ FILES =  \
 	gtk-gui/MonoDevelop.Ide.Projects.IncludeNewFilesDialog.cs \
 	gtk-gui/MonoDevelop.Ide.Projects.NewConfigurationDialog.cs \
 	gtk-gui/MonoDevelop.Ide.Projects.NewFileDialog.cs \
+	gtk-gui/MonoDevelop.Ide.Projects.NewPolicySetDialog.cs \
 	gtk-gui/MonoDevelop.Ide.Projects.NewProjectDialog.cs \
 	gtk-gui/MonoDevelop.Ide.Projects.OptionPanels.BaseDirectoryPanelWidget.cs \
 	gtk-gui/MonoDevelop.Ide.Projects.OptionPanels.CodeFormattingPanelWidget.cs \
@@ -244,6 +245,7 @@ FILES =  \
 	MonoDevelop.Components/FolderEntry.cs \
 	MonoDevelop.Components/FolderListSelector.cs \
 	MonoDevelop.Components/GtkUtil.cs \
+	MonoDevelop.Components/HeaderBox.cs \
 	MonoDevelop.Components/HoverImageButton.cs \
 	MonoDevelop.Components/HslColor.cs \
 	MonoDevelop.Components/IconView.cs \
@@ -611,6 +613,7 @@ FILES =  \
 	MonoDevelop.Ide.Projects/IncludeNewFilesDialog.cs \
 	MonoDevelop.Ide.Projects/NewConfigurationDialog.cs \
 	MonoDevelop.Ide.Projects/NewFileDialog.cs \
+	MonoDevelop.Ide.Projects/NewPolicySetDialog.cs \
 	MonoDevelop.Ide.Projects/NewProjectDialog.cs \
 	MonoDevelop.Ide.Projects/ProjectFileSelectorDialog.cs \
 	MonoDevelop.Ide.Projects/ProjectOptionsDialog.cs \
