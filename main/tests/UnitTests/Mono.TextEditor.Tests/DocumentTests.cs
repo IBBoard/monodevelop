@@ -200,7 +200,9 @@ namespace Mono.TextEditor.Tests
 			string docText = "Some string here";
 			string extra = "extra";
 			IEnumerable<Hunk> hunks = GenerateDiffHunks(docText + extra, docText);
-			Hunk hunk = hunks.GetEnumerator().Current;
+			IEnumerator<Mono.TextEditor.Utils.Hunk> enumerator = hunks.GetEnumerator ();
+			enumerator.MoveNext();
+			Hunk hunk = enumerator.Current;
 			Assert.That(hunk.Inserted, Is.EqualTo(1));
 			Assert.That(hunk.InsertStart, Is.EqualTo(1));
 			Assert.That(hunk.Removed, Is.EqualTo(1));
@@ -228,7 +230,9 @@ namespace Mono.TextEditor.Tests
 			string docText = "Some string here\nSomeOtherText";
 			string extra = "extra";
 			IEnumerable<Hunk> hunks = GenerateDiffHunks(docText + extra, docText);
-			Hunk hunk = hunks.GetEnumerator().Current;
+			IEnumerator<Mono.TextEditor.Utils.Hunk> enumerator = hunks.GetEnumerator ();
+			enumerator.MoveNext();
+			Hunk hunk = enumerator.Current;
 			Assert.That(hunk.Inserted, Is.EqualTo(1));
 			Assert.That(hunk.InsertStart, Is.EqualTo(2));
 			Assert.That(hunk.Removed, Is.EqualTo(1));
@@ -256,11 +260,13 @@ namespace Mono.TextEditor.Tests
 			string docText = "Some string here\nSomeOtherText";
 			string extra = "\nThirdLine";
 			IEnumerable<Hunk> hunks = GenerateDiffHunks(docText + extra, docText);
-			Hunk hunk = hunks.GetEnumerator().Current;
+			IEnumerator<Mono.TextEditor.Utils.Hunk> enumerator = hunks.GetEnumerator ();
+			enumerator.MoveNext();
+			Hunk hunk = enumerator.Current;
 			Assert.That(hunk.Inserted, Is.EqualTo(1));
 			Assert.That(hunk.InsertStart, Is.EqualTo(3));
 			Assert.That(hunk.Removed, Is.EqualTo(0));
-			Assert.That(hunk.RemoveStart, Is.EqualTo(0));
+			Assert.That(hunk.RemoveStart, Is.EqualTo(3));
 		}
 		
 		[Test]
@@ -297,12 +303,14 @@ namespace Mono.TextEditor.Tests
 			"12\n" +
 			"1\n" +
 			"\n";
-			IEnumerable<Hunk> hunks = GenerateDiffHunks(text + "middle line" + text, text + text);
-			Hunk hunk = hunks.GetEnumerator().Current;
+			IEnumerable<Hunk> hunks = GenerateDiffHunks(text + "middle line\n" + text, text + text);
+			IEnumerator<Mono.TextEditor.Utils.Hunk> enumerator = hunks.GetEnumerator ();
+			enumerator.MoveNext();
+			Hunk hunk = enumerator.Current;
 			Assert.That(hunk.Inserted, Is.EqualTo(1));
 			Assert.That(hunk.InsertStart, Is.EqualTo(10));
 			Assert.That(hunk.Removed, Is.EqualTo(0));
-			Assert.That(hunk.RemoveStart, Is.EqualTo(0));
+			Assert.That(hunk.RemoveStart, Is.EqualTo(10));
 		}
 		
 		private IEnumerable<Hunk> GenerateDiffHunks(string currentDocText, string originalText)
