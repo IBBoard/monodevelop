@@ -275,7 +275,7 @@ namespace Mono.TextEditor.Tests
 			"12\n" +
 			"1\n" +
 			"\n";
-			IEnumerable<Hunk> hunks = GenerateDiffHunks(text + "middle line" + text, text + text);			
+			IEnumerable<Hunk> hunks = GenerateDiffHunks(text + "middle line\n" + text, text + text);			
 			int count = 0;
 			
 			foreach (Hunk hunk in hunks) {
