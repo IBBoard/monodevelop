@@ -117,7 +117,6 @@ namespace Mono.TextEditor.Utils
 
 		public Hunk (int removeStart, int insertStart, int removed, int inserted)
 		{
-			System.Console.WriteLine ("Construct hunk ({0}, {1}, {2}, {3})", removeStart, insertStart, removed, inserted);
 			this.InsertStart = insertStart;
 			this.RemoveStart = removeStart;
 			this.Removed = removed;
@@ -228,28 +227,20 @@ namespace Mono.TextEditor.Utils
 					// maybe deleted and/or inserted lines
 					int startA = lineA;
 					int startB = lineB;
-					System.Console.WriteLine ("Start at A:" + startA + ", B:"+startB);
 
 					while (lineA < baseData.Length && (lineB >= changedData
 		.Length || baseData.Modified[lineA]))
-					{
 						// while (LineA < DataA.Length && DataA.Modified[LineA])
 						lineA++;
-						System.Console.WriteLine ("Inc lineA to "+lineA);
-					}
 
 					while (lineB < changedData
 		.Length && (lineA >= baseData.Length || changedData
 		.Modified[lineB]))
-					{
 						// while (LineB < DataB.Length && DataB.Modified[LineB])
 						lineB++;
-						System.Console.WriteLine ("Inc lineB to "+lineB);
-					}
 
 					if (startA < lineA || startB < lineB) {
 						// store a new difference-item
-						System.Console.WriteLine ("Yield new Hunk ({0}, {1}, {2}, {3})", startA + 1, startB + 1, lineA - startA, lineB - startB);
 						yield return new Hunk (startA + 1, startB + 1, lineA - startA, lineB - startB);
 					}
 					// if
