@@ -59,7 +59,6 @@ namespace Mono.Debugging.Soft
 		StepEventRequest currentStepRequest;
 		ExceptionEventRequest unhandledExceptionRequest;
 		string remoteProcessName;
-		Dictionary<long,long> localThreadIds = new Dictionary<long, long> ();
 		
 		Dictionary<long,ObjectMirror> activeExceptionsByThread = new Dictionary<long, ObjectMirror> ();
 		
@@ -68,7 +67,7 @@ namespace Mono.Debugging.Soft
 		
 		IAsyncResult connectionHandle;
 		
-		LinkedList<List<Event>> queuedEventSets = new LinkedList<List<Event>> ();
+		LinkedList<Event> queuedEvents = new LinkedList<Event> ();
 		
 		List<string> userAssemblyNames;
 		List<AssemblyMirror> assemblyFilters;
@@ -315,7 +314,7 @@ namespace Mono.Debugging.Soft
 			started = true;
 			
 			/* Wait for the VMStart event */
-			HandleEventSet (vm.GetNextEventSet ());
+			HandleEvent (vm.GetNextEvent ());
 			
 			eventHandler = new Thread (EventHandler);
 			eventHandler.Name = "SDB event handler";
@@ -535,12 +534,8 @@ namespace Mono.Debugging.Soft
 		{
 			if (current_threads == null) {
 				List<ThreadInfo> threads = new List<ThreadInfo> ();
-				foreach (ThreadMirror t in vm.GetThreads ()) {
-					string name = t.Name;
-					if (string.IsNullOrEmpty (name) && t.IsThreadPoolThread)
-						name = "<Thread Pool>";
-					threads.Add (new ThreadInfo (processId, GetId (t), name, null));
-				}
+				foreach (ThreadMirror t in vm.GetThreads ())
+					threads.Add (new ThreadInfo (processId, t.Id, t.Name, null));
 				current_threads = threads.ToArray ();
 			}
 			return current_threads;
@@ -549,16 +544,15 @@ namespace Mono.Debugging.Soft
 		ThreadMirror GetThread (long processId, long threadId)
 		{
 			foreach (ThreadMirror t in vm.GetThreads ())
-				if (GetId (t) == threadId)
+				if (t.Id == threadId)
 					return t;
 			return null;
 		}
 		
 		ThreadInfo GetThread (ProcessInfo process, ThreadMirror thread)
 		{
-			long tid = GetId (thread);
 			foreach (var t in OnGetThreads (process.Id))
-				if (t.Id == tid)
+				if (t.Id == thread.Id)
 					return t;
 			return null;
 		}
@@ -600,7 +594,7 @@ namespace Mono.Debugging.Soft
 			BreakInfo bi = (BreakInfo) handle;
 			if (bi.Req != null) {
 				bi.Req.Enabled = false;
-				RemoveQueuedBreakEvents (bi.Req);
+				RemoveQueuedEvents (bi.Req);
 			}
 			pending_bes.Remove (bi.BreakEvent);
 		}
@@ -614,7 +608,7 @@ namespace Mono.Debugging.Soft
 			if (bi.Req != null) {
 				bi.Req.Enabled = enable;
 				if (!enable)
-					RemoveQueuedBreakEvents (bi.Req);
+					RemoveQueuedEvents (bi.Req);
 			}
 		}
 
@@ -646,6 +640,7 @@ namespace Mono.Debugging.Soft
 		{
 			if (!started)
 				return null;
+			string filename = System.IO.Path.GetFileName (file);
 	
 			// Try the current class first
 			Location target_loc = null;// = GetLocFromType (current_thread.GetFrames()[0].Method.DeclaringType, filename, line);
@@ -654,9 +649,9 @@ namespace Mono.Debugging.Soft
 			if (target_loc == null) {
 				List<TypeMirror> types;
 	
-				if (source_to_type.TryGetValue (file, out types)) {
+				if (source_to_type.TryGetValue (filename, out types)) {
 					foreach (TypeMirror t in types) {
-						target_loc = GetLocFromType (t, file, line);
+						target_loc = GetLocFromType (t, filename, line);
 						if (target_loc != null)
 							break;
 					}
@@ -698,12 +693,12 @@ namespace Mono.Debugging.Soft
 		{
 			while (true) {
 				try {
-					EventSet e = vm.GetNextEventSet ();
-					if (e[0] is VMDeathEvent || e[0] is VMDisconnectEvent) {
+					Event e = vm.GetNextEvent ();
+					if (e is VMDeathEvent || e is VMDisconnectEvent) {
 						OnVMDeathEvent ();
 						break;
 					}
-					HandleEventSet (e);
+					HandleEvent (e);
 				} catch (VMDisconnectedException ex) {
 					OnVMDeathEvent ();
 					OnDebuggerOutput (true, ex.ToString ());
@@ -716,110 +711,32 @@ namespace Mono.Debugging.Soft
 			exited = true;
 			OnTargetEvent (new TargetEventArgs (TargetEventType.TargetExited));
 		}
-		
-		// This method dispatches an event set.
-		//
-		// Based on the subset of events for which we register, and the contract for EventSet contents (equivalent to 
-		// Java - http://download.oracle.com/javase/1.5.0/docs/guide/jpda/jdi/com/sun/jdi/event/EventSet.html)
-		// we know that event sets we receive are either:
-		// 1) Set of step and break events for a location in a single thread.
-		// 2) Set of catchpoints for a single exception.
-		// 3) A single event of any other kind.
-		// We verify these assumptions where possible, because things will break in horrible ways if they are wrong.
-		//
-		// If we are currently stopped on a thread, and the break events are on a different thread, we must queue
-		// that event set and dequeue it next time we resume. This eliminates race conditions when multiple threads
-		// hit breakpoints or catchpoints simultaneously.
-		//
-		void HandleEventSet (EventSet es)
+
+		void HandleEvent (Event e)
 		{
-#if DEBUG_EVENT_QUEUEING
-			if (!(es[0] is TypeLoadEvent))
-				Console.WriteLine ("pp eventset({0}): {1}", es.Events.Length, es[0]);
-#endif
-			
-			bool isBreakEvent = es[0] is BreakpointEvent || es[0] is ExceptionEvent || es[0] is StepEvent;
-			
-			if (isBreakEvent) {
-				if (current_thread != null && es[0].Thread.Id != current_thread.Id) {
-					QueueBreakEventSet (es.Events);
-				} else {
-					HandleBreakEventSet (es.Events, false);
-				}
+			bool isBreakEvent = e is BreakpointEvent || e is ExceptionEvent || e is StepEvent;
+			if (isBreakEvent && current_thread != null && e.Thread.Id != current_thread.Id) {
+				QueueEvent (e);
 			} else {
-				if (es.Events.Length != 1)
-					throw new InvalidOperationException ("EventSet has unexpected combination of events");
-				HandleEvent (es[0]);
-				vm.Resume ();
+				HandleEvent (e, false);
 			}
 		}
 		
-		void HandleBreakEventSet (Event[] es, bool dequeuing)
+		void HandleEvent (Event e, bool dequeuing)
 		{
 			if (dequeuing && exited)
 				return;
-			
-			OnHandleBreakEventSet (es);
-			
+
 			bool resume = true;
 			ObjectMirror exception = null;
+			
 			TargetEventType etype = TargetEventType.TargetStopped;
-			
-			if (es[0] is ExceptionEvent) {
-				var bad = es.First (ee => !(ee is ExceptionEvent));
-				if (bad != null)
-					throw new Exception ("Catchpoint eventset had unexpected event type " + bad.GetType ());
-				var ev = (ExceptionEvent)es[0];
-				if (ev.Request == unhandledExceptionRequest)
-					etype = TargetEventType.UnhandledException;
-				else
-					etype = TargetEventType.ExceptionThrown;
-				exception = ev.Exception;
-				if (ev.Request != unhandledExceptionRequest || exception.Type.FullName != "System.Threading.ThreadAbortException")
-					resume = false;
-			}
-			else {
-				//always need to evaluate all breakpoints, some might be tracepoints or conditional bps with counters
-				foreach (Event e in es) {
-					BreakpointEvent be = e as BreakpointEvent;
-					if (be != null) {
-						if (!HandleBreakpoint (e.Thread, be.Request)) {
-							etype = TargetEventType.TargetHitBreakpoint;
-							resume = false;
-						}
-					} else if (e is StepEvent) {
-						etype = TargetEventType.TargetStopped;
-						resume = false;
-					} else {
-						throw new Exception ("Break eventset had unexpected event type " + e.GetType ());
-					}
-				}
-			}
-			
-			if (resume) {
-				//all breakpoints were conditional and evaluated as false
-				vm.Resume ();
-				DequeueEventsForFirstThread ();
-			} else {
-				if (currentStepRequest != null) {
-					currentStepRequest.Enabled = false;
-					currentStepRequest = null;
-				}
-				current_thread = recent_thread = es[0].Thread;
-				TargetEventArgs args = new TargetEventArgs (etype);
-				args.Process = OnGetProcesses () [0];
-				args.Thread = GetThread (args.Process, current_thread);
-				args.Backtrace = GetThreadBacktrace (current_thread);
-				
-				if (exception != null)
-					activeExceptionsByThread [current_thread.ThreadId] = exception;
-				
-				OnTargetEvent (args);
-			}
-		}
-		
-		void HandleEvent (Event e)
-		{
+
+#if DEBUG_EVENT_QUEUEING
+			if (!(e is TypeLoadEvent))
+				Console.WriteLine ("pp event: " + e);
+#endif
+
 			OnHandleEvent (e);
 			
 			if (e is AssemblyLoadEvent) {
@@ -828,7 +745,8 @@ namespace Mono.Debugging.Soft
 				string flagExt = isExternal? " [External]" : "";
 				OnDebuggerOutput (false, string.Format ("Loaded assembly: {0}{1}\n", ae.Assembly.Location, flagExt));
 			}
-			else if (e is AssemblyUnloadEvent) {
+			
+			if (e is AssemblyUnloadEvent) {
 				AssemblyUnloadEvent aue = (AssemblyUnloadEvent)e;
 				
 				// Mark affected breakpoints as pending again
@@ -837,7 +755,7 @@ namespace Mono.Debugging.Soft
 				);
 				foreach (KeyValuePair<EventRequest,BreakInfo> breakpoint in affectedBreakpoints) {
 					OnDebuggerOutput (false, string.Format ("Re-pending breakpoint at {0}:{1}\n",
-					                                        breakpoint.Value.Location.SourceFile,
+					                                        Path.GetFileName (breakpoint.Value.Location.SourceFile),
 					                                        breakpoint.Value.Location.LineNumber));
 					breakpoints.Remove (breakpoint.Key);
 					pending_bes.Add (breakpoint.Value.BreakEvent);
@@ -860,14 +778,16 @@ namespace Mono.Debugging.Soft
 				}
 				OnDebuggerOutput (false, string.Format ("Unloaded assembly: {0}\n", aue.Assembly.Location));
 			}
-			else if (e is VMStartEvent) {
+			
+			if (e is VMStartEvent) {
 				//HACK: 2.6.1 VM doesn't emit type load event, so work around it
 				var t = vm.RootDomain.Corlib.GetType ("System.Exception", false, false);
 				if (t != null)
 					ResolveBreakpoints (t);
 				OnVMStartEvent ((VMStartEvent) e);
 			}
-			else if (e is TypeLoadEvent) {
+			
+			if (e is TypeLoadEvent) {
 				var t = ((TypeLoadEvent)e).Type;
 				
 				string typeName = t.FullName;
@@ -879,14 +799,54 @@ namespace Mono.Debugging.Soft
 					ResolveBreakpoints (t);
 				}
 			}
-			else if (e is ThreadStartEvent) {
+			
+			if (e is BreakpointEvent) {
+				BreakpointEvent be = (BreakpointEvent)e;
+				if (!HandleBreakpoint (e.Thread, be.Request)) {
+					etype = TargetEventType.TargetHitBreakpoint;
+					resume = false;
+				}
+			}
+			
+			if (e is ExceptionEvent) {
+				var ev = (ExceptionEvent)e;
+				if (ev.Request == unhandledExceptionRequest)
+					etype = TargetEventType.UnhandledException;
+				else
+					etype = TargetEventType.ExceptionThrown;
+				exception = ev.Exception;
+				if (ev.Request != unhandledExceptionRequest || exception.Type.FullName != "System.Threading.ThreadAbortException")
+					resume = false;
+			}
+			
+			if (e is StepEvent) {
+				etype = TargetEventType.TargetStopped;
+				resume = false;
+			}
+			
+			if (e is ThreadStartEvent) {
 				ThreadStartEvent ts = (ThreadStartEvent)e;
 				OnDebuggerOutput (false, string.Format ("Thread started: {0}\n", ts.Thread.Name));
 			}
-		}
-
-		protected virtual void OnHandleBreakEventSet (Event[] events)
-		{
+			
+			if (resume)
+				vm.Resume ();
+			else {
+				if (currentStepRequest != null) {
+					currentStepRequest.Enabled = false;
+					currentStepRequest = null;
+				}
+				current_thread = recent_thread = e.Thread;
+				TargetEventArgs args = new TargetEventArgs (etype);
+				args.Process = OnGetProcesses () [0];
+				args.Thread = GetThread (args.Process, current_thread);
+				args.Backtrace = GetThreadBacktrace (current_thread);
+				
+				if (exception != null)
+					activeExceptionsByThread [current_thread.Id] = exception;
+				
+				OnTargetEvent (args);
+			}
 		}
 
 		protected virtual void OnHandleEvent (Event e)
@@ -904,37 +864,32 @@ namespace Mono.Debugging.Soft
 		public ObjectMirror GetExceptionObject (ThreadMirror thread)
 		{
 			ObjectMirror obj;
-			if (activeExceptionsByThread.TryGetValue (thread.ThreadId, out obj))
+			if (activeExceptionsByThread.TryGetValue (thread.Id, out obj))
 				return obj;
 			else
 				return null;
 		}
 		
-		void QueueBreakEventSet (Event[] eventSet)
+		void QueueEvent (Event ev)
 		{
 #if DEBUG_EVENT_QUEUEING
-			Console.WriteLine ("qq eventset({0}): {1}", eventSet.Length, eventSet[0]);
+			Console.WriteLine ("qq event: " + ev);
 #endif
-			var events = new List<Event> (eventSet);
-			lock (queuedEventSets) {
-				queuedEventSets.AddLast (events);
+			lock (queuedEvents) {
+				queuedEvents.AddLast (ev);
 			}
 		}
 		
-		void RemoveQueuedBreakEvents (EventRequest request)
+		void RemoveQueuedEvents (EventRequest request)
 		{
 			int resume = 0;
-			lock (queuedEventSets) {
-				var node = queuedEventSets.First;
+			lock (queuedEvents) {
+				var node = queuedEvents.First;
 				while (node != null) {
-					List<Event> q = node.Value;
-					for (int i = 0; i < q.Count; i++)
-						if (q[i].Request == request)
-							q.RemoveAt (i--);
-					if (q.Count == 0) {
+					if (node.Value.Request == request) {
 						var d = node;
 						node = node.Next;
-						queuedEventSets.Remove (d);
+						queuedEvents.Remove (d);
 						resume++;
 					} else {
 						node = node.Next;
@@ -947,22 +902,22 @@ namespace Mono.Debugging.Soft
 		
 		void DequeueEventsForFirstThread ()
 		{
-			List<List<Event>> dequeuing;
-			lock (queuedEventSets) {
-				if (queuedEventSets.Count < 1)
+			List<Event> dequeuing;
+			lock (queuedEvents) {
+				if (queuedEvents.Count < 1)
 					return;
 				
-				dequeuing = new List<List<Event>> ();
-				var node = queuedEventSets.First;
+				dequeuing = new List<Event> ();
+				var node = queuedEvents.First;
 				
 				//making this the current thread means that all events from other threads will get queued
-				current_thread = node.Value[0].Thread;
+				current_thread = node.Value.Thread;
 				while (node != null) {
-					if (node.Value[0].Thread.Id == current_thread.Id) {
+					if (node.Value.Thread.Id == current_thread.Id) {
 						var d = node;
 						node = node.Next;
 						dequeuing.Add (d.Value);
-						queuedEventSets.Remove (d);
+						queuedEvents.Remove (d);
 					} else {
 						node = node.Next;
 					}
@@ -971,15 +926,15 @@ namespace Mono.Debugging.Soft
 
 #if DEBUG_EVENT_QUEUEING
 			foreach (var e in dequeuing)
-				Console.WriteLine ("dq eventset({0}): {1}", e.Count, e[0]);
+				Console.WriteLine ("dq event: " + e);
 #endif
 
 			//firing this off in a thread prevents possible infinite recursion
 			ThreadPool.QueueUserWorkItem (delegate {
 				if (!exited) {
-					foreach (var es in dequeuing) {
+					foreach (var ev in dequeuing) {
 						try {
-							 HandleBreakEventSet (es.ToArray (), true);
+							 HandleEvent (ev, true);
 						} catch (VMDisconnectedException ex) {
 							OnDebuggerOutput (true, ex.ToString ());
 							break;
@@ -1085,7 +1040,7 @@ namespace Mono.Debugging.Soft
 			
 			var resolved = new List<BreakEvent> ();
 			
-			foreach (string s in t.GetSourceFiles (true)) {
+			foreach (string s in t.GetSourceFiles ()) {
 				List<TypeMirror> typesList;
 				
 				if (source_to_type.TryGetValue (s, out typesList)) {
@@ -1098,7 +1053,7 @@ namespace Mono.Debugging.Soft
 				
 				
 				foreach (var bp in pending_bes.OfType<Breakpoint> ()) {
-					if (bp.FileName == s) {
+					if (System.IO.Path.GetFileName (bp.FileName) == s) {
 						Location l = GetLocFromType (t, s, bp.Line);
 						if (l != null) {
 							OnDebuggerOutput (false, string.Format ("Resolved pending breakpoint at '{0}:{1}' to {2}:{3}.\n",
@@ -1135,7 +1090,7 @@ namespace Mono.Debugging.Soft
 			Location target_loc = null;
 			foreach (MethodMirror m in type.GetMethods ()) {
 				foreach (Location l in m.Locations) {
-					if (l.SourceFile == file && l.LineNumber == line) {
+					if (System.IO.Path.GetFileName (l.SourceFile) == file && l.LineNumber == line) {
 						target_loc = l;
 						break;
 						}
@@ -1234,27 +1189,17 @@ namespace Mono.Debugging.Soft
 		{
 			var infos = process.GetThreads ();
 			
-			if (ThreadIsAlive (recent_thread) && HasUserFrame (GetId (recent_thread), infos))
+			if (ThreadIsAlive (recent_thread) && HasUserFrame (recent_thread.Id, infos))
 				return;
 
 			var threads = vm.GetThreads ();
 			foreach (var thread in threads) {
-				if (ThreadIsAlive (thread) && HasUserFrame (GetId (thread), infos)) {
+				if (ThreadIsAlive (thread) && HasUserFrame (thread.Id, infos)) {
 					recent_thread = thread;
 					return;
 				}
 			}
 			recent_thread = threads[0];	
-		}
-		
-		long GetId (ThreadMirror thread)
-		{
-			long id;
-			if (!localThreadIds.TryGetValue (thread.ThreadId, out id)) {
-				id = localThreadIds.Count + 1;
-				localThreadIds [thread.ThreadId] = id;
-			}
-			return id;
 		}
 		
 		static bool ThreadIsAlive (ThreadMirror thread)
