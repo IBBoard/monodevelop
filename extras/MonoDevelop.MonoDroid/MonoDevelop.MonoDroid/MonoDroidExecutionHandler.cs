@@ -114,7 +114,7 @@ namespace MonoDevelop.MonoDroid
 			getPidOp = new AdbGetProcessIdOperation (device, packageName);
 			getPidOp.Completed += RefreshPid;
 
-			trackLogOp = new AdbTrackLogOperation (device, ProcessLogLine, "*:S", "stdout:*", "stderr:*");
+			trackLogOp = new AdbTrackLogOperation (device, ProcessLogLine);
 			trackLogOp.Completed += delegate (IAsyncOperation op) {
 				if (!op.Success) {
 					SetCompleted (false);
@@ -173,6 +173,11 @@ namespace MonoDevelop.MonoDroid
 				case "stderr":
 					stderr (result);
 					break;
+				default:
+					// Anything related to the process;
+					// show the entire log line.
+					stdout (line);
+					break;
 			}
 		}
 
@@ -190,20 +195,14 @@ namespace MonoDevelop.MonoDroid
 			// Tag
 			start = pos;
 			len = 0;
-			while (pos < line.Length && Char.IsLetter (line [pos++]))
+
+			while (pos < line.Length && line [pos++] != '(')
 				len++;
 
 			if (len == 0)
 				return false;
 
-			tag = line.Substring (start, len);
-
-			// Optional whitespace
-			while (pos < line.Length && line [pos] == ' ')
-				pos++;
-
-			// Opening brace
-			pos++;
+			tag = line.Substring (start, len).Trim ();
 
 			// Optional whitespace
 			while (pos < line.Length && line [pos] == ' ')
@@ -212,7 +211,7 @@ namespace MonoDevelop.MonoDroid
 			// PID section
 			start = pos;
 			len = 0;
-			while (Char.IsDigit (line [pos++]))
+			while (pos < line.Length && Char.IsDigit (line [pos++]))
 				len++;
 
 			if (len == 0)
