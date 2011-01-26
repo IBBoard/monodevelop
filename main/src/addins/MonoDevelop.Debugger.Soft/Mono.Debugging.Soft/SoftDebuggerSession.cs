@@ -492,19 +492,7 @@ namespace Mono.Debugging.Soft
 
 		protected override void OnFinish ()
 		{
-			ThreadPool.QueueUserWorkItem (delegate {
-				Adaptor.CancelAsyncOperations (); // This call can block, so it has to run in background thread to avoid keeping the main session lock
-				var req = vm.CreateStepRequest (current_thread);
-				req.Depth = StepDepth.Out;
-				req.Size = StepSize.Line;
-				if (assemblyFilters != null && assemblyFilters.Count > 0)
-					req.AssemblyFilter = assemblyFilters;
-				req.Enabled = true;
-				currentStepRequest = req;
-				OnResumed ();
-				vm.Resume ();
-				DequeueEventsForFirstThread ();
-			});
+			Step (StepDepth.Out, StepSize.Line);
 		}
 
 		protected override ProcessInfo[] OnGetProcesses ()
@@ -584,7 +572,7 @@ namespace Mono.Debugging.Soft
 					InsertBreakpoint (bp, bi);
 				else {
 					pending_bes.Add (bp);
-					SetBreakEventStatus (be, false);
+					SetBreakEventStatus (be, false, null);
 				}
 			} else if (be is Catchpoint) {
 				var cp = (Catchpoint) be;
@@ -593,7 +581,7 @@ namespace Mono.Debugging.Soft
 					InsertCatchpoint (cp, bi, type);
 				} else {
 					pending_bes.Add (be);
-					SetBreakEventStatus (be, false);
+					SetBreakEventStatus (be, false, null);
 				}
 			}
 			return bi;
@@ -677,17 +665,22 @@ namespace Mono.Debugging.Soft
 		
 		protected override void OnNextInstruction ()
 		{
-			throw new System.NotImplementedException ();
+			Step (StepDepth.Over, StepSize.Min);
 		}
 
 		protected override void OnNextLine ()
+		{
+			Step (StepDepth.Over, StepSize.Line);
+		}
+		
+		void Step (StepDepth depth, StepSize size)
 		{
 			ThreadPool.QueueUserWorkItem (delegate {
 				try {
 					Adaptor.CancelAsyncOperations (); // This call can block, so it has to run in background thread to avoid keeping the main session lock
 					var req = vm.CreateStepRequest (current_thread);
-					req.Depth = StepDepth.Over;
-					req.Size = StepSize.Line;
+					req.Depth = depth;
+					req.Size = size;
 					if (assemblyFilters != null && assemblyFilters.Count > 0)
 						req.AssemblyFilter = assemblyFilters;
 					req.Enabled = true;
@@ -713,15 +706,24 @@ namespace Mono.Debugging.Soft
 					HandleEventSet (e);
 				} catch (VMDisconnectedException ex) {
 					OnVMDeathEvent ();
-					OnDebuggerOutput (true, ex.ToString ());
+					if (!HandleException (ex))
+						OnDebuggerOutput (true, ex.ToString ());
 					break;
 				} catch (Exception ex) {
-					OnDebuggerOutput (true, ex.ToString ());
+					if (!HandleException (ex))
+						OnDebuggerOutput (true, ex.ToString ());
 				}
 			}
 			
 			exited = true;
 			OnTargetEvent (new TargetEventArgs (TargetEventType.TargetExited));
+		}
+		
+		protected override bool HandleException (Exception ex)
+		{
+			if (ex is VMDisconnectedException)
+				ex = new DisconnectedException ();
+			return base.HandleException (ex);
 		}
 		
 		// This method dispatches an event set.
@@ -771,6 +773,7 @@ namespace Mono.Debugging.Soft
 			bool resume = true;
 			ObjectMirror exception = null;
 			TargetEventType etype = TargetEventType.TargetStopped;
+			BreakEvent breakEvent = null;
 			
 			if (es[0] is ExceptionEvent) {
 				var bad = es.First (ee => !(ee is ExceptionEvent));
@@ -792,6 +795,9 @@ namespace Mono.Debugging.Soft
 					if (be != null) {
 						if (!HandleBreakpoint (e.Thread, be.Request)) {
 							etype = TargetEventType.TargetHitBreakpoint;
+							BreakInfo binfo;
+							if (breakpoints.TryGetValue (be.Request, out binfo))
+								breakEvent = binfo.BreakEvent;
 							resume = false;
 						}
 					} else if (e is StepEvent) {
@@ -817,6 +823,7 @@ namespace Mono.Debugging.Soft
 				args.Process = OnGetProcesses () [0];
 				args.Thread = GetThread (args.Process, current_thread);
 				args.Backtrace = GetThreadBacktrace (current_thread);
+				args.BreakEvent = breakEvent;
 				
 				if (exception != null)
 					activeExceptionsByThread [current_thread.ThreadId] = exception;
@@ -889,6 +896,16 @@ namespace Mono.Debugging.Soft
 			else if (e is ThreadStartEvent) {
 				ThreadStartEvent ts = (ThreadStartEvent)e;
 				OnDebuggerOutput (false, string.Format ("Thread started: {0}\n", ts.Thread.Name));
+				TargetEventArgs args = new TargetEventArgs (TargetEventType.ThreadStarted);
+				args.Thread = new ThreadInfo (0, GetId (ts.Thread), ts.Thread.Name, null);
+				OnTargetEvent (args);
+			}
+			else if (e is ThreadDeathEvent) {
+				ThreadDeathEvent ts = (ThreadDeathEvent)e;
+				OnDebuggerOutput (false, string.Format ("Thread finished: {0}\n", ts.Thread.Name));
+				TargetEventArgs args = new TargetEventArgs (TargetEventType.ThreadStarted);
+				args.Thread = new ThreadInfo (0, GetId (ts.Thread), ts.Thread.Name, null);
+				OnTargetEvent (args);
 			}
 		}
 
@@ -988,10 +1005,12 @@ namespace Mono.Debugging.Soft
 						try {
 							 HandleBreakEventSet (es.ToArray (), true);
 						} catch (VMDisconnectedException ex) {
-							OnDebuggerOutput (true, ex.ToString ());
+							if (!HandleException (ex))
+								OnDebuggerOutput (true, ex.ToString ());
 							break;
 						} catch (Exception ex) {
-							OnDebuggerOutput (true, ex.ToString ());
+							if (!HandleException (ex))
+								OnDebuggerOutput (true, ex.ToString ());
 						}
 					}
 				}
@@ -1161,6 +1180,11 @@ namespace Mono.Debugging.Soft
 			return System.IO.Path.GetFileName (path);
 		}
 		
+		bool PathsAreEqual (string p1, string p2)
+		{
+			return PathComparer.Compare (p1, p2) == 0;
+		}
+		
 		Location GetLocFromType (TypeMirror type, string file, int line)
 		{
 			Location target_loc = null;
@@ -1184,7 +1208,7 @@ namespace Mono.Debugging.Soft
 			if (bi != null) {
 				bi.Location = l;
 				InsertBreakpoint (bp, bi);
-				SetBreakEventStatus (bp, true);
+				SetBreakEventStatus (bp, true, null);
 			}
 		}
 				
@@ -1192,7 +1216,7 @@ namespace Mono.Debugging.Soft
 		{
 			BreakInfo bi = GetBreakInfo (cp);
 			InsertCatchpoint (cp, bi, type);
-			SetBreakEventStatus (cp, true);
+			SetBreakEventStatus (cp, true, null);
 		}
 		
 		bool UpdateAssemblyFilters (AssemblyMirror asm)
@@ -1226,24 +1250,12 @@ namespace Mono.Debugging.Soft
 
 		protected override void OnStepInstruction ()
 		{
-			throw new System.NotImplementedException ();
+			Step (StepDepth.Into, StepSize.Min);
 		}
 
 		protected override void OnStepLine ()
 		{
-			ThreadPool.QueueUserWorkItem (delegate {
-				Adaptor.CancelAsyncOperations (); // This call can block, so it has to run in background thread to avoid keeping the main session lock
-				var req = vm.CreateStepRequest (current_thread);
-				req.Depth = StepDepth.Into;
-				req.Size = StepSize.Line;
-				if (assemblyFilters != null && assemblyFilters.Count > 0)
-					req.AssemblyFilter = assemblyFilters;
-				req.Enabled = true;
-				currentStepRequest = req;
-				OnResumed ();
-				vm.Resume ();
-				DequeueEventsForFirstThread ();
-			});
+			Step (StepDepth.Into, StepSize.Line);
 		}
 
 		protected override void OnStop ()
@@ -1333,6 +1345,108 @@ namespace Mono.Debugging.Soft
 			return assemblyFilters != null && !assemblyFilters.Contains (type.Assembly);
 		}
 		
+		protected override AssemblyLine[] OnDisassembleFile (string file)
+		{
+			List<TypeMirror> types;
+			if (!source_to_type.TryGetValue (file, out types))
+				return new AssemblyLine [0];
+			
+			List<AssemblyLine> lines = new List<AssemblyLine> ();
+			foreach (TypeMirror type in types) {
+				foreach (MethodMirror met in type.GetMethods ()) {
+					if (!PathsAreEqual (met.SourceFile, file))
+						continue;
+					var body = met.GetMethodBody ();
+					int lastLine = -1;
+					int firstPos = lines.Count;
+					string addrSpace = met.FullName;
+					foreach (var ins in body.Instructions) {
+						Location loc = met.LocationAtILOffset (ins.Offset);
+						if (loc != null && lastLine == -1) {
+							lastLine = loc.LineNumber;
+							for (int n=firstPos; n<lines.Count; n++)
+								lines [n].SourceLine = loc.LineNumber;
+						}
+						lines.Add (new AssemblyLine (ins.Offset, addrSpace, Disassemble (ins), loc != null ? loc.LineNumber : lastLine));
+					}
+				}
+			}
+			lines.Sort (delegate (AssemblyLine a1, AssemblyLine a2) {
+				int res = a1.SourceLine.CompareTo (a2.SourceLine);
+				if (res != 0)
+					return res;
+				else
+					return a1.Address.CompareTo (a2.Address);
+			});
+			return lines.ToArray ();
+		}
+		
+		public AssemblyLine[] Disassemble (Mono.Debugger.Soft.StackFrame frame, int firstLine, int count)
+		{
+			MethodBodyMirror body = frame.Method.GetMethodBody ();
+			var instructions = body.Instructions;
+			ILInstruction current = null;
+			foreach (var ins in instructions) {
+				if (ins.Offset >= frame.ILOffset) {
+					current = ins;
+					break;
+				}
+			}
+			if (current == null)
+				return new AssemblyLine [0];
+			
+			List<AssemblyLine> result = new List<AssemblyLine> ();
+			
+			int pos = firstLine;
+			
+			while (firstLine < 0 && count > 0) {
+				if (current.Previous == null) {
+//					result.Add (new AssemblyLine (99999, "<" + (pos++) + ">"));
+					result.Add (AssemblyLine.OutOfRange);
+					count--;
+					firstLine++;
+				} else {
+					current = current.Previous;
+					firstLine++;
+				}
+			}
+			
+			while (current != null && firstLine > 0) {
+				current = current.Next;
+				firstLine--;
+			}
+			
+			while (count > 0) {
+				if (current != null) {
+					Location loc = frame.Method.LocationAtILOffset (current.Offset);
+					result.Add (new AssemblyLine (current.Offset, frame.Method.FullName, Disassemble (current), loc != null ? loc.LineNumber : -1));
+					current = current.Next;
+					pos++;
+				} else
+					result.Add (AssemblyLine.OutOfRange);
+//					result.Add (new AssemblyLine (99999, "<" + (pos++) + ">"));
+				count--;
+			}
+			return result.ToArray ();
+		}
+		
+		string Disassemble (ILInstruction ins)
+		{
+			string oper;
+			if (ins.Operand is MethodMirror)
+				oper = ((MethodMirror)ins.Operand).FullName;
+			else if (ins.Operand is TypeMirror)
+				oper = ((TypeMirror)ins.Operand).FullName;
+			else if (ins.Operand is ILInstruction)
+				oper = ((ILInstruction)ins.Operand).Offset.ToString ("x8");
+			else if (ins.Operand == null)
+				oper = string.Empty;
+			else
+				oper = ins.Operand.ToString ();
+			
+			return ins.OpCode + " " + oper;
+		}
+		
 		readonly static bool IsWindows;
 		readonly static bool IsMac;
 		readonly static StringComparer PathComparer;
@@ -1375,5 +1489,13 @@ namespace Mono.Debugging.Soft
 		public EventRequest Req;
 		public BreakEvent BreakEvent;
 		public string LastConditionValue;
+	}
+	
+	class DisconnectedException: DebuggerException
+	{
+		public DisconnectedException ():
+			base ("The connection with the debugger has been lost. The target application may have exited.")
+		{
+		}
 	}
 }

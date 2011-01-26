@@ -62,15 +62,18 @@ namespace Mono.Debugging.Client
 		DebuggerSessionOptions options;
 		Dictionary<string,string> resolvedExpressionCache = new Dictionary<string, string> ();
 		
-		struct BreakEventInfo {
+		class BreakEventInfo {
 			// Handle is the native debugger breakpoint handle
 			public object Handle;
 			// IsValid is always true unless the subclass explicitly sets it to false using SetBreakEventStatus.
 			public bool IsValid;
+			// null, unless the subclass explicitly sets it using SetBreakEventStatus.
+			public string StatusMessage;
 			
 			public BreakEventInfo (object handle) {
 				Handle = handle;
 				IsValid = true;
+				StatusMessage = null;
 			}
 		}
 		
@@ -86,6 +89,8 @@ namespace Mono.Debugging.Client
 		public event EventHandler TargetExited;
 		public event EventHandler<TargetEventArgs> TargetExceptionThrown;
 		public event EventHandler<TargetEventArgs> TargetUnhandledException;
+		public event EventHandler<TargetEventArgs> TargetThreadStarted;
+		public event EventHandler<TargetEventArgs> TargetThreadStopped;
 		
 		public event EventHandler<BusyStateEventArgs> BusyStateChanged;
 		
@@ -366,16 +371,36 @@ namespace Mono.Debugging.Client
 		}
 		
 		/// <summary>
+		/// Returns a status message of a breakpoint for this debugger session.
+		/// </summary>
+		public string GetBreakEventStatusMessage (BreakEvent be)
+		{
+			if (started) {
+				BreakEventInfo binfo;
+				lock (breakpoints) {
+					if (breakpoints.TryGetValue (be, out binfo)) {
+						if (binfo.StatusMessage != null)
+							return binfo.StatusMessage;
+						if (binfo.IsValid)
+							return null;
+					}
+				}
+			}
+			return "The breakpoint will not currently be hit";
+		}
+		
+		/// <summary>
 		/// This method can be used by subclasses to set the validity of a breakpoint.
 		/// </summary>
-		protected void SetBreakEventStatus (BreakEvent be, bool isValid)
+		protected void SetBreakEventStatus (BreakEvent be, bool isValid, string statusMessge)
 		{
 			lock (breakpoints) {
 				BreakEventInfo bi;
 				if (!breakpoints.TryGetValue (be, out bi))
 					bi = new BreakEventInfo (null);
-				if (bi.IsValid != isValid) {
+				if (bi.IsValid != isValid || bi.StatusMessage != statusMessge) {
 					bi.IsValid = isValid;
+					bi.StatusMessage = statusMessge;
 					breakpoints [be] = bi;
 					Breakpoints.NotifyStatusChanged (be);
 				}
@@ -756,6 +781,7 @@ namespace Mono.Debugging.Client
 				case TargetEventType.ExceptionThrown:
 					lock (slock) {
 						isRunning = false;
+						args.IsStopEvent = true;
 					}
 					if (TargetExceptionThrown != null)
 						TargetExceptionThrown (this, args);
@@ -773,6 +799,7 @@ namespace Mono.Debugging.Client
 				case TargetEventType.TargetHitBreakpoint:
 					lock (slock) {
 						isRunning = false;
+						args.IsStopEvent = true;
 					}
 					if (TargetHitBreakpoint != null)
 						TargetHitBreakpoint (this, args);
@@ -780,6 +807,7 @@ namespace Mono.Debugging.Client
 				case TargetEventType.TargetInterrupted:
 					lock (slock) {
 						isRunning = false;
+						args.IsStopEvent = true;
 					}
 					if (TargetInterrupted != null)
 						TargetInterrupted (this, args);
@@ -787,6 +815,7 @@ namespace Mono.Debugging.Client
 				case TargetEventType.TargetSignaled:
 					lock (slock) {
 						isRunning = false;
+						args.IsStopEvent = true;
 					}
 					if (TargetSignaled != null)
 						TargetSignaled (this, args);
@@ -794,6 +823,7 @@ namespace Mono.Debugging.Client
 				case TargetEventType.TargetStopped:
 					lock (slock) {
 						isRunning = false;
+						args.IsStopEvent = true;
 					}
 					if (TargetStopped != null)
 						TargetStopped (this, args);
@@ -801,9 +831,18 @@ namespace Mono.Debugging.Client
 				case TargetEventType.UnhandledException:
 					lock (slock) {
 						isRunning = false;
+						args.IsStopEvent = true;
 					}
 					if (TargetUnhandledException != null)
 						TargetUnhandledException (this, args);
+					break;
+				case TargetEventType.ThreadStarted:
+					if (TargetThreadStarted != null)
+						TargetThreadStarted (this, args);
+					break;
+				case TargetEventType.ThreadStopped:
+					if (TargetThreadStopped != null)
+						TargetThreadStopped (this, args);
 					break;
 			}
 			if (TargetEvent != null)
