@@ -61,6 +61,7 @@ namespace Mono.Debugging.Soft
 		ExceptionEventRequest unhandledExceptionRequest;
 		string remoteProcessName;
 		Dictionary<long,long> localThreadIds = new Dictionary<long, long> ();
+		IConnectionDialog connectionDialog;
 		
 		Dictionary<long,ObjectMirror> activeExceptionsByThread = new Dictionary<long, ObjectMirror> ();
 		
@@ -91,7 +92,21 @@ namespace Mono.Debugging.Soft
 				throw new InvalidOperationException ("Already exited");
 			
 			var dsi = (SoftDebuggerStartInfo) startInfo;
-			var runtime = Path.Combine (Path.Combine (dsi.MonoRuntimePrefix, "bin"), "mono");
+			if (dsi.StartArgs is SoftDebuggerLaunchArgs) {
+				StartLaunching (dsi);
+			} else if (dsi.StartArgs is SoftDebuggerConnectArgs) {
+				StartConnecting (dsi);
+			} else if (dsi.StartArgs is SoftDebuggerListenArgs) {
+				StartListening (dsi);
+			} else {
+				throw new Exception (string.Format ("Unknown args: {0}", dsi.StartArgs));
+			}
+		}
+		
+		void StartLaunching (SoftDebuggerStartInfo dsi)
+		{
+			var args = (SoftDebuggerLaunchArgs) dsi.StartArgs;
+			var runtime = Path.Combine (Path.Combine (args.MonoRuntimePrefix, "bin"), "mono");
 			RegisterUserAssemblies (dsi.UserAssemblyNames);
 			
 			var psi = new System.Diagnostics.ProcessStartInfo (runtime) {
@@ -105,9 +120,9 @@ namespace Mono.Debugging.Soft
 			
 			LaunchOptions options = null;
 			
-			if (dsi.UseExternalConsole && dsi.ExternalConsoleLauncher != null) {
+			if (dsi.UseExternalConsole && args.ExternalConsoleLauncher != null) {
 				options = new LaunchOptions ();
-				options.CustomTargetProcessLauncher = dsi.ExternalConsoleLauncher;
+				options.CustomTargetProcessLauncher = args.ExternalConsoleLauncher;
 				psi.RedirectStandardOutput = false;
 				psi.RedirectStandardError = false;
 			}
@@ -118,10 +133,10 @@ namespace Mono.Debugging.Soft
 				options.AgentArgs = string.Format ("loglevel=1,logfile='{0}'", sdbLog);
 			}
 			
-			foreach (var env in dsi.MonoRuntimeEnvironmentVariables)
+			foreach (var env in args.MonoRuntimeEnvironmentVariables)
 				psi.EnvironmentVariables[env.Key] = env.Value;
 			
-			foreach (var env in startInfo.EnvironmentVariables)
+			foreach (var env in dsi.EnvironmentVariables)
 				psi.EnvironmentVariables[env.Key] = env.Value;
 			
 			if (!String.IsNullOrEmpty (dsi.LogMessage))
@@ -130,19 +145,36 @@ namespace Mono.Debugging.Soft
 			var callback = HandleConnectionCallbackErrors ((IAsyncResult ar) => {
 				ConnectionStarted (VirtualMachineManager.EndLaunch (ar));
 			});
-			ConnectionStarting (VirtualMachineManager.BeginLaunch (psi, callback, options), dsi);
+			ConnectionStarting (VirtualMachineManager.BeginLaunch (psi, callback, options), dsi, true, 0);
 		}
 		
 		/// <summary>Starts the debugger listening for a connection over TCP/IP</summary>
-		protected void StartListening (RemoteSoftDebuggerStartInfo dsi)
+		protected void StartListening (SoftDebuggerStartInfo dsi)
 		{
+			int dp, cp;
+			StartListening (dsi, out dp, out cp);
+		}
+		
+		/// <summary>Starts the debugger listening for a connection over TCP/IP</summary>
+		protected void StartListening (SoftDebuggerStartInfo dsi, out int assignedDebugPort)
+		{
+			int cp;
+			StartListening (dsi, out assignedDebugPort, out cp);
+		}
+		
+		/// <summary>Starts the debugger listening for a connection over TCP/IP</summary>
+		protected void StartListening (SoftDebuggerStartInfo dsi,
+			out int assignedDebugPort, out int assignedConsolePort)
+		{
+		
 			IPEndPoint dbgEP, conEP;
 			InitForRemoteSession (dsi, out dbgEP, out conEP);
 			
 			var callback = HandleConnectionCallbackErrors (delegate (IAsyncResult ar) {
 				ConnectionStarted (VirtualMachineManager.EndListen (ar));
 			});
-			ConnectionStarting (VirtualMachineManager.BeginListen (dbgEP, conEP, callback), dsi);
+			var a = VirtualMachineManager.BeginListen (dbgEP, conEP, callback, out assignedDebugPort, out assignedConsolePort);
+			ConnectionStarting (a, dsi, true, 0);
 		}
 
 		protected virtual bool ShouldRetryConnection (Exception ex, int attemptNumber)
@@ -155,9 +187,15 @@ namespace Mono.Debugging.Soft
 			return false;
 		}
 		
-		/// <summary>Starts the debugger connecting to a remote IP</summary>
-		protected void StartConnecting (RemoteSoftDebuggerStartInfo dsi, int maxAttempts, int timeBetweenAttempts)
+		protected void StartConnecting (SoftDebuggerStartInfo dsi)
 		{
+			var args = (SoftDebuggerConnectArgs) dsi.StartArgs;
+			StartConnecting (dsi, args.MaxConnectionAttempts, args.TimeBetweenConnectionAttempts);
+		}
+		
+		/// <summary>Starts the debugger connecting to a remote IP</summary>
+		protected void StartConnecting (SoftDebuggerStartInfo dsi, int maxAttempts, int timeBetweenAttempts)
+		{	
 			if (timeBetweenAttempts < 0 || timeBetweenAttempts > 10000)
 				throw new ArgumentException ("timeBetweenAttempts");
 			
@@ -172,7 +210,7 @@ namespace Mono.Debugging.Soft
 					return;
 				} catch (Exception ex) {
 					attemptNumber++;
-					if (!ShouldRetryConnection(ex, attemptNumber) || attemptNumber == maxAttempts || Exited) {
+					if (!ShouldRetryConnection (ex, attemptNumber) || attemptNumber == maxAttempts || Exited) {
 						OnConnectionError (ex);
 						return;
 					}
@@ -181,29 +219,31 @@ namespace Mono.Debugging.Soft
 					if (timeBetweenAttempts > 0)
 						System.Threading.Thread.Sleep (timeBetweenAttempts);
 					
-					ConnectionStarting (VirtualMachineManager.BeginConnect (dbgEP, conEP, callback), dsi);
+					ConnectionStarting (VirtualMachineManager.BeginConnect (dbgEP, conEP, callback), dsi, false, attemptNumber);
 					
 				} catch (Exception ex2) {
 					OnConnectionError (ex2);
 				}
 			};
 			
-			ConnectionStarting (VirtualMachineManager.BeginConnect (dbgEP, conEP, callback), dsi);
+			ConnectionStarting (VirtualMachineManager.BeginConnect (dbgEP, conEP, callback), dsi, false, 0);
 		}
 		
-		void InitForRemoteSession (RemoteSoftDebuggerStartInfo dsi, out IPEndPoint dbgEP, out IPEndPoint conEP)
+		void InitForRemoteSession (SoftDebuggerStartInfo dsi, out IPEndPoint dbgEP, out IPEndPoint conEP)
 		{
 			if (remoteProcessName != null)
 				throw new InvalidOperationException ("Cannot initialize connection more than once");
 			
-			remoteProcessName = dsi.AppName;
+			var args = (SoftDebuggerRemoteArgs) dsi.StartArgs;
+			
+			remoteProcessName = args.AppName;
 			if (string.IsNullOrEmpty (remoteProcessName))
 				remoteProcessName = "mono";
 			
 			RegisterUserAssemblies (dsi.UserAssemblyNames);
 			
-			dbgEP = new IPEndPoint (dsi.Address, dsi.DebugPort);
-			conEP = dsi.RedirectOutput? new IPEndPoint (dsi.Address, dsi.OutputPort) : null;
+			dbgEP = new IPEndPoint (args.Address, args.DebugPort);
+			conEP = args.RedirectOutput? new IPEndPoint (args.Address, args.OutputPort) : null;
 			
 			if (!String.IsNullOrEmpty (dsi.LogMessage))
 				LogWriter (false, dsi.LogMessage + "\n");
@@ -223,20 +263,6 @@ namespace Mono.Debugging.Soft
 		}
 		
 		/// <summary>
-		/// Called when the debugger starts connecting.
-		/// </summary>
-		protected virtual void OnConnectionStarting (DebuggerStartInfo dsi, bool retrying)
-		{
-		}
-		
-		/// <summary>
-		/// Called when the debugger succeeds connecting.
-		/// </summary>
-		protected virtual void OnConnectionStarted ()
-		{
-		}
-		
-		/// <summary>
 		/// Called if an error happens while making the connection. Default terminates the session.
 		/// </summary>
 		protected virtual void OnConnectionError (Exception ex)
@@ -251,17 +277,31 @@ namespace Mono.Debugging.Soft
 			}
 		}
 		
-		void ConnectionStarting (IAsyncResult connectionHandle, DebuggerStartInfo dsi) 
+		void ConnectionStarting (IAsyncResult connectionHandle, DebuggerStartInfo dsi, bool listening, int attemptNumber) 
 		{
-			if (this.connectionHandle != null && !this.connectionHandle.IsCompleted)
+			if (this.connectionHandle != null && (attemptNumber == 0 || !this.connectionHandle.IsCompleted))
 				throw new InvalidOperationException ("Already connecting");
-			bool retrying = this.connectionHandle != null;
+			
 			this.connectionHandle = connectionHandle;
-			OnConnectionStarting (dsi, retrying);
+			
+			if (ConnectionDialogCreator != null && attemptNumber == 0) {
+				connectionDialog = ConnectionDialogCreator ();
+				connectionDialog.UserCancelled += delegate {
+					EndSession ();
+				};
+			}
+			if (connectionDialog != null)
+				connectionDialog.SetMessage (dsi, GetConnectingMessage (dsi), listening, attemptNumber);
+		}
+		
+		protected virtual string GetConnectingMessage (DebuggerStartInfo dsi)
+		{
+			return null;
 		}
 		
 		void EndLaunch ()
 		{
+			HideConnectionDialog ();
 			if (connectionHandle != null) {
 				VirtualMachineManager.CancelConnection (connectionHandle);
 				connectionHandle = null;
@@ -279,6 +319,14 @@ namespace Mono.Debugging.Soft
 		
 		protected bool Exited {
 			get { return exited; }
+		}
+		
+		void HideConnectionDialog ()
+		{
+			if (connectionDialog != null) {
+				connectionDialog.Dispose ();
+				connectionDialog = null;
+			}
 		}
 		
 		/// <summary>
@@ -307,7 +355,7 @@ namespace Mono.Debugging.Soft
 			ConnectOutput (vm.StandardOutput, false);
 			ConnectOutput (vm.StandardError, true);
 			
-			OnConnectionStarted ();
+			HideConnectionDialog ();
 			
 			vm.EnableEvents (EventType.AssemblyLoad, EventType.TypeLoad, EventType.ThreadStart, EventType.ThreadDeath, EventType.AssemblyUnload);
 			try {
@@ -622,7 +670,6 @@ namespace Mono.Debugging.Soft
 			bi.Req = vm.SetBreakpoint (bi.Location.Method, bi.Location.ILOffset);
 			bi.Req.Enabled = bi.Enabled;
 			breakpoints [bi.Req] = bi;
-			OnBreakpointBound (bp, (BreakpointEventRequest) bi.Req);
 		}
 		
 		void InsertCatchpoint (Catchpoint cp, BreakInfo bi, TypeMirror excType)
@@ -630,10 +677,6 @@ namespace Mono.Debugging.Soft
 			var request = bi.Req = vm.CreateExceptionRequest (excType, true, true);
 			request.Count = cp.HitCount;
 			bi.Req.Enabled = bi.Enabled;
-		}
-
-		protected virtual void OnBreakpointBound (Breakpoint bp, BreakpointEventRequest request)
-		{
 		}
 		
 		Location FindLocation (string file, int line)
@@ -700,12 +743,10 @@ namespace Mono.Debugging.Soft
 				try {
 					EventSet e = vm.GetNextEventSet ();
 					if (e[0] is VMDeathEvent || e[0] is VMDisconnectEvent) {
-						OnVMDeathEvent ();
 						break;
 					}
 					HandleEventSet (e);
 				} catch (VMDisconnectedException ex) {
-					OnVMDeathEvent ();
 					if (!HandleException (ex))
 						OnDebuggerOutput (true, ex.ToString ());
 					break;
@@ -721,8 +762,13 @@ namespace Mono.Debugging.Soft
 		
 		protected override bool HandleException (Exception ex)
 		{
+			HideConnectionDialog ();
+			
 			if (ex is VMDisconnectedException)
 				ex = new DisconnectedException ();
+			else if (ex is SocketException)
+				ex = new DebugSocketException (ex);
+			
 			return base.HandleException (ex);
 		}
 		
@@ -768,15 +814,13 @@ namespace Mono.Debugging.Soft
 			if (dequeuing && exited)
 				return;
 			
-			OnHandleBreakEventSet (es);
-			
 			bool resume = true;
 			ObjectMirror exception = null;
 			TargetEventType etype = TargetEventType.TargetStopped;
 			BreakEvent breakEvent = null;
 			
 			if (es[0] is ExceptionEvent) {
-				var bad = es.First (ee => !(ee is ExceptionEvent));
+				var bad = es.FirstOrDefault (ee => !(ee is ExceptionEvent));
 				if (bad != null)
 					throw new Exception ("Catchpoint eventset had unexpected event type " + bad.GetType ());
 				var ev = (ExceptionEvent)es[0];
@@ -834,8 +878,6 @@ namespace Mono.Debugging.Soft
 		
 		void HandleEvent (Event e)
 		{
-			OnHandleEvent (e);
-			
 			if (e is AssemblyLoadEvent) {
 				AssemblyLoadEvent ae = (AssemblyLoadEvent)e;
 				bool isExternal = !UpdateAssemblyFilters (ae.Assembly) && userAssemblyNames != null;
@@ -879,7 +921,6 @@ namespace Mono.Debugging.Soft
 				var t = vm.RootDomain.Corlib.GetType ("System.Exception", false, false);
 				if (t != null)
 					ResolveBreakpoints (t);
-				OnVMStartEvent ((VMStartEvent) e);
 			}
 			else if (e is TypeLoadEvent) {
 				var t = ((TypeLoadEvent)e).Type;
@@ -887,7 +928,7 @@ namespace Mono.Debugging.Soft
 				string typeName = t.FullName;
 				
 				if (types.ContainsKey (typeName)) {
-					if (typeName != "System.Exception")
+					if (typeName != "System.Exception" && typeName != "<Module>")
 						LoggingService.LogError ("Type '" + typeName + "' loaded more than once", null);
 				} else {
 					ResolveBreakpoints (t);
@@ -907,22 +948,6 @@ namespace Mono.Debugging.Soft
 				args.Thread = new ThreadInfo (0, GetId (ts.Thread), ts.Thread.Name, null);
 				OnTargetEvent (args);
 			}
-		}
-
-		protected virtual void OnHandleBreakEventSet (Event[] events)
-		{
-		}
-
-		protected virtual void OnHandleEvent (Event e)
-		{
-		}
-
-		protected virtual void OnVMStartEvent (VMStartEvent e)
-		{
-		}
-
-		protected virtual void OnVMDeathEvent ()
-		{
 		}
 
 		public ObjectMirror GetExceptionObject (ThreadMirror thread)
@@ -1144,7 +1169,7 @@ namespace Mono.Debugging.Soft
 					if (PathComparer.Compare (PathToFileName (bp.FileName), s) == 0) {
 						Location l = GetLocFromType (t, s, bp.Line);
 						if (l != null) {
-							OnDebuggerOutput (false, string.Format ("Resolved pending breakpoint at '{0}:{1}' to {2}:{3}.\n",
+							OnDebuggerOutput (false, string.Format ("Resolved pending breakpoint at '{0}:{1}' to {2} [0x{3:x5}].\n",
 							                                        s, bp.Line, l.Method.FullName, l.ILOffset));
 							ResolvePendingBreakpoint (bp, l);
 							resolved.Add (bp);
@@ -1495,6 +1520,14 @@ namespace Mono.Debugging.Soft
 	{
 		public DisconnectedException ():
 			base ("The connection with the debugger has been lost. The target application may have exited.")
+		{
+		}
+	}
+	
+	class DebugSocketException: DebuggerException
+	{
+		public DebugSocketException (Exception ex):
+			base ("Could not open port for debugger. Another process may be using the port.", ex)
 		{
 		}
 	}

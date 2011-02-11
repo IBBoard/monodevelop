@@ -42,6 +42,7 @@ namespace Mono.Debugging.Client
 	public delegate string TypeResolverHandler (string identifier, SourceLocation location);
 	public delegate void BreakpointTraceHandler (BreakEvent be, string trace);
 	public delegate IExpressionEvaluator GetExpressionEvaluatorHandler (string extension);
+	public delegate IConnectionDialog ConnectionDialogCreator ();
 	
 	public abstract class DebuggerSession: IDisposable
 	{
@@ -54,6 +55,7 @@ namespace Mono.Debugging.Client
 		OutputWriterDelegate logWriter;
 		bool disposed;
 		bool attached;
+		bool ownedBreakpointStore;
 		object slock = new object ();
 		object olock = new object ();
 		ThreadInfo activeThread;
@@ -82,6 +84,7 @@ namespace Mono.Debugging.Client
 		public event EventHandler<TargetEventArgs> TargetEvent;
 		
 		public event EventHandler TargetStarted;
+		public event EventHandler<TargetEventArgs> TargetReady;
 		public event EventHandler<TargetEventArgs> TargetStopped;
 		public event EventHandler<TargetEventArgs> TargetInterrupted;
 		public event EventHandler<TargetEventArgs> TargetHitBreakpoint;
@@ -109,7 +112,8 @@ namespace Mono.Debugging.Client
 			Dispatch (delegate {
 				if (!disposed) {
 					disposed = true;
-					Breakpoints = null;
+					if (!ownedBreakpointStore)
+						Breakpoints = null;
 				}
 			});
 		}
@@ -118,6 +122,8 @@ namespace Mono.Debugging.Client
 			get { return exceptionHandler; }
 			set { exceptionHandler = value; }
 		}
+		
+		public ConnectionDialogCreator ConnectionDialogCreator { get; set; }
 		
 		public BreakpointTraceHandler BreakpointTraceHandler { get; set; }
 		
@@ -128,19 +134,19 @@ namespace Mono.Debugging.Client
 		public BreakpointStore Breakpoints {
 			get {
 				lock (slock) {
-					if (breakpointStore == null)
+					if (breakpointStore == null) {
 						Breakpoints = new BreakpointStore ();
+						ownedBreakpointStore = true;
+					}
 					return breakpointStore;
 				}
 			}
 			set {
 				lock (slock) {
 					if (breakpointStore != null) {
-						if (started) {
-							foreach (BreakEvent bp in breakpointStore) {
-								RemoveBreakEvent (bp);
-								Breakpoints.NotifyStatusChanged (bp);
-							}
+						foreach (BreakEvent bp in breakpointStore) {
+							RemoveBreakEvent (bp);
+							Breakpoints.NotifyStatusChanged (bp);
 						}
 						breakpointStore.BreakEventAdded -= OnBreakpointAdded;
 						breakpointStore.BreakEventRemoved -= OnBreakpointRemoved;
@@ -150,6 +156,7 @@ namespace Mono.Debugging.Client
 					}
 					
 					breakpointStore = value;
+					ownedBreakpointStore = false;
 					
 					if (breakpointStore != null) {
 						if (started) {
@@ -689,7 +696,7 @@ namespace Mono.Debugging.Client
 		Mono.Debugging.Evaluation.ExpressionEvaluator defaultResolver = new Mono.Debugging.Evaluation.NRefactoryEvaluator ();
 		Dictionary <string, IExpressionEvaluator> evaluators = new Dictionary <string, IExpressionEvaluator> ();
 
-		public IExpressionEvaluator FindExpressionEvaluator (StackFrame frame)
+		internal IExpressionEvaluator FindExpressionEvaluator (StackFrame frame)
 		{
 			if (GetExpressionEvaluator == null)
 				return null;
@@ -710,7 +717,7 @@ namespace Mono.Debugging.Client
 			return result;
 		}
 
-		public Mono.Debugging.Evaluation.ExpressionEvaluator GetResolver (StackFrame frame)
+		public Mono.Debugging.Evaluation.ExpressionEvaluator GetEvaluator (StackFrame frame)
 		{
 			IExpressionEvaluator result = FindExpressionEvaluator (frame);
 			if (result == null)
@@ -790,8 +797,6 @@ namespace Mono.Debugging.Client
 					lock (slock) {
 						isRunning = false;
 						started = false;
-						foreach (BreakEvent bp in Breakpoints)
-							Breakpoints.NotifyStatusChanged (bp);
 					}
 					if (TargetExited != null)
 						TargetExited (this, args);
@@ -836,6 +841,10 @@ namespace Mono.Debugging.Client
 					if (TargetUnhandledException != null)
 						TargetUnhandledException (this, args);
 					break;
+				case TargetEventType.TargetReady:
+					if (TargetReady != null)
+						TargetReady (this, args);
+					break;
 				case TargetEventType.ThreadStarted:
 					if (TargetThreadStarted != null)
 						TargetThreadStarted (this, args);
@@ -858,6 +867,12 @@ namespace Mono.Debugging.Client
 		
 		internal protected void OnStarted ()
 		{
+			OnStarted (null);
+		}
+		
+		internal protected virtual void OnStarted (ThreadInfo t)
+		{
+			OnTargetEvent (new TargetEventArgs (TargetEventType.TargetReady) { Thread = t });
 			lock (slock) {
 				started = true;
 				foreach (BreakEvent bp in breakpointStore)
@@ -1059,6 +1074,11 @@ namespace Mono.Debugging.Client
 			session.OnDebuggerOutput (isStderr, text);
 		}
 		
+		public void NotifyStarted (ThreadInfo t)
+		{
+			session.OnStarted (t);
+		}
+		
 		public void NotifyStarted ()
 		{
 			session.OnStarted ();
@@ -1087,5 +1107,13 @@ namespace Mono.Debugging.Client
 		public bool IsBusy { get; internal set; }
 		
 		public string Description { get; internal set; }
+	}
+	
+	public interface IConnectionDialog : IDisposable
+	{
+		event EventHandler UserCancelled;
+		
+		//message may be null in which case the dialog should construct a default
+		void SetMessage (DebuggerStartInfo dsi, string message, bool listening, int attemptNumber);
 	}
 }

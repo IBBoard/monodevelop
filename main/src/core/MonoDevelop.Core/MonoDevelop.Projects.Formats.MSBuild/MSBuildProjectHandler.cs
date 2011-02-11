@@ -805,8 +805,11 @@ namespace MonoDevelop.Projects.Formats.MSBuild
 				bool isDefaultVersion = isDefaultIdentifier && def.Version == moniker.Version;
 				bool isDefaultProfile = isDefaultVersion && def.Profile == moniker.Profile;
 				
+				//HACK: default needs to be format dependent, so always write it for now
+				isDefaultVersion = false;
+
 				// If the format only supports one fx version, or the version is the default, there is no need to store it
-				if (!isDefaultVersion && supportsMultipleFrameworks)
+				if (/*!isDefaultVersion &&*/ supportsMultipleFrameworks)
 					SetGroupProperty (globalGroup, "TargetFrameworkVersion", "v" + moniker.Version, false);
 				else
 					globalGroup.RemoveProperty ("TargetFrameworkVersion");
@@ -1030,13 +1033,17 @@ namespace MonoDevelop.Projects.Formats.MSBuild
 					buildItem.UnsetMetadata ("SpecificVersion");
 				
 				//RequiredTargetFramework is undocumented, maybe only a hint for VS. Only seems to be used for .NETFramework
-				if (pkg.TargetFramework.Identifier == TargetFrameworkMoniker.NET_2_0.Identifier) {
-					IList supportedFrameworks = TargetFormat.FrameworkVersions;
-					if (pkg != null && pkg.IsFrameworkPackage && supportedFrameworks.Contains (pkg.TargetFramework) && pkg.TargetFramework.Version != "2.0" && supportedFrameworks.Count > 1) {
-						TargetFramework fx = Runtime.SystemAssemblyService.GetTargetFramework (pkg.TargetFramework);
-						buildItem.SetMetadata ("RequiredTargetFramework", fx.Id.Version);
-					} else
-						buildItem.UnsetMetadata ("RequiredTargetFramework");
+				var dnp = pref.OwnerProject as DotNetProject;
+				IList supportedFrameworks = TargetFormat.FrameworkVersions;
+				if (dnp != null && pkg != null
+					&& dnp.TargetFramework.Id.Identifier == TargetFrameworkMoniker.ID_NET_FRAMEWORK
+					&& pkg.IsFrameworkPackage && supportedFrameworks.Contains (pkg.TargetFramework)
+					&& pkg.TargetFramework.Version != "2.0" && supportedFrameworks.Count > 1)
+				{
+					TargetFramework fx = Runtime.SystemAssemblyService.GetTargetFramework (pkg.TargetFramework);
+					buildItem.SetMetadata ("RequiredTargetFramework", fx.Id.Version);
+				} else {
+					buildItem.UnsetMetadata ("RequiredTargetFramework");
 				}
 				
 				string hintPath = (string) pref.ExtendedProperties ["_OriginalMSBuildReferenceHintPath"];

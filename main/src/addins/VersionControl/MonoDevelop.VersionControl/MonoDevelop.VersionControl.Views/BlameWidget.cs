@@ -300,7 +300,7 @@ namespace MonoDevelop.VersionControl.Views
 				do {
 					JumpOverFoldings (ref line);
 					line++;
-				} while (curY < editor.Allocation.Bottom && line + 1 <= overview.annotations.Count && ann != null && overview.annotations[line - 1] != null && overview.annotations[line - 1].Revision == ann.Revision);
+				} while (curY < editor.Allocation.Bottom && line <= overview.annotations.Count && ann != null && overview.annotations[line - 1] != null && overview.annotations[line - 1].Revision == ann.Revision);
 				curY = Editor.LineToY (line) - Editor.VAdjustment.Value;
 				
 				if (overview.highlightAnnotation != null) {
@@ -733,7 +733,7 @@ namespace MonoDevelop.VersionControl.Views
 							do {
 								widget.JumpOverFoldings (ref line);
 								line++;
-							} while (line + 1 <= annotations.Count && annotations[line - 1] != null && annotations[line - 1].Revision == ann.Revision);
+							} while (line <= annotations.Count && annotations[line - 1] != null && annotations[line - 1].Revision == ann.Revision);
 							double nextY = widget.editor.LineToY (line) - widget.editor.VAdjustment.Value;
 							if (highlightAnnotation != null && highlightAnnotation.Revision == ann.Revision && curStart <= highlightPositon && highlightPositon < nextY) {
 								cr.Rectangle (leftSpacer, curStart + cr.LineWidth, Allocation.Width - leftSpacer, nextY - curStart - cr.LineWidth);
