@@ -549,22 +549,6 @@ namespace MonoDevelop.VersionControl.Git
 			
 			return lineCount;
 		}
-
-		static int FillRemainingBlame (RevCommit[] lines, RevCommit commit)
-		{
-			int lineCount = 0;
-			
-			for (int n=0; n<lines.Length; n++) {
-				if (lines [n] == null) {
-					lines [n] = commit;
-					lineCount++;
-				}
-			}
-			
-			return lineCount;
-		}
-
-
 		
 		public static MergeCommandResult MergeTrees (NGit.Repository repo, RevCommit srcBase, RevCommit srcCommit, string sourceDisplayName, bool commitResult)
 		{
