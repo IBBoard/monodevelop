@@ -69,8 +69,12 @@ namespace MonoDevelop.VersionControl.Git
 			blames.Add (new BlameFragment (30, 5, "b6e41ee2"));
 			blames.Add(new BlameFragment(35, 2, "a78c32a5"));
 			blames.Add(new BlameFragment(37, 2, "927ca9cd"));
-			blames.Add(new BlameFragment(39, 2, "a78c32a5"));
-			blames.Add(new BlameFragment(41, 6, "b6e41ee2"));
+			//The following two are correct according to "git blame", but according to a "git diff" of the two lines
+			//then the uncommented lines are correct (and pass the test)
+			//blames.Add(new BlameFragment(39, 2, "a78c32a5"));
+			//blames.Add(new BlameFragment(41, 6, "b6e41ee2"));
+			blames.Add(new BlameFragment(39, 1, "a78c32a5"));
+			blames.Add(new BlameFragment(40, 7, "b6e41ee2"));
 			blames.Add(new BlameFragment(47, 1, "927ca9cd"));
 			blames.Add(new BlameFragment(48, 3, "b6e41ee2"));
 			blames.Add(new BlameFragment(51, 2, "15ed2793"));
@@ -85,6 +89,36 @@ namespace MonoDevelop.VersionControl.Git
 			blames.Add(new BlameFragment(69, 4, "b6e41ee2"));
 			
 			CompareBlames (blameCommits, blames);
+		}
+		
+		[Test()]
+		public void TestBlameRevisionsWithTwoCommits ()
+		{
+			string commit1 = "b6e41ee2dd00e8744abc4835567e06667891b2cf";
+			string commit2 = "15ed279";
+			RevCommit[] blameCommits = GetBlameForFixedFile (commit2);
+			List<BlameFragment> blames = new List<BlameFragment> ();
+			blames.Add (new BlameFragment (1, 27, commit1));
+			blames.Add (new BlameFragment (28, 1, commit2));
+			blames.Add (new BlameFragment (29, 5, commit1));
+			blames.Add (new BlameFragment (34, 1, commit2));
+			blames.Add (new BlameFragment (35, 7, commit1));
+			blames.Add (new BlameFragment (42, 1, commit2));
+			blames.Add (new BlameFragment (43, 3, commit1));
+			blames.Add (new BlameFragment (46, 10, commit2));
+			blames.Add (new BlameFragment (56, 2, commit1));
+			blames.Add (new BlameFragment (58, 1, commit2));
+			blames.Add (new BlameFragment (59, 4, commit1));
+			blames.Add (new BlameFragment (63, 1, commit2));
+			blames.Add (new BlameFragment (64, 4, commit1));
+			CompareBlames (blameCommits, blames);
+		}
+		
+		[Test()]
+		public void TestBlameLineCountWithTwoCommits ()
+		{
+			RevCommit[] blameCommits = GetBlameForFixedFile ("15ed279");
+			Assert.That (blameCommits.Length, Is.EqualTo (67));
 		}
 		
 		[Test()]
