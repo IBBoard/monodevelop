@@ -1877,7 +1877,7 @@ namespace Mono.CSharp {
 			// Use string.Empty for both literals and constants even if
 			// it's not allowed at language level
 			//
-			if (Value.Length == 0 && RootContext.Optimize && ec.CurrentType != TypeManager.string_type) {
+			if (Value.Length == 0 && ec.Module.Compiler.Settings.Optimize && ec.CurrentType != TypeManager.string_type) {
 				if (TypeManager.string_empty == null)
 					TypeManager.string_empty = TypeManager.GetPredefinedField (TypeManager.string_type, "Empty", loc, TypeManager.string_type);
 
@@ -2109,7 +2109,13 @@ namespace Mono.CSharp {
 		public override Constant ConvertExplicitly (bool in_checked_context, TypeSpec target_type)
 		{
 			Constant new_value = value.ConvertExplicitly (in_checked_context, target_type);
-			return new_value == null ? null : new SideEffectConstant (new_value, side_effect, new_value.Location);
+			if (new_value == null)
+				return null;
+
+			var c = new SideEffectConstant (new_value, side_effect, new_value.Location);
+			c.type = target_type;
+			c.eclass = eclass;
+			return c;
 		}
 	}
 }

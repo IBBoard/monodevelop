@@ -1,10 +1,10 @@
 // 
-// AbstractMember.cs
+// NamedArgumentExpression.cs
 //  
 // Author:
 //       Mike Krüger <mkrueger@novell.com>
 // 
-// Copyright (c) 2009 Novell, Inc (http://www.novell.com)
+// Copyright (c) 2011 Novell, Inc (http://www.novell.com)
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -23,38 +23,33 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
+using System;
 
 namespace MonoDevelop.CSharp.Ast
 {
-	public abstract class AbstractMember : AbstractMemberBase
+	/// <summary>
+	/// Represents a named argument passed to a method or attribute.
+	/// </summary>
+	public class NamedArgumentExpression : Expression
 	{
-		const int PrivateImplementationTypeRole = 100;
-		
-		public AstNode ReturnType {
+		public string Identifier {
 			get {
-				return GetChildByRole (Roles.ReturnType) ?? AstNode.Null;
+				return GetChildByRole (Roles.Identifier).Name;
+			}
+			set {
+				SetChildByRole(Roles.Identifier, new Identifier(value, AstLocation.Empty));
 			}
 		}
 		
-		/// <summary>
-		/// Only supported on members that can be declared in an interface.
-		/// </summary>
-		public AstNode PrivateImplementationType {
-			get {
-				return GetChildByRole (PrivateImplementationTypeRole) ?? AstNode.Null;
-			}
+		public Expression Expression {
+			get { return GetChildByRole (Roles.Expression); }
+			set { SetChildByRole (Roles.Expression, value); }
 		}
 		
-		public Identifier NameIdentifier {
-			get {
-				return (Identifier)GetChildByRole (Roles.Identifier) ?? Identifier.Null;
-			}
-		}
-		
-		public string Name {
-			get {
-				return NameIdentifier.Name;
-			}
+		public override S AcceptVisitor<T, S>(IAstVisitor<T, S> visitor, T data)
+		{
+			return visitor.VisitNamedArgumentExpression(this, data);
 		}
 	}
 }
+

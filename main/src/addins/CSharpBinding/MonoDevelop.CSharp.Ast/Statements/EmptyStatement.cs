@@ -28,32 +28,29 @@ using MonoDevelop.Projects.Dom;
 
 namespace MonoDevelop.CSharp.Ast
 {
-	public class EmptyStatement : AstNode
+	/// <summary>
+	/// ;
+	/// </summary>
+	public class EmptyStatement : Statement
 	{
-		public override NodeType NodeType {
-			get {
-				return NodeType.Statement;
-			}
-		}
-
-		public DomLocation Location {
+		public AstLocation Location {
 			get;
 			set;
 		}
 		
-		public override DomLocation StartLocation {
+		public override AstLocation StartLocation {
 			get {
 				return Location;
 			}
 		}
 		
-		public override DomLocation EndLocation {
+		public override AstLocation EndLocation {
 			get {
-				return new DomLocation (Location.Line, Location.Column);
+				return new AstLocation (Location.Line, Location.Column);
 			}
 		}
 		
-		public override S AcceptVisitor<T, S> (AstVisitor<T, S> visitor, T data)
+		public override S AcceptVisitor<T, S> (IAstVisitor<T, S> visitor, T data)
 		{
 			return visitor.VisitEmptyStatement (this, data);
 		}

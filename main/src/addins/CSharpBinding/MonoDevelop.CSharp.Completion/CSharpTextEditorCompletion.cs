@@ -680,6 +680,17 @@ namespace MonoDevelop.CSharp.Completion
 							CompletionDataList dataList = CreateCtrlSpaceCompletionData (completionContext, result);
 							dataList.AutoSelect = autoSelect;
 							return dataList;
+						} else {
+							result = FindExpression (dom, completionContext, 0);
+							result.ExpressionContext = ExpressionContext.IdentifierExpected;
+							result.Expression = "";
+							result.Region = DomRegion.Empty;
+							
+							// identifier has already started with the first letter
+							completionContext.TriggerOffset--;
+							completionContext.TriggerLineOffset--;
+							completionContext.TriggerWordLength = 1;
+							return CreateCtrlSpaceCompletionData (completionContext, result);
 						}
 					}
 				}
@@ -1503,11 +1514,14 @@ namespace MonoDevelop.CSharp.Completion
 			CompletionDataCollector col = new CompletionDataCollector (dom, result, Document.CompilationUnit, resolver != null ? resolver.CallingType : null, location);
 			col.HideExtensionParameter = !resolveResult.StaticResolve;
 			col.NamePrefix = expressionResult.Expression;
+			bool showOnlyTypes = expressionResult.Contexts.Any (ctx => ctx == ExpressionContext.InheritableType || ctx == ExpressionContext.Constraints);
 			if (objects != null) {
 				foreach (object obj in objects) {
 					if (expressionResult.ExpressionContext != null && expressionResult.ExpressionContext.FilterEntry (obj))
 						continue;
 					if (expressionResult.ExpressionContext == ExpressionContext.NamespaceNameExcepted && !(obj is Namespace))
+						continue;
+					if (showOnlyTypes && !(obj is IType))
 						continue;
 					CompletionData data = col.Add (obj);
 					if (data != null && expressionResult.ExpressionContext == ExpressionContext.Attribute && data.CompletionText != null && data.CompletionText.EndsWith ("Attribute")) {
@@ -1608,6 +1622,14 @@ namespace MonoDevelop.CSharp.Completion
 				type = dom.GetType (returnType);
 			if (type == null)
 				type = dom.SearchType (Document.CompilationUnit, (MonoDevelop.Projects.Dom.INode)Document.CompilationUnit ?? callingType, returnTypeUnresolved);
+			
+			// special handling for nullable types: Bug 674516 - new completion for nullables should not include "Nullable"
+			if (type is InstantiatedType && ((InstantiatedType)type).UninstantiatedType.FullName == "System.Nullable" && ((InstantiatedType)type).GenericParameters.Count == 1) {
+				var genericParameter = ((InstantiatedType)type).GenericParameters[0];
+				returnType = returnTypeUnresolved = Document.CompilationUnit.ShortenTypeName (genericParameter, location);
+				type = dom.SearchType (Document.CompilationUnit, (MonoDevelop.Projects.Dom.INode)Document.CompilationUnit ?? callingType, genericParameter);
+			}
+			
 			if (type == null || !(type.IsAbstract || type.ClassType == ClassType.Interface)) {
 				if (type == null || type.ConstructorCount == 0 || type.Methods.Any (c => c.IsConstructor && c.IsAccessibleFrom (dom, callingType, type, callingType != null && dom.GetInheritanceTree (callingType).Any (x => x.FullName == type.FullName)))) {
 					if (returnTypeUnresolved != null) {
@@ -1631,12 +1653,12 @@ namespace MonoDevelop.CSharp.Completion
 			//				} 
 			//			else {
 			//			}
-
 			if (type == null)
 				return result;
 			HashSet<string> usedNamespaces = new HashSet<string> (GetUsedNamespaces ());
 			if (type.FullName == DomReturnType.Object.FullName) 
 				AddPrimitiveTypes (col);
+			
 			foreach (IType curType in dom.GetSubclasses (type)) {
 				if (context != null && context.FilterEntry (curType))
 					continue;
@@ -1776,6 +1798,7 @@ namespace MonoDevelop.CSharp.Completion
 			resolver.SetupResolver (cursorLocation);
 			CompletionDataList result = new ProjectDomCompletionDataList ();
 			CompletionDataCollector col = new CompletionDataCollector (dom, result, Document.CompilationUnit, resolver.CallingType, cursorLocation);
+			
 			if (expressionResult == null) {
 				AddPrimitiveTypes (col);
 				resolver.AddAccessibleCodeCompletionData (ExpressionContext.Global, col);
@@ -1887,11 +1910,16 @@ namespace MonoDevelop.CSharp.Completion
 					if (type == null) 
 						type = resolver.SearchType (attributeName);
 					if (type != null) {
-						foreach (IProperty property in type.Properties) {
+						foreach (var property in type.Properties) {
 							col.Add (property);
+						}
+						foreach (var field in type.Fields) {
+							if (field.IsPublic)
+								col.Add (field);
 						}
 					}
 				}
+				resolver.AddAccessibleCodeCompletionData (expressionResult.ExpressionContext, col);
 			} else if (expressionResult.ExpressionContext == ExpressionContext.IdentifierExpected) {
 				if (!string.IsNullOrEmpty (expressionResult.Expression))
 					expressionResult.Expression = expressionResult.Expression.Trim ();
@@ -1978,7 +2006,7 @@ namespace MonoDevelop.CSharp.Completion
 				var declaringType = resolver.CallingType;
 				if (declaringType != null && dom != null) {
 					foreach (IType t in new List<IType>(dom.GetInheritanceTree (declaringType))) {
-						if (t.SearchMember (type.Name, true).Any (m => m.MemberType != MemberType.Type)) {
+						if (t.SearchMember (type.Name, true).Any (m => m.MemberType != MonoDevelop.Projects.Dom.MemberType.Type)) {
 							flags |= OutputFlags.UseFullName;
 							break;
 						}

@@ -191,6 +191,15 @@ namespace MonoDevelop.MonoDroid
 		{
 			var conf = new MonoDroidProjectConfiguration (name);
 			conf.CopyFrom (base.CreateConfiguration (name));
+
+			if (conf.Name.IndexOf ("debug", StringComparison.OrdinalIgnoreCase) > -1) {
+				conf.AndroidUseSharedRuntime = true;
+				conf.MonoDroidLinkMode = MonoDroidLinkMode.None;
+			} else {
+				conf.AndroidUseSharedRuntime = false;
+				conf.MonoDroidLinkMode = MonoDroidLinkMode.Full;
+			}
+
 			return conf;
 		}
 		
@@ -661,7 +670,7 @@ namespace MonoDevelop.MonoDroid
 			}
 			
 			//no name in manifest, use same default package name as GetAndroidPackageName MSBuild task
-			var name = conf.CompiledOutputName.FileNameWithoutExtension.Replace (" ", "").ToLowerInvariant ();
+			var name = conf.CompiledOutputName.FileNameWithoutExtension.Replace (" ", "");
 			if (name.Contains ("."))
 				return name;
 			else

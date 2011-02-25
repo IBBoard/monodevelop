@@ -134,8 +134,12 @@ namespace MonoDevelop.CSharp.Parser
 				conversionVisitor.Unit = unit;
 				top.UsingsBag.Global.Accept (conversionVisitor);
 				top.ModuleCompiled.Accept (conversionVisitor);
-				
-				unit.Tag = CSharpParser.Parse (top);
+				/*
+				try {
+					unit.Tag = CSharpParser.Parse (top);
+				} catch (Exception ex) {
+					System.Console.WriteLine (ex);
+				}*/
 				
 				// parser errors
 				errorReportPrinter.Errors.ForEach (e => conversionVisitor.ParsedDocument.Add (e));
@@ -370,7 +374,7 @@ namespace MonoDevelop.CSharp.Parser
 				}
 			}
 			
-			IReturnType ConvertReturnType (Expression typeName)
+			IReturnType ConvertReturnType (Mono.CSharp.Expression typeName)
 			{
 				if (typeName is TypeExpression) {
 					var typeExpr = (Mono.CSharp.TypeExpression)typeName;

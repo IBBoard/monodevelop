@@ -166,6 +166,7 @@ namespace MonoDevelop.Platform
 			CommandManager.ToCommandId (HelpCommands.About),
 			CommandManager.ToCommandId (EditCommands.DefaultPolicies),
 			CommandManager.ToCommandId (EditCommands.MonodevelopPreferences),
+			CommandManager.ToCommandId (ToolCommands.AddinManager),
 			CommandManager.ToCommandId (FileCommands.Exit),
 		};
 		
@@ -217,8 +218,9 @@ namespace MonoDevelop.Platform
 			
 			//mac-ify these command names
 			commandManager.GetCommand (EditCommands.MonodevelopPreferences).Text = GettextCatalog.GetString ("Preferences...");
-			commandManager.GetCommand (EditCommands.DefaultPolicies).Text = GettextCatalog.GetString ("Default Policies...");
+			commandManager.GetCommand (EditCommands.DefaultPolicies).Text = GettextCatalog.GetString ("Custom Policies...");
 			commandManager.GetCommand (HelpCommands.About).Text = GettextCatalog.GetString ("About MonoDevelop");
+			commandManager.GetCommand (ToolCommands.AddinManager).Text = GettextCatalog.GetString ("Add-in Manager...");
 			
 			initedApp = true;
 			OSXIntegration.OSXMenu.SetAppQuitCommand (CommandManager.ToCommandId (FileCommands.Exit));
@@ -226,8 +228,9 @@ namespace MonoDevelop.Platform
 				commandManager,
 			    CommandManager.ToCommandId (HelpCommands.About),
 				CommandManager.ToCommandId (Command.Separator),
+				CommandManager.ToCommandId (EditCommands.MonodevelopPreferences),
 				CommandManager.ToCommandId (EditCommands.DefaultPolicies),
-				CommandManager.ToCommandId (EditCommands.MonodevelopPreferences));
+				CommandManager.ToCommandId (ToolCommands.AddinManager));
 			
 			IdeApp.Workbench.RootWindow.DeleteEvent += HandleDeleteEvent;
 		}
@@ -263,6 +266,19 @@ namespace MonoDevelop.Platform
 					e.Handled = true;
 				};
 				
+				if (!System.Reflection.Assembly.GetExecutingAssembly ().Location.Contains ("MonoDevelop.app")) {
+					var icons = Path.Combine (Directory.GetCurrentDirectory (), "theme-icons", "Mac", "monodevelop.icns");
+
+					if (File.Exists (icons)) {
+						var tile = NSApplication.SharedApplication.DockTile;
+						var view = new NSImageView (new System.Drawing.RectangleF (0, 0, tile.Size.Width, tile.Size.Height)) {
+							Image = new NSImage (icons)
+						};
+
+						tile.ContentView = view;
+						tile.Display ();
+					}
+				}
 			} catch (Exception ex) {
 				MonoDevelop.Core.LoggingService.LogError ("Could not install app event handlers", ex);
 				setupFail = true;

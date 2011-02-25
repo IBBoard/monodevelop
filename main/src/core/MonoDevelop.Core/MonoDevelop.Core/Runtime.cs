@@ -67,13 +67,22 @@ namespace MonoDevelop.Core
 			
 			try {
 				Counters.RuntimeInitialization.Trace ("Initializing Addin Manager");
-				AddinManager.Initialize (MonoDevelop.Core.PropertyService.ConfigPath);
+				AddinManager.Initialize (
+					PropertyService.Locations.Config,
+					PropertyService.Locations.Addins,
+					PropertyService.Locations.Cache);
 				AddinManager.InitializeDefaultLocalizer (new DefaultAddinLocalizer ());
 				
 				if (updateAddinRegistry)
 					AddinManager.Registry.Update (null);
 				setupService = new SetupService (AddinManager.Registry);
 				Counters.RuntimeInitialization.Trace ("Initialized Addin Manager");
+				
+				//have to do this after the addin service is initialized
+				if (UserDataMigrationService.HasSource) {
+					Counters.RuntimeInitialization.Trace ("Migrating User Data from MD " + UserDataMigrationService.SourceVersion);
+					UserDataMigrationService.StartMigration ();
+				}
 				
 				RegisterAddinRepositories ();
 				
@@ -98,8 +107,9 @@ namespace MonoDevelop.Core
 			string stableUrl = GetRepoUrl ("Stable");
 			string betaUrl = GetRepoUrl ("Beta");
 			string alphaUrl = GetRepoUrl ("Alpha");
+			string testUrl = GetRepoUrl ("Test");
 			
-			IList validUrls = new string[] { stableUrl, betaUrl, alphaUrl };
+			IList validUrls = new string[] { stableUrl, betaUrl, alphaUrl, testUrl };
 			
 			// Remove old repositories
 			
@@ -113,9 +123,20 @@ namespace MonoDevelop.Core
 			}
 			
 			if (!reps.ContainsRepository (stableUrl)) {
-				// Add the stable and beta channels. Don't add alpha.
-				reps.RegisterRepository (null, stableUrl, false);
-				reps.RegisterRepository (null, betaUrl, false);
+				var rep = reps.RegisterRepository (null, stableUrl, false);
+				rep.Name = "MonoDevelop Add-in Repository";
+				rep = reps.RegisterRepository (null, betaUrl, false);
+				rep.Name = "MonoDevelop Add-in Repository (Beta channel)";
+			}
+			if (!reps.ContainsRepository (betaUrl)) {
+				var rep = reps.RegisterRepository (null, betaUrl, false);
+				rep.Name = "MonoDevelop Add-in Repository (Beta channel)";
+				reps.SetRepositoryEnabled (betaUrl, false);
+			}
+			if (!reps.ContainsRepository (alphaUrl)) {
+				var rep = reps.RegisterRepository (null, alphaUrl, false);
+				rep.Name = "MonoDevelop Add-in Repository (Alpha channel)";
+				reps.SetRepositoryEnabled (alphaUrl, false);
 			}
 		}
 		

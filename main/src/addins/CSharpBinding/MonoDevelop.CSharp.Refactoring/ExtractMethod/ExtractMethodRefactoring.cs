@@ -361,10 +361,11 @@ namespace MonoDevelop.CSharp.Refactoring.ExtractMethod
 			if (param.OneChangedVariable) {
 				var resultVariable = param.Variables.First (p => p.IsDefinedInsideCutRegion && p.UsedAfterCutRegion);
 				if (resultVariable.IsDefinedInsideCutRegion) {
-					var s = resultVariable.Declaration.ReturnType.StartLocation;
-					var e = resultVariable.Declaration.ReturnType.EndLocation;
+					var s = resultVariable.Declaration.Type.StartLocation;
+					var e = resultVariable.Declaration.Type.EndLocation;
 					sb.Append (options.Document.Editor.GetTextBetween (s.Line, s.Column, e.Line, e.Column) + " ");
 				}
+				
 				sb.Append (resultVariable.Name);
 				sb.Append (" = ");
 			}
@@ -425,14 +426,12 @@ namespace MonoDevelop.CSharp.Refactoring.ExtractMethod
 		{
 			StringBuilder methodText = new StringBuilder ();
 			string indent = options.GetIndent (param.DeclaringMember);
-			
 			if (param.InsertionPoint != null) {
 				switch (param.InsertionPoint.LineBefore) {
 				case NewLineInsertion.Eol:
 					methodText.AppendLine ();
 					break;
 				case NewLineInsertion.BlankLine:
-					methodText.AppendLine ();
 					methodText.Append (indent);
 					methodText.AppendLine ();
 					break;
@@ -498,6 +497,9 @@ namespace MonoDevelop.CSharp.Refactoring.ExtractMethod
 				case NewLineInsertion.BlankLine:
 					methodText.AppendLine ();
 					methodText.Append (indent);
+					methodText.AppendLine ();
+					break;
+				case NewLineInsertion.None:
 					methodText.AppendLine ();
 					break;
 				}

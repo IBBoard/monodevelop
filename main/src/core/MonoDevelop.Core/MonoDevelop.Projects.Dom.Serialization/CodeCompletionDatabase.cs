@@ -113,6 +113,11 @@ namespace MonoDevelop.Projects.Dom.Serialization
 				AddNamespace (ce.Namespace);
 			}
 		}
+		
+		public virtual string GetDocumentation (IMember member)
+		{
+			return member != null ? member.Documentation : null;
+		}
 
 		public void AddNamespace (string nsName)
 		{
@@ -306,7 +311,7 @@ namespace MonoDevelop.Projects.Dom.Serialization
 					}
 				}
 				
-				int totalEntries = classEntries.Count;
+				int totalEntries = typeEntries.Count;
 				Counters.TypeIndexEntries.Inc (totalEntries);
 				
 				if (verify) {
@@ -553,7 +558,7 @@ namespace MonoDevelop.Projects.Dom.Serialization
 			
 			dataFileStream.Position = globalAttributesPosition;
 			INameDecoder nd = pdb.CreateNameDecoder ();
-			DomPersistence.ReadAttributeEntryList (datareader, nd);
+			DomPersistence.ReadAttributeEntryList (datareader, nd, sourceProjectDom);
 		}
 		
 		void WriteGlobalAttribtues (BinaryWriter writer)
@@ -615,7 +620,7 @@ namespace MonoDevelop.Projects.Dom.Serialization
 					return null;
 				dataFileStream.Position = ce.Position;
 				datareader.ReadInt32 ();// Length of data
-				DomType cls = DomPersistence.ReadType (datareader, pdb.CreateNameDecoder ());
+				DomType cls = DomPersistence.ReadType (datareader, pdb.CreateNameDecoder (), SourceProjectDom);
 				cls.SourceProjectDom = SourceProjectDom;
 				cls.Resolved = true;
 				ce.Class = cls;

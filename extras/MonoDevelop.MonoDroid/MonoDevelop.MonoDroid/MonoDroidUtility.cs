@@ -172,12 +172,16 @@ namespace MonoDevelop.MonoDroid
 	public class MonoDroidUploadOperation : IAsyncOperation
 	{
 		ChainedAsyncOperationSequence chop;
+		const int RuntimeVersion = 1;
 		
 		public MonoDroidUploadOperation (IProgressMonitor monitor, AndroidDevice device, FilePath packageFile, string packageName,
 			IAsyncOperation signingOperation, bool replaceIfExists)
 		{
 			var toolbox = MonoDroidFramework.Toolbox;
-			List<string> packages = null;
+			var project = DefaultUploadToDeviceHandler.GetActiveExecutableMonoDroidProject ();
+			var conf = (MonoDroidProjectConfiguration) project.GetConfiguration (IdeApp.Workspace.ActiveConfiguration);
+			int apiLevel = MonoDroidFramework.FrameworkVersionToApiLevel (project.TargetFramework.Id.Version);
+			PackageList list = null;
 			
 			replaceIfExists = replaceIfExists || signingOperation != null;
 			
@@ -192,12 +196,24 @@ namespace MonoDevelop.MonoDroid
 				new ChainedAsyncOperation<AdbGetPackagesOperation> () {
 					TaskName = GettextCatalog.GetString ("Getting package list from device"),
 					Create = () => new AdbGetPackagesOperation (device),
-					Completed = op => packages = op.Packages,
+					Completed = op => list = op.PackageList,
 					ErrorMessage = GettextCatalog.GetString ("Failed to get package list")
 				},
 				new ChainedAsyncOperation () {
+					TaskName = GettextCatalog.GetString ("Uninstalling old version of shared runtime package"),
+					Skip = () => !conf.AndroidUseSharedRuntime || list.GetOldRuntimesAndPlatforms (apiLevel, RuntimeVersion).Count () == 0 ? 
+						"" : null,
+					Create = () => { // Cleanup task, no need to wait for it
+						foreach (InstalledPackage oldPackage in list.GetOldRuntimesAndPlatforms (apiLevel, RuntimeVersion))
+							toolbox.Uninstall (device, oldPackage.Name, monitor.Log, monitor.Log);
+						return Core.Execution.NullProcessAsyncOperation.Success;
+					},
+					ErrorMessage = GettextCatalog.GetString ("Failed to uninstall package")
+				},
+				new ChainedAsyncOperation () {
 					TaskName = GettextCatalog.GetString ("Installing shared runtime package on device"),
-					Skip = () => toolbox.IsSharedRuntimeInstalled (packages)? "" : null,
+					Skip = () => !conf.AndroidUseSharedRuntime || list.IsCurrentRuntimeInstalled (RuntimeVersion) ? 
+						"" : null,
 					Create = () => {
 						var pkg = MonoDroidFramework.SharedRuntimePackage;
 						if (!File.Exists (pkg)) {
@@ -211,8 +227,24 @@ namespace MonoDevelop.MonoDroid
 					ErrorMessage = GettextCatalog.GetString ("Failed to install shared runtime package")
 				},
 				new ChainedAsyncOperation () {
+					TaskName = GettextCatalog.GetString ("Installing the platform framework"),
+					Skip = () => !conf.AndroidUseSharedRuntime || list.IsCurrentPlatformInstalled (apiLevel, RuntimeVersion) ? 
+						"" : null,
+					Create = () => {
+						var platformApk = MonoDroidFramework.GetPlatformPackage (apiLevel);
+						if (!File.Exists (platformApk)) {
+							var msg = GettextCatalog.GetString ("Could not find platform package file");
+							monitor.ReportError (msg, null);
+							LoggingService.LogError ("{0} '{1}'", msg, platformApk);
+							return null;
+						}
+						return toolbox.Install (device, platformApk, monitor.Log, monitor.Log);
+					},
+					ErrorMessage = GettextCatalog.GetString ("Failed to install the platform framework")
+				},
+				new ChainedAsyncOperation () {
 					TaskName = GettextCatalog.GetString ("Uninstalling old version of package"),
-					Skip = () => (!replaceIfExists || !packages.Contains (packageName))? "" : null,
+					Skip = () => (!replaceIfExists || !list.ContainsPackage (packageName))? "" : null,
 					Create = () => toolbox.Uninstall (device, packageName, monitor.Log, monitor.Log),
 					ErrorMessage = GettextCatalog.GetString ("Failed to uninstall package")
 				},
@@ -223,7 +255,7 @@ namespace MonoDevelop.MonoDroid
 					ErrorMessage = GettextCatalog.GetString ("Package signing failed"),
 				},
 				new ChainedAsyncOperation () {
-					Skip = () => (packages.Contains (packageName) && !replaceIfExists)
+					Skip = () => (list.ContainsPackage (packageName) && !replaceIfExists)
 						? GettextCatalog.GetString ("Package is already up to date") : null,
 					TaskName = GettextCatalog.GetString ("Installing package"),
 					Create = () => toolbox.Install (device, packageFile, monitor.Log, monitor.Log),

@@ -92,7 +92,7 @@ namespace Mono.TextEditor
 			}
 		}
 		
-		protected IMMulticontext IMContext {
+		protected internal IMMulticontext IMContext {
 			get { return imContext; }
 		}
 		
@@ -283,12 +283,27 @@ namespace Mono.TextEditor
 				this.textViewMargin.ForceInvalidateLine (Caret.Line);
 				this.textEditorData.Document.CommitLineUpdate (Caret.Line);
 			};
+			
 			imContext.PreeditChanged += delegate(object sender, EventArgs e) {
 				if (preeditOffset >= 0) {
 					imContext.GetPreeditString (out preeditString, out preeditAttrs, out preeditCursorPos);
 					this.textViewMargin.ForceInvalidateLine (Caret.Line);
 					this.textEditorData.Document.CommitLineUpdate (Caret.Line);
 				}
+			};
+			
+			imContext.RetrieveSurrounding += delegate (object o, RetrieveSurroundingArgs args) {
+				//use a single line of context, whole document would be very expensive
+				//FIXME: UTF16 surrogates handling for caret offset? only matters for astral plane
+				imContext.SetSurrounding (Document.GetLineText (Caret.Line, false), Caret.Column);
+				args.RetVal = true;
+			};
+			
+			imContext.SurroundingDeleted += delegate (object o, SurroundingDeletedArgs args) {
+				//FIXME: UTF16 surrogates handling for offset and NChars? only matters for astral plane
+				var line = Document.GetLine (Caret.Line);
+				((IBuffer)Document).Remove (line.Offset + args.Offset, args.NChars);
+				args.RetVal = true;
 			};
 			
 			using (Pixmap inv = new Pixmap (null, 1, 1, 1)) {
@@ -330,6 +345,18 @@ namespace Mono.TextEditor
 		internal string preeditString;
 		internal Pango.AttrList preeditAttrs;
 		
+		public int PreeditOffset {
+			get {
+				return this.preeditOffset;
+			}
+		}
+
+		public string PreeditString {
+			get {
+				return this.preeditString;
+			}
+		}
+
 		void CaretPositionChanged (object sender, DocumentLocationEventArgs args) 
 		{
 			HideTooltip ();
@@ -421,7 +448,7 @@ namespace Mono.TextEditor
 			OnSelectionChanged (EventArgs.Empty);
 		}
 		
-		void ResetIMContext ()
+		internal void ResetIMContext ()
 		{
 			if (imContextActive) {
 				imContext.Reset ();
@@ -2040,11 +2067,18 @@ namespace Mono.TextEditor
 			
 			protected override void OnAnimationCompleted ()
 			{
+				Move (Screen.Width, Screen.Height);
 				base.OnAnimationCompleted ();
 				DetachEvents ();
 				Destroy ();
 			}
 			
+			internal override void StopPlaying ()
+			{
+				Move (Screen.Width, Screen.Height);
+				base.StopPlaying ();
+			}
+
 			protected override void OnDestroyed ()
 			{
 				base.OnDestroyed ();
@@ -2124,13 +2158,16 @@ namespace Mono.TextEditor
 						cr.SetSourceRGBA (1, 1, 1, 0);
 						cr.Operator = Cairo.Operator.Source; 
 						cr.Paint ();
-						
+					}
+					using (var cr = Gdk.CairoHelper.Create (evnt.Window)) {
 						cr.Translate (width / 2,  height / 2);
 						cr.Scale (1 + scale / 4, 1 + scale / 4);
 						if (layout == null) {
 							layout = cr.CreateLayout ();
 							layout.FontDescription = Editor.Options.Font;
-							layout.SetMarkup (Editor.Document.SyntaxMode.GetMarkup (Editor.Document, Editor.Options, Editor.ColorStyle, Result.Offset, Result.Length, true));
+							string markup = Editor.Document.SyntaxMode.GetMarkup (Editor.Document, Editor.Options, Editor.ColorStyle, Result.Offset, Result.Length, true);
+							System.Console.WriteLine (markup);
+							layout.SetMarkup (markup);
 							layout.GetPixelSize (out layoutWidth, out layoutHeight);
 						}
 						
@@ -2151,7 +2188,7 @@ namespace Mono.TextEditor
 							cr.Pattern = gradient;
 							cr.Fill (); 
 						}
-						
+						cr.Color = new Cairo.Color (0, 0, 0);
 						cr.Translate (-layoutWidth / 2, -layoutHeight / 2);
 						cr.ShowLayout (layout);
 					}

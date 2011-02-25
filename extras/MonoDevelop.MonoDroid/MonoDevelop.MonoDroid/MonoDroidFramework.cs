@@ -163,10 +163,24 @@ namespace MonoDevelop.MonoDroid
 		
 		public static FilePath SharedRuntimePackage {
 			get {
-				return MonoDroidToolsDir.Combine ("MonoRuntimeService-debug.apk");
+				return MonoDroidToolsDir.Combine ("Mono.Android.DebugRuntime-debug.apk");
 			}
 		}
-		
+
+		public static int FrameworkVersionToApiLevel (string frameworkVersion)
+		{
+			foreach (AndroidVersion version in AndroidVersions)
+				if (version.OSVersion == frameworkVersion)
+					return version.ApiLevel;
+
+			throw new ArgumentOutOfRangeException ("Framework version not recognized: " + frameworkVersion);
+		}
+
+		public static FilePath GetPlatformPackage (int apiLevel)
+		{
+			return MonoDroidToolsDir.Combine ("platforms", "android-" + apiLevel, "Mono.Android.Platform.apk");
+		}
+
 		public static IEnumerable<string> GetToolsPaths ()
 		{
 			yield return MonoDroidFramework.MonoDroidFrameworkDir;

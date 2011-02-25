@@ -26,17 +26,31 @@
 
 namespace MonoDevelop.CSharp.Ast
 {
-	public class DestructorDeclaration : AbstractMemberBase
+	public class DestructorDeclaration : AttributedNode
 	{
-		public const int TildeRole = 100;
+		public static readonly Role<CSharpTokenNode> TildeRole = new Role<CSharpTokenNode>("Tilde", CSharpTokenNode.Null);
 		
-		public BlockStatement Body {
-			get {
-				return (BlockStatement)GetChildByRole (Roles.Body) ?? BlockStatement.Null;
-			}
+		public CSharpTokenNode TildeToken {
+			get { return GetChildByRole (TildeRole); }
 		}
 		
-		public override S AcceptVisitor<T, S> (AstVisitor<T, S> visitor, T data)
+		public CSharpTokenNode LParToken {
+			get { return GetChildByRole (Roles.LPar); }
+		}
+		
+		public CSharpTokenNode RParToken {
+			get { return GetChildByRole (Roles.RPar); }
+		}
+		public BlockStatement Body {
+			get { return GetChildByRole (Roles.Body); }
+			set { SetChildByRole (Roles.Body, value); }
+		}
+		
+		public override NodeType NodeType {
+			get { return NodeType.Member; }
+		}
+		
+		public override S AcceptVisitor<T, S> (IAstVisitor<T, S> visitor, T data)
 		{
 			return visitor.VisitDestructorDeclaration (this, data);
 		}

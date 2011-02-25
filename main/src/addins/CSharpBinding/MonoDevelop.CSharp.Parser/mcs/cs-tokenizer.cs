@@ -693,8 +693,8 @@ namespace Mono.CSharp
 						
 						res = Token.FROM_FIRST;
 						query_parsing = true;
-						if (RootContext.Version <= LanguageVersion.ISO_2)
-							Report.FeatureIsNotAvailable (Location, "query expressions");
+						if (context.Settings.Version <= LanguageVersion.ISO_2)
+							Report.FeatureIsNotAvailable (context, Location, "query expressions");
 						break;
 					case Token.VOID:
 						Expression.Error_VoidInvalidInTheContext (Location, Report);
@@ -749,11 +749,10 @@ namespace Mono.CSharp
 
 				if (ok) {
 					if (next_token == Token.VOID) {
-						if (RootContext.Version == LanguageVersion.ISO_1 ||
-						    RootContext.Version == LanguageVersion.ISO_2)
-							Report.FeatureIsNotAvailable (Location, "partial methods");
-					} else if (RootContext.Version == LanguageVersion.ISO_1)
-						Report.FeatureIsNotAvailable (Location, "partial types");
+						if (context.Settings.Version <= LanguageVersion.ISO_2)
+							Report.FeatureIsNotAvailable (context, Location, "partial methods");
+					} else if (context.Settings.Version == LanguageVersion.ISO_1)
+						Report.FeatureIsNotAvailable (context, Location, "partial types");
 
 					return res;
 				}
@@ -768,7 +767,7 @@ namespace Mono.CSharp
 				break;
 
 			case Token.ASYNC:
-				if (parsing_block > 0 || RootContext.Version != LanguageVersion.Future) {
+				if (parsing_block > 0 || context.Settings.Version != LanguageVersion.Future) {
 					res = -1;
 					break;
 				}
@@ -1677,9 +1676,18 @@ namespace Mono.CSharp
 			if (putback_char != -1) {
 				x = putback_char;
 				putback_char = -1;
-			} else
+			} else {
 				x = reader.Read ();
-			if (x == '\n') {
+			}
+			
+			if (x == '\r') {
+				if (peek_char () == '\n') {
+					putback_char = -1;
+				}
+
+				x = '\n';
+				advance_line ();
+			} else if (x == '\n') {
 				advance_line ();
 			} else {
 				col++;
@@ -1763,7 +1771,7 @@ namespace Mono.CSharp
 			// skip over white space
 			do {
 				c = get_char ();
-			} while (c == '\r' || c == ' ' || c == '\t');
+			} while (c == ' ' || c == '\t');
 
 			endLine = line;
 			endCol = col;
@@ -1808,7 +1816,7 @@ namespace Mono.CSharp
 			
 
 			// skip over white space
-			while (c == '\r' || c == ' ' || c == '\t')
+			while (c == ' ' || c == '\t')
 				c = get_char ();
 
 			static_cmd_arg.Length = 0;
@@ -2113,7 +2121,7 @@ namespace Mono.CSharp
 				c = get_char ();
 
 				// skip over white space
-				while (c == '\r' || c == ' ' || c == '\t')
+				while (c == ' ' || c == '\t')
 					c = get_char ();
 
 				if (c == ',') {
@@ -2121,7 +2129,7 @@ namespace Mono.CSharp
 				}
 
 				// skip over white space
-				while (c == '\r' || c == ' ' || c == '\t')
+				while (c == ' ' || c == '\t')
 					c = get_char ();
 			} else {
 				number = -1;
@@ -2152,7 +2160,7 @@ namespace Mono.CSharp
 				c = get_char ();
 				sbag.PushCommentChar (c);
 				var pc = peek_char ();
-				if (pc == '\n' || pc == -1) 
+				if (pc == '\n' || pc == -1)
 					sbag.EndComment (line, col + 1);
 			} while (c != -1 && c != '\n');
 		}
@@ -2175,7 +2183,7 @@ namespace Mono.CSharp
 					bool disable = IsTokenIdentifierEqual (pragma_warning_disable);
 					if (disable || IsTokenIdentifierEqual (pragma_warning_restore)) {
 						// skip over white space
-						while (c == '\r' || c == ' ' || c == '\t')
+						while (c == ' ' || c == '\t')
 							c = get_char ();
 
 						var loc = Location;
@@ -2608,8 +2616,8 @@ namespace Mono.CSharp
 				return true;
 
 			case PreprocessorDirective.Pragma:
-				if (RootContext.Version == LanguageVersion.ISO_1) {
-					Report.FeatureIsNotAvailable (Location, "#pragma");
+				if (context.Settings.Version == LanguageVersion.ISO_1) {
+					Report.FeatureIsNotAvailable (context, Location, "#pragma");
 				}
 
 				ParsePragmaDirective (arg);
@@ -2819,17 +2827,6 @@ namespace Mono.CSharp
 					}
 					break;
 */
-				case '\r':
-					if (peek_char () != '\n')
-						advance_line ();
-					else
-						get_char ();
-
-					any_token_seen |= tokens_seen;
-					tokens_seen = false;
-					comments_seen = false;
-					continue;
-
 				case '\\':
 					tokens_seen = true;
 					return consume_identifier (c);
@@ -3062,7 +3059,7 @@ namespace Mono.CSharp
 					// Handle double-slash comments.
 					if (d == '/'){
 						get_char ();
-						if (RootContext.Documentation != null && peek_char () == '/') {
+						if (context.Settings.Documentation != null && peek_char () == '/') {
 							sbag.StartComment (SpecialsBag.CommentType.Documentation, startsLine, line, col - 1);
 							get_char ();
 							// Don't allow ////.
@@ -3085,13 +3082,14 @@ namespace Mono.CSharp
 						if (d == '\n' || d == '\r')
 							sbag.EndComment (line, col + 1);
 						
-						while ((d = get_char ()) != -1 && (d != '\n') && d != '\r') {
+						while ((d = get_char ()) != -1 && d != '\n') {
 							sbag.PushCommentChar (d);
 							var pc = peek_char ();
 							if (pc == -1 || pc == '\n' || pc == '\r') {
 								sbag.EndComment (line, col + 1);
 							}
 						}
+						
 						any_token_seen |= tokens_seen;
 						tokens_seen = false;
 						comments_seen = false;
@@ -3100,7 +3098,7 @@ namespace Mono.CSharp
 						sbag.StartComment (SpecialsBag.CommentType.Multi, startsLine, line, col);
 						get_char ();
 						bool docAppend = false;
-						if (RootContext.Documentation != null && peek_char () == '*') {
+						if (context.Settings.Documentation != null && peek_char () == '*') {
 							int ch = get_char ();
 							sbag.PushCommentChar (ch);
 							update_comment_location ();
@@ -3222,7 +3220,7 @@ namespace Mono.CSharp
 							continue;
 						}
 
-						if (c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\f' || c == '\v' )
+						if (c == ' ' || c == '\t' || c == '\n' || c == '\f' || c == '\v' )
 							continue;
 
 						if (c == '#') {
@@ -3297,7 +3295,7 @@ namespace Mono.CSharp
 				return Token.LITERAL;
 			}
 
-			if (c == '\r' || c == '\n') {
+			if (c == '\n') {
 				Report.Error (1010, Location, "Newline in constant");
 				return Token.ERROR;
 			}

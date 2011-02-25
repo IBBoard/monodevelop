@@ -261,6 +261,7 @@ FILES =  \
 	MonoDevelop.Components/PathBar.cs \
 	MonoDevelop.Components/RoundedFrame.cs \
 	MonoDevelop.Components/SearchEntry.cs \
+	MonoDevelop.Components/SectionList.cs \
 	MonoDevelop.Components/SelectFileDialog.cs \
 	MonoDevelop.Components/SelectFolderDialog.cs \
 	MonoDevelop.Components/TabLabel.cs \
@@ -580,6 +581,8 @@ FILES =  \
 	MonoDevelop.Ide.Navigation/NavigationHistoryService.cs \
 	MonoDevelop.Ide.Navigation/NavigationPoint.cs \
 	MonoDevelop.Ide.Navigation/TextFileNavigationPoint.cs \
+	MonoDevelop.Ide.OnlineTemplates/OnlineTemplateService.cs \
+	MonoDevelop.Ide.OnlineTemplates/ProjectTemplateIndex.cs \
 	MonoDevelop.Ide.ProgressMonitoring/BaseProgressMonitor.cs \
 	MonoDevelop.Ide.ProgressMonitoring/MessageDialogProgressMonitor.cs \
 	MonoDevelop.Ide.ProgressMonitoring/MultiTaskDialogProgressMonitor.cs \
@@ -918,7 +921,7 @@ build_OPTIONS = $(addprefix $(top_builddir)/build/data/options/, $(notdir $(OPTI
 
 ASSEMBLY = $(top_builddir)/build/bin/MonoDevelop.Ide.dll
 
-all: $(ASSEMBLY) $(ASSEMBLY).mdb $(build_OPTIONS)
+all: $(ASSEMBLY) $(ASSEMBLY).mdb $(ASSEMBLY).config $(build_OPTIONS)
 
 $(build_OPTIONS): $(top_builddir)/build/data/options/%.xml: $(srcdir)/options/%.xml
 	mkdir -p $(top_builddir)/build/data/options
@@ -930,14 +933,17 @@ $(ASSEMBLY): $(build_sources) $(build_resources) $(DEPS)
 
 $(ASSEMBLY).mdb: $(ASSEMBLY)
 
+$(ASSEMBLY).config: $(srcdir)/MonoDevelop.Ide.dll.config
+	cp $^ $@
+
 assemblydir = $(MD_ASSEMBLY_DIR)
-assembly_DATA = $(ASSEMBLY) $(ASSEMBLY).mdb
+assembly_DATA = $(ASSEMBLY) $(ASSEMBLY).mdb $(ASSEMBLY).config
 
 optionsdir = $(MD_DIR)/data/options
 options_DATA = $(OPTIONS)
 
-CLEANFILES = $(ASSEMBLY) $(ASSEMBLY).mdb $(build_OPTIONS)
+CLEANFILES = $(ASSEMBLY) $(ASSEMBLY).mdb $(ASSEMBLY).config $(build_OPTIONS)
 
-EXTRA_DIST = $(FILES) $(RES) $(OPTIONS)
+EXTRA_DIST = $(FILES) $(RES) $(OPTIONS) $(srcdir)/MonoDevelop.Ide.dll.config
 
 include $(top_srcdir)/Makefile.include

@@ -59,6 +59,13 @@
 		</ExtensionNode>
 	</ExtensionPoint>
 	
+	<ExtensionPoint path = "/MonoDevelop/Ide/InitCompleteHandlers" name = "Post inialization handlers">
+		<Description>Commands to be automatically executed when the IDE finishes initalization.</Description>
+		<ExtensionNode name="Class">
+			<Description>A subclass of MonoDevelop.Components.Commands.CommandHandler</Description>
+		</ExtensionNode>
+	</ExtensionPoint>
+	
 	<ExtensionPoint path = "/MonoDevelop/Ide/KeyBindingSchemes" name = "Key binding schemes">
 		<Description>Key binding schemes.</Description>
 		<ExtensionNodeSet id="MonoDevelop.Components.Commands.KeyBindingScheme"/>
@@ -227,5 +234,14 @@
 	
 	<Extension path = "/MonoDevelop/Ide/Fonts">
 		<Font name ="Editor" _displayName="Text Editor" default ="_DEFAULT_MONOSPACE"/>
+	</Extension>
+	
+	<Extension path = "/MonoDevelop/Core/UserDataMigration">
+		<Migration sourceVersion="2.4" kind="Data" sourcePath="KeyBindings.xml" targetPath="KeyBindings/Custom.kb.xml" />
+		<Migration sourceVersion="2.4" kind="Data" sourcePath="KeyBindingsMac.xml" targetPath="KeyBindings/Custom.kb-mac.xml" />
+		<Migration sourceVersion="2.4" kind="Data" isDirectory="true" sourcePath="templates/code" targetPath="Snippets" />
+		<Migration sourceVersion="2.4" kind="Config" sourcePath="custom-command-modes.xml" />
+		<Migration sourceVersion="2.4" kind="Config" sourcePath="MonoDevelop-tools.xml" />
+		<Migration sourceVersion="2.4" kind="Config" sourcePath="EditingLayout2.xml" targetPath="EditingLayout.xml"/>
 	</Extension>
 </Addin>

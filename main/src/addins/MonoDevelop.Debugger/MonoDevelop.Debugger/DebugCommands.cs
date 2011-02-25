@@ -61,7 +61,8 @@ namespace MonoDevelop.Debugger
 		SelectExceptions,
 		ShowCurrentExecutionLine,
 		AddTracepoint,
-		AddWatch
+		AddWatch,
+		StopEvaluation
 	}
 
 	internal class DebugHandler: CommandHandler
@@ -354,9 +355,15 @@ namespace MonoDevelop.Debugger
 	{
 		protected override void Run ()
 		{
-			DebuggingService.Breakpoints.Toggle (
+			var bp = DebuggingService.Breakpoints.Toggle (
 			    IdeApp.Workbench.ActiveDocument.FileName,
 			    IdeApp.Workbench.ActiveDocument.Editor.Caret.Line);
+			
+			// If the breakpoint could not be inserted in the caret location, move the caret
+			// to the real line of the breakpoint, so that if the Toggle command is run again,
+			// this breakpoint will be removed
+			if (bp != null && bp.Line != IdeApp.Workbench.ActiveDocument.Editor.Caret.Line)
+				IdeApp.Workbench.ActiveDocument.Editor.Caret.Line = bp.Line;
 		}
 		
 		protected override void Update (CommandInfo info)
@@ -562,6 +569,19 @@ namespace MonoDevelop.Debugger
 		{
 			info.Enabled = DebuggingService.IsPaused;
 			info.Visible = DebuggingService.IsDebuggingSupported;
+		}
+	}
+	
+	internal class StopEvaluationHandler : CommandHandler
+	{
+		protected override void Run ()
+		{
+			DebuggingService.DebuggerSession.CancelAsyncEvaluations ();
+		}
+		
+		protected override void Update (CommandInfo info)
+		{
+			info.Visible = DebuggingService.IsDebugging && DebuggingService.IsPaused && DebuggingService.DebuggerSession.CanCancelAsyncEvaluations;
 		}
 	}
 }

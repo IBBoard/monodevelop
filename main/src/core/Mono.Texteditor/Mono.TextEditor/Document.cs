@@ -278,7 +278,8 @@ namespace Mono.TextEditor
 		
 		public string GetLineText (int line)
 		{
-			return GetTextAt (GetLine (line));
+			var lineSegment = GetLine (line);
+			return lineSegment != null ? GetTextAt (lineSegment) : null;
 		}
 		
 		public string GetLineText (int line, bool includeDelimiter)
@@ -742,6 +743,7 @@ namespace Mono.TextEditor
 		{
 			if (undoStack.Count <= 0)
 				return;
+			OnBeforeUndoOperation (EventArgs.Empty);
 			isInUndo = true;
 			UndoOperation operation = undoStack.Pop ();
 			redoStack.Push (operation);
@@ -758,9 +760,18 @@ namespace Mono.TextEditor
 			if (handler != null)
 				handler (this, e);
 		}
-		
+
 		public event EventHandler<UndoOperationEventArgs> Undone;
 		
+		internal protected virtual void OnBeforeUndoOperation (EventArgs e)
+		{
+			var handler = this.BeforeUndoOperation;
+			if (handler != null)
+				handler (this, e);
+		}
+
+		public event EventHandler BeforeUndoOperation;
+
 		public bool CanRedo {
 			get {
 				return this.redoStack.Count > 0;

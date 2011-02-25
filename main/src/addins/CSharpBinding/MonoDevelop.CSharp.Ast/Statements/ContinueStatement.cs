@@ -26,19 +26,16 @@
 
 namespace MonoDevelop.CSharp.Ast
 {
-	public class ContinueStatement : AstNode
+	/// <summary>
+	/// continue;
+	/// </summary>
+	public class ContinueStatement : Statement
 	{
-		public override NodeType NodeType {
-			get {
-				return NodeType.Statement;
-			}
-		}
-
-		public CSharpTokenNode ContinueKeyword {
-			get { return (CSharpTokenNode)GetChildByRole (Roles.Keyword) ?? CSharpTokenNode.Null; }
+		public CSharpTokenNode SemicolonToken {
+			get { return GetChildByRole (Roles.Semicolon); }
 		}
 		
-		public override S AcceptVisitor<T, S> (AstVisitor<T, S> visitor, T data)
+		public override S AcceptVisitor<T, S> (IAstVisitor<T, S> visitor, T data)
 		{
 			return visitor.VisitContinueStatement (this, data);
 		}

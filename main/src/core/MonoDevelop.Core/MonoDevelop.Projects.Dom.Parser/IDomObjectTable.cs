@@ -1,10 +1,10 @@
 // 
-// FullTypeName.cs
+// IDomObjectTable.cs
 //  
 // Author:
-//       Mike Krüger <mkrueger@novell.com>
+//       Lluis Sanchez Gual <lluis@novell.com>
 // 
-// Copyright (c) 2010 Novell, Inc (http://www.novell.com)
+// Copyright (c) 2011 Novell, Inc (http://www.novell.com)
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -24,50 +24,12 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 using System;
-using MonoDevelop.Projects.Dom;
-using System.Collections.Generic;
-using System.Linq;
 
-namespace MonoDevelop.CSharp.Ast
+namespace MonoDevelop.Projects.Dom.Parser
 {
-	public class FullTypeName : AstNode
+	public interface IDomObjectTable
 	{
-		public static readonly new FullTypeName Null = new NullFullTypeName ();
-		class NullFullTypeName : FullTypeName
-		{
-			public override bool IsNull {
-				get {
-					return true;
-				}
-			}
-			
-			public override S AcceptVisitor<T, S> (AstVisitor<T, S> visitor, T data)
-			{
-				return default (S);
-			}
-		}
-		
-		public override NodeType NodeType {
-			get {
-				return NodeType.Unknown;
-			}
-		}
-		
-		public Identifier Identifier {
-			get {
-				return (Identifier)GetChildByRole (Roles.Identifier);
-			}
-		}
-			
-		public IEnumerable<AstNode> TypeArguments {
-			get { return GetChildrenByRole (Roles.TypeParameter) ?? new AstNode[0]; }
-		}
-		
-		public override S AcceptVisitor<T, S> (AstVisitor<T, S> visitor, T data)
-		{
-			return visitor.VisitFullTypeName (this, data);
-		}
-		
+		object GetSharedObject (object ob);
 	}
 }
 

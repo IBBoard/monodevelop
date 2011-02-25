@@ -26,23 +26,21 @@
 
 namespace MonoDevelop.CSharp.Ast
 {
-	public class LabelStatement : AstNode
+	/// <summary>
+	/// Label:
+	/// </summary>
+	public class LabelStatement : Statement
 	{
-		public override NodeType NodeType {
+		public string Label {
 			get {
-				return NodeType.Statement;
+				return GetChildByRole (Roles.Identifier).Name;
+			}
+			set {
+				SetChildByRole(Roles.Identifier, new Identifier(value, AstLocation.Empty));
 			}
 		}
-
-		public string Label {
-			get { return LabelIdentifier.Name; }
-		}
-
-		public Identifier LabelIdentifier {
-			get { return (Identifier)GetChildByRole (Roles.Identifier) ?? Identifier.Null; }
-		}
 		
-		public override S AcceptVisitor<T, S> (AstVisitor<T, S> visitor, T data)
+		public override S AcceptVisitor<T, S> (IAstVisitor<T, S> visitor, T data)
 		{
 			return visitor.VisitLabelStatement (this, data);
 		}
