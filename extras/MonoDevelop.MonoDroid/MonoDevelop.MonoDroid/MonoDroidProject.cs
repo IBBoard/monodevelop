@@ -63,6 +63,9 @@ namespace MonoDevelop.MonoDroid
 		
 		[ItemProperty ("MonoDroidResourcePrefix")]
 		string monoDroidResourcePrefix;
+
+		[ItemProperty ("MonoDroidAssetsPrefix")]
+		string monoDroidAssetsPrefix;
 		
 		public override string ProjectType {
 			get { return "MonoDroid"; }
@@ -120,6 +123,18 @@ namespace MonoDevelop.MonoDroid
 				NotifyModified ("AndroidManifest");
 			}
 		}
+
+		public string MonoDroidAssetsPrefix {
+			get { return monoDroidAssetsPrefix; }
+			set {
+				if (value == "")
+					value = null;
+				if (value == monoDroidAssetsPrefix)
+					return;
+				monoDroidAssetsPrefix = value;
+				NotifyModified ("MonoDroidAssetsPrefix");
+			}
+		}
 		
 		public string MonoDroidResourcePrefix {
 			get { return monoDroidResourcePrefix; }
@@ -173,6 +188,7 @@ namespace MonoDevelop.MonoDroid
 				this.AndroidManifest = MakePathNative (androidManifestAtt.Value);
 			}
 			
+			monoDroidAssetsPrefix = "Assets";
 			monoDroidResourcePrefix = "Resources";
 		}
 		
@@ -301,7 +317,7 @@ namespace MonoDevelop.MonoDroid
 			if (base.CheckNeedsBuild (configuration))
 				return true;
 			
-			if  (Files.Any (file => file.BuildAction == MonoDroidBuildAction.AndroidResource
+			if  (Files.Any (file => file.BuildAction == MonoDroidBuildAction.AndroidResource || file.BuildAction == MonoDroidBuildAction.AndroidAsset
 					&& File.Exists (file.FilePath) && File.GetLastWriteTime (file.FilePath) > apkBuildTime))
 				return true;
 				
@@ -564,6 +580,7 @@ namespace MonoDevelop.MonoDroid
 		{
 			return new string[] {
 				BuildAction.Compile,
+				MonoDroidBuildAction.AndroidAsset,
 				MonoDroidBuildAction.AndroidResource,
 				BuildAction.None,
 			};
@@ -587,8 +604,12 @@ namespace MonoDevelop.MonoDroid
 					foreach (var prefix in MonoDroidResourcePrefixes)
 						if (prefix == parentOfParentDir)
 							return MonoDroidBuildAction.AndroidResource;
+
 				}
 			}
+
+			if (((FilePath)fileName).IsChildPathOf (BaseDirectory.Combine (MonoDroidAssetsPrefix)))
+				return MonoDroidBuildAction.AndroidAsset;
 				
 			return baseAction;
 		}
@@ -681,19 +702,42 @@ namespace MonoDevelop.MonoDroid
 		{
 			if (conf != null && !conf.AndroidManifest.IsNullOrEmpty)
 				return conf.AndroidManifest;
+
+			// AndroidManifest property may have not been added to the solution,
+			// yet it could exist in the default location.
+			if (string.IsNullOrEmpty (AndroidManifest)) {
+				var defManifestPath = GetDefaultManifestFileName ();
+				if (File.Exists (defManifestPath)) {
+					AddExistingManifest (defManifestPath);
+					MonoDevelop.Ide.IdeApp.ProjectOperations.Save (this);
+				}
+			}
+
 			return this.AndroidManifest;
+		}
+
+		string GetDefaultManifestFileName ()
+		{
+			return BaseDirectory.Combine ("Properties", "AndroidManifest.xml");
 		}
 		
 		public AndroidAppManifest AddManifest ()
 		{
 			if (AndroidManifest.IsNullOrEmpty)
-				AndroidManifest = BaseDirectory.Combine ("Properties", "AndroidManifest.xml");
+				AndroidManifest = GetDefaultManifestFileName ();
 			if (!Directory.Exists (AndroidManifest.ParentDirectory))
 				Directory.CreateDirectory (AndroidManifest.ParentDirectory);
 			var manifest = AndroidAppManifest.Create (GetDefaultPackageName (), Name);
 			manifest.WriteToFile (AndroidManifest);
 			AddFile (AndroidManifest);
 			return manifest;
+		}
+
+		// Add an existing manifest file.
+		void AddExistingManifest (string manifestFile)
+		{
+			AndroidManifest = manifestFile;
+			AddFile (AndroidManifest);
 		}
 		
 		public string GetPackageName (ConfigurationSelector conf)
@@ -742,5 +786,6 @@ namespace MonoDevelop.MonoDroid
 	static class MonoDroidBuildAction
 	{
 		public static readonly string AndroidResource = "AndroidResource";
+		public static readonly string AndroidAsset = "AndroidAsset";
 	}
 }

@@ -144,7 +144,6 @@ namespace Mono.TextEditor
 		public void Initalize (string text)
 		{
 			Clear ();
-			inInit = true;
 			
 			var nodes = new List<TreeNode> ();
 			int offset = 0;
@@ -154,10 +153,19 @@ namespace Mono.TextEditor
 				nodes.Add (newLine);
 				offset = delimiterEndOffset;
 			}
+			if (text.Length != offset) {
+				var lastLine = new TreeNode (text.Length - offset, 0);
+				nodes.Add (lastLine);
+			}
+			
 			int height = GetTreeHeight (nodes.Count);
-			tree.Root = BuildTree (nodes, 0, nodes.Count, height);
-			tree.Root.Color = true;
-			tree.Count = nodes.Count;
+			
+			var newRoot = BuildTree (nodes, 0, nodes.Count, height);
+			if (newRoot != null) {
+				tree.Root = newRoot;
+				tree.Root.Color = Mono.TextEditor.RedBlackTree<TreeNode>.Black;
+				tree.Count = nodes.Count;
+			}
 		}
 		
 		public Mono.TextEditor.RedBlackTree<TreeNode>.RedBlackTreeNode BuildTree (System.Collections.Generic.List<TreeNode> nodes, int start, int end, int subtreeHeight)
@@ -174,7 +182,7 @@ namespace Mono.TextEditor
 			if (node.Right != null)
 				node.Right.Parent = node;
 			if (subtreeHeight == 1)
-				node.Color = false;
+				node.Color = Mono.TextEditor.RedBlackTree<TreeNode>.Red;
 			UpdateNode (node);
 			return node;
 		}
