@@ -204,6 +204,7 @@ namespace MonoDevelop.SourceEditor
 			
 			this.WorkbenchWindowChanged += delegate {
 				if (WorkbenchWindow != null) {
+					widget.TextEditor.ExtensionContext = WorkbenchWindow.ExtensionContext;
 					WorkbenchWindow.ActiveViewContentChanged += delegate {
 						widget.UpdateLineCol ();
 					};
@@ -941,6 +942,7 @@ namespace MonoDevelop.SourceEditor
 			FilePath fp = Name;
 			if (fp.FullPath == bp.FileName) {
 				LineSegment line = widget.TextEditor.Document.GetLine (bp.Line);
+				var status = bp.GetStatus (DebuggingService.DebuggerSession);
 				
 				if (line == null)
 					return;
@@ -950,7 +952,7 @@ namespace MonoDevelop.SourceEditor
 					else
 						widget.TextEditor.Document.AddMarker (line, new DisabledBreakpointTextMarker (widget.TextEditor, true));
 				}
-				else if (bp.IsValid (DebuggingService.DebuggerSession)) {
+				else if (status == BreakEventStatus.Bound || status == BreakEventStatus.Disconnected) {
 					if (bp.HitAction == HitAction.Break)
 						widget.TextEditor.Document.AddMarker (line, new BreakpointTextMarker (widget.TextEditor, false));
 					else
@@ -1007,7 +1009,7 @@ namespace MonoDevelop.SourceEditor
 			if (args.Button == 3) {
 				TextEditor.Caret.Line = args.LineNumber;
 				TextEditor.Caret.Column = 1;
-				IdeApp.CommandService.ShowContextMenu ("/MonoDevelop/SourceEditor2/IconContextMenu/Editor");
+				IdeApp.CommandService.ShowContextMenu (WorkbenchWindow.ExtensionContext, "/MonoDevelop/SourceEditor2/IconContextMenu/Editor");
 			} else if (args.Button == 1) {
 				if (!string.IsNullOrEmpty (this.Document.FileName)) {
 					if (args.LineSegment != null)

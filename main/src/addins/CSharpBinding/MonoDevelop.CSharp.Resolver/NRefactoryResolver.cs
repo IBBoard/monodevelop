@@ -304,7 +304,9 @@ namespace MonoDevelop.CSharp.Resolver
 					foreach (KeyValuePair<string, List<LocalLookupVariable>> pair in lookupTableVisitor.Variables) {
 						if (pair.Value != null && pair.Value.Count > 0) {
 							foreach (LocalLookupVariable v in pair.Value) {
-								DomLocation varStartPos = new DomLocation (lookupVariableLine + v.StartPos.Line, v.StartPos.Column - 1);
+								if (v.InListPosition.IsEmpty)
+									continue;
+								DomLocation varStartPos = new DomLocation (lookupVariableLine + v.InListPosition.Line, v.InListPosition.Column - 1);
 								DomLocation varEndPos   = new DomLocation (lookupVariableLine + v.EndPos.Line, v.EndPos.Column - 1);
 								if (varStartPos > this.resolvePosition || (!v.EndPos.IsEmpty && varEndPos < this.resolvePosition))
 									continue;
@@ -624,7 +626,6 @@ namespace MonoDevelop.CSharp.Resolver
 							resolver.resolvePosition = old;
 						}
 					}
-					
 					InvocationExpression invocation = (InvocationExpression)lambdaExpression.Parent;
 					MethodResolveResult result = visitor.Resolve (invocation.TargetObject) as MethodResolveResult;
 					if (result == null) {
@@ -632,7 +633,6 @@ namespace MonoDevelop.CSharp.Resolver
 						return null;
 					}
 					result.ResolveExtensionMethods ();
-					
 					for (int i = 0; i < invocation.Arguments.Count; i++) {
 						if (invocation.Arguments[i] == lambdaExpression && i < result.MostLikelyMethod.Parameters.Count) {
 							IParameter parameter = result.MostLikelyMethod.Parameters[i];
@@ -666,7 +666,6 @@ namespace MonoDevelop.CSharp.Resolver
 							return createdResult;
 						}
 					}
-					
 					if (lambdaReturnType != null && !string.IsNullOrEmpty (lambdaReturnType.ResolvedType.FullName))
 						return lambdaReturnType;
 					

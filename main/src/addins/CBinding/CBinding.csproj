@@ -98,6 +98,10 @@
       <Name>Mono.TextEditor</Name>
       <Private>False</Private>
     </ProjectReference>
+    <ProjectReference Include="..\MonoDevelop.Refactoring\MonoDevelop.Refactoring.csproj">
+      <Project>{100568FC-F4E8-439B-94AD-41D11724E45B}</Project>
+      <Name>MonoDevelop.Refactoring</Name>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <None Include="Makefile.am" />
@@ -228,6 +232,9 @@
     <EmbeddedResource Include="templates\EmptyObjCppSourceFile.xft.xml">
       <LogicalName>EmptyObjCppSourceFile.xft.xml</LogicalName>
     </EmbeddedResource>
+    <EmbeddedResource Include="Formatting\CFormattingPolicy.xml">
+      <LogicalName>CFormattingPolicy.xml</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Project\CProject.cs" />
@@ -306,6 +313,19 @@
     <Compile Include="Parser\CTagsManager.cs" />
     <Compile Include="Parser\ExuberantCTagsManager.cs" />
     <Compile Include="Parser\BsdCTagsManager.cs" />
+    <Compile Include="Formatting\NewFormattingProfileDialog.cs" />
+    <Compile Include="gtk-gui\CBinding.Formatting.NewFormattingProfileDialog.cs" />
+    <Compile Include="Formatting\CFormatter.cs" />
+    <Compile Include="Formatting\CFormattingPolicy.cs" />
+    <Compile Include="Formatting\CFormattingPolicyPanel.cs" />
+    <Compile Include="Formatting\CFormattingPolicyPanelWidget.cs" />
+    <Compile Include="Formatting\CFormattingProfileDialog.cs" />
+    <Compile Include="Formatting\CFormattingProperties.cs" />
+    <Compile Include="Formatting\CIndentEngine.cs" />
+    <Compile Include="Formatting\CIndentEngineStack.cs" />
+    <Compile Include="Formatting\CTextEditorIndentation.cs" />
+    <Compile Include="gtk-gui\CBinding.Formatting.CFormattingPolicyPanelWidget.cs" />
+    <Compile Include="gtk-gui\CBinding.Formatting.CFormattingProfileDialog.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ProjectExtensions>
@@ -324,4 +344,7 @@
       </Properties>
     </MonoDevelop>
   </ProjectExtensions>
+  <ItemGroup>
+    <Folder Include="Formatting\" />
+  </ItemGroup>
 </Project>

@@ -468,14 +468,15 @@ namespace Mono.TextEditor
 							utf32Char = char.ConvertToUtf32 (ca.Str, i);
 							i++;
 						} else {
-							utf32Char = (int) ca.Str[i];
+							utf32Char = (int)ca.Str [i];
 						}
 						
 						//include the other pre-IM state *if* the post-IM char matches the pre-IM (key-mapped) one
-						if (lastIMEventMappedChar == utf32Char)
+						 if (lastIMEventMappedChar == utf32Char && lastIMEventMappedChar == (uint)lastIMEventMappedKey) {
 							OnIMProcessedKeyPressEvent (lastIMEventMappedKey, lastIMEventMappedChar, lastIMEventMappedModifier);
-						else
+						} else {
 							OnIMProcessedKeyPressEvent ((Gdk.Key)0, (uint)utf32Char, Gdk.ModifierType.None);
+						}
 					}
 				}
 			} finally {

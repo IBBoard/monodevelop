@@ -79,145 +79,10 @@ namespace CBinding
 			new KeyValuePair<string, GetMembersForExtension>(".", GetInstanceMembers)
 		};
 		
-		protected Mono.TextEditor.TextEditorData textEditorData{ get; set; }
-		
-		static bool IsOpenBrace (char c)
-		{
-			return c == '(' || c == '{' || c == '<' || c == '[';
-		}
-		static bool IsCloseBrace (char c)
-		{
-			return c == ')' || c == '}' || c == '>' || c == ']';
-		}
-		
-		static bool IsBrace (char c)
-		{
-			return IsOpenBrace  (c) || IsCloseBrace (c);
-		}
-		
-		static int SearchMatchingBracket (TextEditorData editor, int offset, char openBracket, char closingBracket, int direction)
-		{
-			bool isInString       = false;
-			bool isInChar         = false;	
-			bool isInBlockComment = false;
-			int depth = -1;
-			while (offset >= 0 && offset < editor.Length) {
-				char ch = editor.GetCharAt (offset);
-				switch (ch) {
-					case '/':
-						if (isInBlockComment) 
-							isInBlockComment = editor.GetCharAt (offset + direction) != '*';
-						if (!isInString && !isInChar && offset - direction < editor.Length) 
-							isInBlockComment = offset > 0 && editor.GetCharAt (offset - direction) == '*';
-						break;
-					case '"':
-						if (!isInChar && !isInBlockComment) 
-							isInString = !isInString;
-						break;
-					case '\'':
-						if (!isInString && !isInBlockComment) 
-							isInChar = !isInChar;
-						break;
-					default :
-						if (ch == closingBracket) {
-							if (!(isInString || isInChar || isInBlockComment)) 
-								--depth;
-						} else if (ch == openBracket) {
-							if (!(isInString || isInChar || isInBlockComment)) {
-								++depth;
-								if (depth == 0) 
-									return offset;
-							}
-						}
-						break;
-				}
-				offset += direction;
-			}
-			return -1;
-		}
-		
-		static int GetClosingBraceForLine (TextEditorData editor, LineSegment line, out int openingLine)
-		{
-			int offset = SearchMatchingBracket (editor, line.Offset, '{', '}', -1);
-			if (offset == -1) {
-				openingLine = -1;
-				return -1;
-			}
-				
-			openingLine = editor.Document.OffsetToLineNumber (offset);
-			return offset;
-		}
+		protected Mono.TextEditor.TextEditorData textEditorData { get; set; }
 		
 		public override bool KeyPress (Gdk.Key key, char keyChar, Gdk.ModifierType modifier)
 		{
-			var line = Editor.Document.GetLine (Editor.Caret.Line);
-			string lineText = Editor.GetLineText (Editor.Caret.Line);
-			int lineCursorIndex = Math.Min (lineText.Length, Editor.Caret.Column);
-			
-			// Smart Indentation
-			if (TextEditorProperties.IndentStyle == IndentStyle.Smart)
-			{
-				if (keyChar == '}') {
-					// Only indent if the brace is preceeded by whitespace.
-					if(AllWhiteSpace(lineText.Substring(0, lineCursorIndex))) {
-						int braceOpeningLine;
-						if(GetClosingBraceForLine(Editor, line, out braceOpeningLine) >= 0)
-						{
-							Editor.Replace (line.Offset, line.EditableLength, GetIndent(Editor, braceOpeningLine, 0) + "}" + lineText.Substring(lineCursorIndex));
-							Editor.Document.CommitLineUpdate (line);
-							return false;
-						}
-					}
-				} else {
-					switch(key)
-					{
-						case Gdk.Key.Return:
-							// Calculate additional indentation, if any.
-							char finalChar = '\0';
-							char nextChar = '\0';
-							string indent = String.Empty;
-							if (!String.IsNullOrEmpty (Editor.SelectedText)) {
-								int cursorPos = Editor.SelectionRange.Offset;
-							
-								Editor.DeleteSelectedText ();
-								Editor.Caret.Offset = cursorPos;
-								
-								lineText = Editor.GetLineText (Editor.Caret.Line);
-								lineCursorIndex = Editor.Caret.Column;
-	//							System.Console.WriteLine(TextEditorData.Caret.Offset);
-							}
-							if(lineText.Length > 0)
-							{
-								if(lineCursorIndex > 0)
-									finalChar = lineText[Math.Min(lineCursorIndex, lineText.Length) - 1];
-								
-								if(lineCursorIndex < lineText.Length)
-									nextChar = lineText[lineCursorIndex];
-	
-								if(finalChar == '{')
-									indent = TextEditorProperties.IndentString;
-							}
-	
-							// If the next character is an closing brace, indent it appropriately.
-							if(IsBrace(nextChar) && !IsOpenBrace(nextChar))
-							{
-								int openingLine;
-								if(GetClosingBraceForLine (Editor, line, out openingLine) >= 0)
-								{
-									Editor.InsertAtCaret (Editor.EolMarker + GetIndent(Editor, openingLine, 0));
-									return false;
-								}
-							}
-						
-							// Default indentation method
-							Editor.InsertAtCaret (Editor.EolMarker + indent + GetIndent(Editor, Editor.Document.OffsetToLineNumber (line.Offset), lineCursorIndex));
-							
-							return false;
-						
-					}
-				}
-			}
-			
 			return base.KeyPress (key, keyChar, modifier);
 		}
 		
@@ -350,6 +215,7 @@ namespace CBinding
 				
 			ProjectInformation info = ProjectInformationManager.Instance.Get (project);
 			CompletionDataList list = new CompletionDataList ();
+			list.AutoSelect = false;
 			
 			LanguageItem container = null;
 			
@@ -432,6 +298,7 @@ namespace CBinding
 				
 			ProjectInformation info = ProjectInformationManager.Instance.Get (project);
 			CompletionDataList list = new CompletionDataList ();
+			list.AutoSelect = false;
 			
 			string container = null;
 			
@@ -519,6 +386,7 @@ namespace CBinding
 			ProjectInformation info = ProjectInformationManager.Instance.Get (project);
 			
 			CompletionDataList list = new CompletionDataList ();
+			list.AutoSelect = false;
 			
 			foreach (LanguageItem li in info.Containers ())
 				if (li.Parent == null)
@@ -570,6 +438,8 @@ namespace CBinding
 			
 			ProjectInformation info = ProjectInformationManager.Instance.Get (project);
 			string lineText = Editor.GetLineText (Editor.Caret.Line).TrimEnd ();
+			if (lineText.EndsWith (completionChar.ToString (), StringComparison.Ordinal))
+				lineText = lineText.Remove (lineText.Length-1).TrimEnd ();
 			
 			int nameStart = lineText.LastIndexOfAny (allowedChars);
 
@@ -581,34 +451,6 @@ namespace CBinding
 				return null;
 			
 			return new ParameterDataProvider (Document, info, functionName);
-		}
-		
-		private bool AllWhiteSpace (string lineText)
-		{
-			// We will almost definately need a faster method than this
-			foreach (char c in lineText)
-				if (!char.IsWhiteSpace (c))
-					return false;
-			
-			return true;
-		}
-		
-		// Snatched from DefaultFormattingStrategy
-		private string GetIndent (TextEditorData d, int lineNumber, int terminateIndex)
-		{
-			string lineText = d.GetLineText (lineNumber);
-			if(terminateIndex > 0)
-				lineText = terminateIndex < lineText.Length ? lineText.Substring(0, terminateIndex) : lineText;
-			
-			StringBuilder whitespaces = new StringBuilder ();
-			
-			foreach (char ch in lineText) {
-				if (!char.IsWhiteSpace (ch))
-					break;
-				whitespaces.Append (ch);
-			}
-			
-			return whitespaces.ToString ();
 		}
 		
 		[CommandHandler (MonoDevelop.DesignerSupport.Commands.SwitchBetweenRelatedFiles)]
@@ -756,5 +598,48 @@ namespace CBinding
 			completionContext.TriggerOffset = i-1;
 			return accumulator+1;
 		}// ResetTriggerOffset
+		
+		[CommandHandler (MonoDevelop.Refactoring.RefactoryCommands.GotoDeclaration)]
+		public void GotoDeclaration ()
+		{
+			LanguageItem item = GetLanguageItemAt (Editor.Caret.Location);
+			if (item != null)
+				IdeApp.Workbench.OpenDocument ((FilePath)item.File, (int)item.Line, 1, true);
+		}
+		
+		[CommandUpdateHandler (MonoDevelop.Refactoring.RefactoryCommands.GotoDeclaration)]
+		public void CanGotoDeclaration (CommandInfo item)
+		{
+			item.Visible = (GetLanguageItemAt (Editor.Caret.Location) != null);
+			item.Bypass = !item.Visible;
+		}
+		
+		private LanguageItem GetLanguageItemAt (DocumentLocation location)
+		{
+			CProject project = Document.Project as CProject;
+			string token = GetTokenAt (location);
+			if (project != null && !string.IsNullOrEmpty (token)) {
+				ProjectInformation info = ProjectInformationManager.Instance.Get (project);
+				return info.AllItems ().FirstOrDefault (i => i.Name.Equals (token, StringComparison.Ordinal));
+			}
+			
+			return null;
+		}
+		
+		private string GetTokenAt (DocumentLocation location)
+		{
+			int lineOffset = location.Column-1;
+			string line = Editor.GetLineText (location.Line);
+			int first = line.LastIndexOfAny (allowedChars, lineOffset)+1,
+			    last = line.IndexOfAny (allowedChars, lineOffset);
+			if (last < 0) last = line.Length - 1;
+			string token = string.Empty;
+			    
+			if (first >= 0 && first < last && last < line.Length) {
+				token = line.Substring (first, last-first);
+			}
+			
+			return token.Trim ();
+		}
 	}
 }

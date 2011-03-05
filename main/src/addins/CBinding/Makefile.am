@@ -6,6 +6,7 @@ DEPS =  \
 	$(top_builddir)/build/AddIns/MonoDevelop.Deployment/MonoDevelop.Deployment.dll \
 	$(top_builddir)/build/AddIns/MonoDevelop.Deployment/MonoDevelop.Deployment.Linux.dll \
 	$(top_builddir)/build/AddIns/MonoDevelop.DesignerSupport/MonoDevelop.DesignerSupport.dll \
+	$(top_builddir)/build/AddIns/MonoDevelop.Refactoring/MonoDevelop.Refactoring.dll \
 	$(top_builddir)/build/AddIns/MonoDevelop.SourceEditor2.dll \
 	$(top_builddir)/build/bin/Mono.TextEditor.dll \
 	$(top_builddir)/build/bin/MonoDevelop.Core.dll \
@@ -30,9 +31,22 @@ FILES =  \
 	Compiler/GppCompiler.cs \
 	Compiler/ICompiler.cs \
 	CppLanguageBinding.cs \
+	Formatting/CFormatter.cs \
+	Formatting/CFormattingPolicy.cs \
+	Formatting/CFormattingPolicyPanel.cs \
+	Formatting/CFormattingPolicyPanelWidget.cs \
+	Formatting/CFormattingProfileDialog.cs \
+	Formatting/CFormattingProperties.cs \
+	Formatting/CIndentEngine.cs \
+	Formatting/CIndentEngineStack.cs \
+	Formatting/CTextEditorIndentation.cs \
+	Formatting/NewFormattingProfileDialog.cs \
 	gtk-gui/CBinding.CodeGenerationPanel.cs \
 	gtk-gui/CBinding.CompilerPanel.cs \
 	gtk-gui/CBinding.EditPackagesDialog.cs \
+	gtk-gui/CBinding.Formatting.CFormattingPolicyPanelWidget.cs \
+	gtk-gui/CBinding.Formatting.CFormattingProfileDialog.cs \
+	gtk-gui/CBinding.Formatting.NewFormattingProfileDialog.cs \
 	gtk-gui/CBinding.GeneralOptionsPanel.cs \
 	gtk-gui/CBinding.OutputOptionsPanel.cs \
 	gtk-gui/CBinding.PackageDetails.cs \
@@ -101,6 +115,7 @@ FILES =  \
 
 RES =  \
 	CBinding.addin.xml \
+	Formatting/CFormattingPolicy.xml \
 	gtk-gui/gui.stetic \
 	icons/c-icon-32.png \
 	icons/cpp-icon-32.png \
