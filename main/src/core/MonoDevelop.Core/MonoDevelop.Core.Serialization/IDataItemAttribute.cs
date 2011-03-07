@@ -1,8 +1,8 @@
 // 
-// CFormattingPolicyPanel.cs
+// IDataItemAttribute.cs
 //  
 // Author:
-//       Mike Krüger <mkrueger@novell.com>
+//       Lluis Sanchez Gual <lluis@novell.com>
 // 
 // Copyright (c) 2011 Novell, Inc (http://www.novell.com)
 // 
@@ -23,32 +23,14 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
+using System;
 
-using Gtk;
-using MonoDevelop.Ide.CodeFormatting;
-using MonoDevelop.Projects.Text;
-using System.Xml;
-using MonoDevelop.Ide.Gui.Dialogs;
-
-namespace CBinding.Formatting
+namespace MonoDevelop.Core.Serialization
 {
-	class CFormattingPolicyPanel : MimeTypePolicyOptionsPanel<CFormattingPolicy>
+	public interface IDataItemAttribute
 	{
-		CFormattingPolicyPanelWidget panel;
-		
-		public override Widget CreatePanelWidget ()
-		{
-			return panel = new CFormattingPolicyPanelWidget ();
-		}
-		
-		protected override void LoadFrom (CFormattingPolicy policy)
-		{
-			panel.Policy = policy;
-		}
-		
-		protected override CFormattingPolicy GetPolicy ()
-		{
-			return panel.Policy;
-		}
+		string Name { get; }
+		Type FallbackType { get; }
 	}
 }
+

@@ -1,8 +1,8 @@
 // 
-// NewFormattingProfileDialog.cs
+// ProjectModelTypeAttribute.cs
 //  
 // Author:
-//       Mike Krüger <mkrueger@novell.com>
+//       Lluis Sanchez Gual <lluis@novell.com>
 // 
 // Copyright (c) 2011 Novell, Inc (http://www.novell.com)
 // 
@@ -23,44 +23,28 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-
 using System;
-using System.Collections.Generic;
-using System.Linq;
+using Mono.Addins;
+using MonoDevelop.Core.Serialization;
 
-namespace CBinding.Formatting
+namespace MonoDevelop.Projects
 {
-	public partial class NewFormattingProfileDialog  : Gtk.Dialog
+	[AttributeUsage (AttributeTargets.Class, AllowMultiple = false)]
+	public class ProjectModelDataItemAttribute: CustomExtensionAttribute, IDataItemAttribute
 	{
-		public string NewProfileName {
-			get;
-			private set;
-		}
-		
-		
-		public CFormattingPolicy InitializeFrom {
-			get {
-				return policies[comboboxInitFrom.Active];
-			}
-		}
-		
-		List<CFormattingPolicy> policies;
-		public NewFormattingProfileDialog (List<CFormattingPolicy> policies)
+		public ProjectModelDataItemAttribute ()
 		{
-			this.Build ();
-			this.policies = policies;
-			this.entryProfileName.Changed += delegate {
-				NewProfileName = entryProfileName.Text;
-				buttonOk.Sensitive = !string.IsNullOrEmpty (NewProfileName) && !this.policies.Any (p => p.Name == NewProfileName);
-			};
-			
-			Gtk.ListStore model = new Gtk.ListStore (typeof(string));
-			foreach (var p in policies) {
-				model.AppendValues (p.Name);
-			}
-			comboboxInitFrom.Model = model;
-			comboboxInitFrom.Active = 0;
 		}
+
+		public ProjectModelDataItemAttribute ([NodeAttribute ("name")] string name)
+		{
+		}
+		
+		[NodeAttribute ("name")]
+		public string Name { get; set; }
+
+		public Type FallbackType { get; set; }
+
 	}
 }
 

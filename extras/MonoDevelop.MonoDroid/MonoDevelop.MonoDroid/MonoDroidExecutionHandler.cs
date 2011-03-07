@@ -60,25 +60,7 @@ namespace MonoDevelop.MonoDroid
 		public IProcessAsyncOperation Execute (ExecutionCommand command, IConsole console)
 		{
 			var cmd = (MonoDroidExecutionCommand) command;
-			int runningProcessId = -1;
-
-			var launchOp = new ChainedAsyncOperationSequence (
-				new ChainedAsyncOperation<AdbGetProcessIdOperation> () {
-					Create = () => new AdbGetProcessIdOperation (cmd.Device, cmd.PackageName),
-					Completed = (op) => {
-						if (op.Success)
-							runningProcessId = op.ProcessId;
-					}
-				},
-				new ChainedAsyncOperation () {
-					Skip = () => runningProcessId <= 0 ? "" : null,
-					Create = () => new AdbShellOperation (cmd.Device, "kill " + runningProcessId)
-				},
-				new ChainedAsyncOperation () {
-					Create = () => MonoDroidFramework.Toolbox.StartActivity (cmd.Device, cmd.Activity)
-				}
-			);
-			launchOp.Start ();
+			var launchOp = MonoDroidFramework.Toolbox.StartActivity (cmd.Device, cmd.Activity);
 
 			return new MonoDroidProcess (cmd.Device, cmd.Activity, cmd.PackageName, 
 				console.Out.Write, console.Error.Write, launchOp);
@@ -320,7 +302,7 @@ namespace MonoDevelop.MonoDroid
 				// Try to kill the activity if we were able to actually get its pid
 				if (pid != UNASSIGNED_PID) {
 					try {
-						new AdbShellOperation (device, "kill " + ProcessId);
+						new AdbKillProcessOperation (device, packageName);
 					} catch {}
 				}
 			}
