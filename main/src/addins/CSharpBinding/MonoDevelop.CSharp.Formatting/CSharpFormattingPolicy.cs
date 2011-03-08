@@ -749,6 +749,30 @@ namespace MonoDevelop.CSharp.Formatting
 		}
 
 		[ItemProperty]
+		public bool WithinNewParentheses { // tested
+			get;
+			set;
+		}
+		
+		[ItemProperty]
+		public bool BetweenEmptyNewParentheses { // tested
+			get;
+			set;
+		}
+		
+		[ItemProperty]
+		public bool BeforeNewParameterComma { // tested
+			get;
+			set;
+		}
+		
+		[ItemProperty]
+		public bool AfterNewParameterComma { // tested
+			get;
+			set;
+		}
+		
+		[ItemProperty]
 		public bool BeforeTypeOfParentheses { // tested
 			get;
 			set;
@@ -914,6 +938,11 @@ namespace MonoDevelop.CSharp.Formatting
 			AfterMethodCallParameterComma = true;
 
 			NewParentheses = true;
+			WithinNewParentheses = false;
+			BetweenEmptyNewParentheses = false;
+			BeforeNewParameterComma = false;
+			AfterNewParameterComma = true;
+			
 			IfParentheses = true;
 			WhileParentheses = true;
 			ForParentheses = true;

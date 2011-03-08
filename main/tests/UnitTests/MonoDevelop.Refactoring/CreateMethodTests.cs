@@ -31,6 +31,7 @@ using System.Collections.Generic;
 using Mono.TextEditor;
 using MonoDevelop.Projects.CodeGeneration;
 using System.Linq;
+using MonoDevelop.Ide;
 
 namespace MonoDevelop.Refactoring.Tests
 {
@@ -64,7 +65,7 @@ namespace MonoDevelop.Refactoring.Tests
 			Assert.IsTrue (refactoring.IsValid (options));
 			
 			if (returnWholeFile) {
-				refactoring.SetInsertionPoint (MonoDevelop.Refactoring.HelperMethods.GetInsertionPoints (options.Document, refactoring.DeclaringType).First ());
+				refactoring.SetInsertionPoint (CodeGenerationService.GetInsertionPoints (options.Document, refactoring.DeclaringType).First ());
 			} else {
 				DocumentLocation loc = new DocumentLocation (1, 1);
 				refactoring.SetInsertionPoint (new InsertionPoint (loc, NewLineInsertion.Eol, NewLineInsertion.Eol));
@@ -322,7 +323,77 @@ class TestClass
 }");
 		}
 		
+		/// <summary>
+		/// Bug 677522 - "Create Method" creates at wrong indent level
+		/// </summary>
+		[Test()]
+		public void TestBug677522 ()
+		{
+			TestCreateMethod (
+@"namespace Test {
+	class TestClass
+	{
+		void TestMethod ()
+		{
+			$NonExistantMethod ();
+		}
+	}
+}
+", @"namespace Test {
+	class TestClass
+	{
+		void NonExistantMethod ()
+		{
+			throw new System.NotImplementedException ();
+		}	
 		
+		void TestMethod ()
+		{
+			NonExistantMethod ();
+		}
+	}
+}
+", true);
+		}
+		
+		/// <summary>
+		/// Bug 677527 - "Create Method" uses fully qualified namespace when "using" statement exists
+		/// </summary>
+		[Test()]
+		public void TestBug677527 ()
+		{
+			TestCreateMethod (
+@"using System.Text;
+
+namespace Test {
+	class TestClass
+	{
+		void TestMethod ()
+		{
+			StringBuilder sb = new StringBuilder ();
+			$NonExistantMethod (sb);
+		}
+	}
+}
+", @"using System.Text;
+
+namespace Test {
+	class TestClass
+	{
+		void NonExistantMethod (StringBuilder sb)
+		{
+			throw new System.NotImplementedException ();
+		}	
+		
+		void TestMethod ()
+		{
+			StringBuilder sb = new StringBuilder ();
+			NonExistantMethod (sb);
+		}
+	}
+}
+", true);
+		}
 	}
 	
 }
