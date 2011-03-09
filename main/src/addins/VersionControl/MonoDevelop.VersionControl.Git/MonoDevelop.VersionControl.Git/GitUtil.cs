@@ -439,43 +439,6 @@ namespace MonoDevelop.VersionControl.Git
 
 			return lineCount;
 		}
-		
-		static IEnumerable<Hunk> GetDiffHunks (RawText curText, RawText ancestorText)
-		{
-			Dictionary<string, int> codeDictionary = new Dictionary<string, int> ();
-			int codeCounter = 0;
-			int[] ancestorDiffCodes = GetDiffCodes (ref codeCounter, codeDictionary, ancestorText);
-			int[] currentDiffCodes = GetDiffCodes (ref codeCounter, codeDictionary, curText);
-			return Diff.GetDiff<int> (ancestorDiffCodes, currentDiffCodes);
-		}
-
-		static int[] GetDiffCodes (ref int codeCounter, Dictionary<string, int> codeDictionary, RawText text)
-		{
-			int lineCount = text.Size ();
-			int[] result = new int[lineCount];
-			string[] lines = GetLineStrings (text);
-			for (int i = 0; i < lineCount; i++) {
-				string lineText = lines [i];
-				int curCode;
-				if (!codeDictionary.TryGetValue (lineText, out curCode)) {
-					codeDictionary [lineText] = curCode = ++codeCounter;
-				}
-				result [i] = curCode;
-			}
-			return result;
-		}
-
-		static string[] GetLineStrings (RawText text)
-		{
-			int lineCount = text.Size ();
-			string[] lines = new string[lineCount];
-
-			for (int i = 0; i < lineCount; i++) {
-				lines [i] = text.GetString (i);
-			}
-
-			return lines;
-		}
 
 		static IEnumerable<Hunk> GetDiffHunks (RawText curText, RawText ancestorText)
 		{
