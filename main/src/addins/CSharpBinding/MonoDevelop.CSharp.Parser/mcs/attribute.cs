@@ -368,6 +368,12 @@ namespace Mono.CSharp {
 			get { return expression.Name; }
 		}
 
+		public ATypeNameExpression TypeNameExpression {
+			get {
+				return expression;
+			}
+		}
+
 		public Report Report {
 			get { return context.Module.Compiler.Report; }
 		}

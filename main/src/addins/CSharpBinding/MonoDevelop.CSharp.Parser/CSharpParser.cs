@@ -1191,7 +1191,7 @@ namespace MonoDevelop.CSharp.Parser
 			
 			public override object Visit (Block blockStatement)
 			{
-				if (blockStatement.IsCompilerGenerated) {
+				if (blockStatement.IsCompilerGenerated && blockStatement.Statements.Any ()) {
 					if (blockStatement.Statements.First () is Using)
 						return CreateUsingStatement (blockStatement);
 					return blockStatement.Statements.Last ().Accept (this);
@@ -2219,19 +2219,21 @@ namespace MonoDevelop.CSharp.Parser
 				if (location == null || location.Count == 1) {
 					AddParameter (result, lambdaExpression.Parameters);
 					if (location != null)
-						result.AddChild (new CSharpTokenNode (Convert (location[0]), "=>".Length), MonoDevelop.CSharp.Ast.LambdaExpression.ArrowRole);
+						result.AddChild (new CSharpTokenNode (Convert (location [0]), "=>".Length), MonoDevelop.CSharp.Ast.LambdaExpression.ArrowRole);
 				} else {
 					result.AddChild (new CSharpTokenNode (Convert (lambdaExpression.Location), 1), MonoDevelop.CSharp.Ast.LambdaExpression.Roles.LPar);
 					AddParameter (result, lambdaExpression.Parameters);
 					if (location != null) {
-						result.AddChild (new CSharpTokenNode (Convert (location[0]), 1), MonoDevelop.CSharp.Ast.LambdaExpression.Roles.RPar);
-						result.AddChild (new CSharpTokenNode (Convert (location[1]), "=>".Length), MonoDevelop.CSharp.Ast.LambdaExpression.ArrowRole);
+						result.AddChild (new CSharpTokenNode (Convert (location [0]), 1), MonoDevelop.CSharp.Ast.LambdaExpression.Roles.RPar);
+						result.AddChild (new CSharpTokenNode (Convert (location [1]), "=>".Length), MonoDevelop.CSharp.Ast.LambdaExpression.ArrowRole);
 					}
 				}
 				if (lambdaExpression.Block.IsCompilerGenerated) {
-					ContextualReturn generatedReturn = (ContextualReturn)lambdaExpression.Block.Statements[0];
+					Console.WriteLine ("1");
+					ContextualReturn generatedReturn = (ContextualReturn)lambdaExpression.Block.Statements [0];
 					result.AddChild ((AstNode)generatedReturn.Expr.Accept (this), MonoDevelop.CSharp.Ast.LambdaExpression.BodyRole);
 				} else {
+					Console.WriteLine ("2");
 					result.AddChild ((AstNode)lambdaExpression.Block.Accept (this), MonoDevelop.CSharp.Ast.LambdaExpression.BodyRole);
 				}
 				
@@ -2474,8 +2476,6 @@ namespace MonoDevelop.CSharp.Parser
 			node.AddChild (comment, AstNode.Roles.Comment);
 		}
 		
-
-		
 		internal static MonoDevelop.CSharp.Ast.CompilationUnit Parse (CompilerCompilationUnit top)
 		{
 			if (top == null)
@@ -2499,13 +2499,21 @@ namespace MonoDevelop.CSharp.Parser
 			
 			return conversionVisitor.Unit;
 		}
+
+		McsParser.ErrorReportPrinter errorReportPrinter = new McsParser.ErrorReportPrinter ();
+		
+		internal McsParser.ErrorReportPrinter ErrorReportPrinter {
+			get {
+				return errorReportPrinter;
+			}
+		}
 		
 		public MonoDevelop.CSharp.Ast.CompilationUnit Parse (TextEditorData data)
 		{
 			lock (CompilerCallableEntryPoint.parseLock) {
 				CompilerCompilationUnit top;
 				using (Stream stream = data.OpenStream ()) {
-					top = CompilerCallableEntryPoint.ParseFile (new string[] { "-v", "-unsafe"}, stream, data.Document.FileName ?? "empty.cs", Console.Out);
+					top = CompilerCallableEntryPoint.ParseFile (new string[] { "-v", "-unsafe"}, stream, data.Document.FileName ?? "empty.cs", errorReportPrinter);
 				}
 	
 				return Parse (top);
