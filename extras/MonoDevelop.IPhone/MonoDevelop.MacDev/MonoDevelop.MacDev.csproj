@@ -67,6 +67,7 @@
     <Folder Include="MonoDevelop.MacDev.Plist\" />
     <Folder Include="MonoDevelop.MacDev.InterfaceBuilder\" />
     <Folder Include="icons\" />
+    <Folder Include="ObjCIntegration\" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.cs" />
@@ -92,6 +93,25 @@
     <Compile Include="XibCodeBehind.cs" />
     <Compile Include="Keychain.cs" />
     <Compile Include="SigningIdentityCombo.cs" />
+    <Compile Include="ObjCIntegration\NSObjectInfo.cs" />
+    <Compile Include="ObjCIntegration\NSObjectInfoTracker.cs" />
+    <Compile Include="ObjCIntegration\IBOutlet.cs" />
+    <Compile Include="ObjCIntegration\IBAction.cs" />
+    <Compile Include="ObjCIntegration\IBActionParameter.cs" />
+    <Compile Include="XcodeIntegration\PBXBuildFile.cs" />
+    <Compile Include="XcodeIntegration\PBXFileReference.cs" />
+    <Compile Include="XcodeIntegration\PBXFrameworksBuildPhase.cs" />
+    <Compile Include="XcodeIntegration\PBXGroup.cs" />
+    <Compile Include="XcodeIntegration\PBXNativeTarget.cs" />
+    <Compile Include="XcodeIntegration\PBXProject.cs" />
+    <Compile Include="XcodeIntegration\PBXResourcesBuildPhase.cs" />
+    <Compile Include="XcodeIntegration\PBXSourcesBuildPhase.cs" />
+    <Compile Include="XcodeIntegration\PBXVariantGroup.cs" />
+    <Compile Include="XcodeIntegration\XCBuildConfiguration.cs" />
+    <Compile Include="XcodeIntegration\XCConfigurationList.cs" />
+    <Compile Include="XcodeIntegration\XcodeObject.cs" />
+    <Compile Include="XcodeIntegration\XcodeProject.cs" />
+    <Compile Include="XcodeIntegration\XcodeType.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="MonoDevelop.MacDev.addin.xml">

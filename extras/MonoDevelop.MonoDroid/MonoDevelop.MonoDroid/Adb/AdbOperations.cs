@@ -28,6 +28,8 @@ using System;
 using MonoDevelop.Core;
 using System.Collections.Generic;
 using System.IO;
+using System.Xml;
+using System.Xml.Linq;
 
 namespace MonoDevelop.MonoDroid
 {
@@ -167,33 +169,39 @@ namespace MonoDevelop.MonoDroid
 	
 	public sealed class AdbGetPackagesOperation : AdbTransportOperation
 	{
-		public AdbGetPackagesOperation (AndroidDevice device) : base (device)
+		const string DefaultPackagesFile = "/data/system/packages.xml";
+
+		string packageFileName;
+
+		public AdbGetPackagesOperation (AndroidDevice device) : this (device, DefaultPackagesFile)
 		{
+		}
+
+		public AdbGetPackagesOperation (AndroidDevice device, string packageFileName) : base (device)
+		{
+			this.packageFileName = packageFileName;
 			BeginConnect ();
 		}
 		
 		protected override void OnGotTransport ()
 		{
 			var sr = new StringWriter ();
-			WriteCommand ("shell:pm list packages -f", () => GetStatus (() => ReadResponse (sr, OnGotResponse)));
+			WriteCommand ("shell:cat " + packageFileName, () => GetStatus (() => ReadResponse (sr, OnGotResponse)));
 		}
 		
 		void OnGotResponse (TextWriter tw)
 		{
-			var sr = new StringReader (tw.ToString ());
+			XDocument doc = XDocument.Parse (tw.ToString ());
 			var list = new PackageList ();
-			
-			string s;
-			while ((s = sr.ReadLine ()) != null) {
-				//"Error: Could not access the Package Manager.  Is the system running?"
-				if (s.StartsWith ("Error:"))
-					throw new GetPackageListException (s.Substring ("Error:".Length));
-				if (!s.StartsWith ("package:"))
-					throw new GetPackageListException ("Unexpected package list output: '" + s + "'");
-				s = s.Substring ("package:".Length);
-				if (!string.IsNullOrEmpty (s))
-					list.Packages.Add (new InstalledPackage (s));
+
+			foreach (var elem in doc.Element ("packages").Elements ("package")) {
+				var name = elem.Attribute ("name").Value;
+				var apk = elem.Attribute ("codePath").Value;
+				var version = int.Parse (elem.Attribute ("version").Value);
+
+				list.Packages.Add (new InstalledPackage (name, apk, version));
 			}
+
 			PackageList = list;
 			
 			SetCompleted (true);
@@ -317,7 +325,7 @@ namespace MonoDevelop.MonoDroid
 	{
 		public AdbKillProcessOperation (AndroidDevice device, string packageName) : 
 			base (device, "am broadcast -a mono.android.intent.action.SEPPUKU " +
-				"-c mono.android.intent.action.SEPPUKU." + packageName)
+				"-c mono.android.intent.category.SEPPUKU." + packageName)
 		{
 			BeginConnect ();
 		}
