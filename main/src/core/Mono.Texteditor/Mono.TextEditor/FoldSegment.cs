@@ -29,7 +29,7 @@ using System;
 
 namespace Mono.TextEditor
 {
-	public class FoldSegment : Segment, System.IComparable
+	public class FoldSegment : TreeSegment, System.IComparable
 	{
 		bool isFolded;
 		public bool IsFolded {
@@ -79,12 +79,21 @@ namespace Mono.TextEditor
 		
 		public FoldingType FoldingType { get; set; }
 		Document doc;
-		public FoldSegment (Document doc, string description, int offset, int length, FoldingType foldingType) : base (offset, length)
+		
+		public FoldSegment (Document doc,string description,int offset,int length,FoldingType foldingType) : base (offset, length)
 		{
 			this.doc = doc;
-			this.IsFolded    = false;
+			this.IsFolded = false;
 			this.Description = description;
 			this.FoldingType = foldingType;
+		}
+		
+		public FoldSegment (FoldSegment foldSegment) : base (foldSegment.Offset, foldSegment.Length)
+		{
+			this.doc = foldSegment.doc;
+			this.IsFolded = foldSegment.IsFolded;
+			this.Description = foldSegment.Description;
+			this.FoldingType = foldSegment.FoldingType;
 		}
 		
 		public override string ToString()

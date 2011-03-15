@@ -53,7 +53,7 @@ namespace MonoDevelop.VersionControl.Git
 {
 	public class GitRepository : UrlBasedRepository
 	{
-		NGit.Repository repo;
+		LocalGitRepository repo;
 		FilePath path;
 		static readonly byte[] EmptyContent = new byte[0];
 
@@ -68,7 +68,7 @@ namespace MonoDevelop.VersionControl.Git
 		{
 			this.path = path;
 			Url = url;
-			repo = new FileRepository (path.Combine (Constants.DOT_GIT));
+			repo = new LocalGitRepository (path.Combine (Constants.DOT_GIT));
 		}
 		
 		public override string[] SupportedProtocols {
@@ -98,7 +98,7 @@ namespace MonoDevelop.VersionControl.Git
 			GitRepository r = (GitRepository)other;
 			path = r.path;
 			if (r.repo != null)
-				repo = new FileRepository (path);
+				repo = new LocalGitRepository (path);
 		}
 
 		public override string LocationDescription {
@@ -170,21 +170,12 @@ namespace MonoDevelop.VersionControl.Git
 
 
 
-		public override VersionInfo GetVersionInfo (FilePath localPath, bool getRemoteStatus)
+		protected override IEnumerable<VersionInfo> OnGetVersionInfo (IEnumerable<FilePath> paths, bool getRemoteStatus)
 		{
-			if (Directory.Exists (localPath)) {
-				GitRevision rev = new GitRevision (this, "");
-				return new VersionInfo (localPath, "", true, VersionStatus.Versioned, rev, VersionStatus.Versioned, null);
-			} else {
-				VersionInfo[] infos = GetDirectoryVersionInfo (localPath.ParentDirectory, localPath.FileName, getRemoteStatus, false);
-				if (infos.Length == 1)
-					return infos[0];
-				else
-					return null;
-			}
+			return GetDirectoryVersionInfo (FilePath.Null, paths, getRemoteStatus, false);
 		}
 
-		public override VersionInfo[] GetDirectoryVersionInfo (FilePath localDirectory, bool getRemoteStatus, bool recursive)
+		protected override VersionInfo[] OnGetDirectoryVersionInfo (FilePath localDirectory, bool getRemoteStatus, bool recursive)
 		{
 			return GetDirectoryVersionInfo (localDirectory, null, getRemoteStatus, recursive);
 		}
@@ -196,15 +187,34 @@ namespace MonoDevelop.VersionControl.Git
 			return filePath.FullPath.ToRelative (path).ToString ().Replace ('\\', '/');
 		}
 
-		VersionInfo[] GetDirectoryVersionInfo (FilePath localDirectory, string fileName, bool getRemoteStatus, bool recursive)
+		VersionInfo[] GetDirectoryVersionInfo (FilePath localDirectory, IEnumerable<FilePath> localFileNames, bool getRemoteStatus, bool recursive)
 		{
+			List<VersionInfo> versions = new List<VersionInfo> ();
 			HashSet<FilePath> existingFiles = new HashSet<FilePath> ();
-			if (fileName != null) {
-				FilePath fp = localDirectory.Combine (fileName).CanonicalPath;
-				if (File.Exists (fp))
-					existingFiles.Add (fp);
-			} else
+			HashSet<FilePath> nonVersionedMissingFiles = new HashSet<FilePath> ();
+			
+			if (localFileNames != null) {
+				var localFiles = new List<FilePath> ();
+				var arev = new GitRevision (this, "");
+				foreach (var p in localFileNames) {
+					if (Directory.Exists (p))
+						versions.Add (new VersionInfo (p, "", true, VersionStatus.Versioned, arev, VersionStatus.Versioned, null));
+					else {
+						localFiles.Add (p);
+						if (File.Exists (p))
+							existingFiles.Add (p.CanonicalPath);
+						else
+							nonVersionedMissingFiles.Add (p.CanonicalPath);
+					}
+				}
+				// No files to check, we are done
+				if (localFiles.Count == 0)
+					return versions.ToArray ();
+				
+				localFileNames = localFiles;
+			} else {
 				CollectFiles (existingFiles, localDirectory, recursive);
+			}
 			
 			GitRevision rev;
 			var headCommit = GetHeadCommit ();
@@ -212,26 +222,22 @@ namespace MonoDevelop.VersionControl.Git
 				rev = new GitRevision (this, headCommit.Id.Name);
 			else
 				rev = null;
-			List<VersionInfo> versions = new List<VersionInfo> ();
-			FilePath p = fileName != null ? localDirectory.Combine (fileName) : localDirectory;
-			p = p.CanonicalPath;
 			
 			RepositoryStatus status;
-			if (fileName != null)
-				status = GitUtil.GetFileStatus (repo, p);
+			if (localFileNames != null)
+				status = GitUtil.GetFileStatus (repo, localFileNames);
 			else
 				status = GitUtil.GetDirectoryStatus (repo, localDirectory, recursive);
 			
 			HashSet<string> added = new HashSet<string> ();
-			
 			Action<IEnumerable<string>, VersionStatus> AddFiles = delegate(IEnumerable<string> files, VersionStatus fstatus) {
 				foreach (string file in files) {
 					if (!added.Add (file))
 						continue;
 					FilePath statFile = FromGitPath (file);
 					existingFiles.Remove (statFile.CanonicalPath);
-					VersionInfo vi = new VersionInfo (statFile, "", false, fstatus, rev, VersionStatus.Versioned, null);
-					versions.Add (vi);
+					nonVersionedMissingFiles.Remove (statFile.CanonicalPath);
+					versions.Add (new VersionInfo (statFile, "", false, fstatus, rev, VersionStatus.Versioned, null));
 				}
 			};
 			
@@ -242,22 +248,27 @@ namespace MonoDevelop.VersionControl.Git
 			AddFiles (status.MergeConflict, VersionStatus.Versioned | VersionStatus.Conflicted);
 			AddFiles (status.Untracked, VersionStatus.Unversioned);
 			
-						/*				else if (staged == 'R') {
-					// Renamed files are in reality files delete+added to a different location.
-					existingFiles.Remove (srcFile.CanonicalPath);
-					VersionInfo rvi = new VersionInfo (srcFile, "", false, VersionStatus.Versioned | VersionStatus.ScheduledDelete, rev, VersionStatus.Versioned, null);
-					versions.Add (rvi);
-					status = VersionStatus.Versioned | VersionStatus.ScheduledAdd;
-				}
-				else*/
-
-			// Files for which git did not report an status are supposed to be tracked
+			// Existing files for which git did not report an status are supposed to be tracked
 			foreach (FilePath file in existingFiles) {
 				VersionInfo vi = new VersionInfo (file, "", false, VersionStatus.Versioned, rev, VersionStatus.Versioned, null);
 				versions.Add (vi);
 			}
 			
+			// Non existing files for which git did not report an status are unversioned
+			foreach (FilePath file in nonVersionedMissingFiles)
+				versions.Add (VersionInfo.CreateUnversioned (file, false));
+			
 			return versions.ToArray ();
+		}
+		
+		protected override VersionControlOperation GetSupportedOperations (VersionInfo vinfo)
+		{
+			VersionControlOperation ops = base.GetSupportedOperations (vinfo);
+			if (GetCurrentRemote () == null)
+				ops &= ~VersionControlOperation.Update;
+			if (vinfo.IsVersioned)
+				ops |= VersionControlOperation.Annotate;
+			return ops;
 		}
 
 		void CollectFiles (HashSet<FilePath> files, FilePath dir, bool recursive)
@@ -296,11 +307,6 @@ namespace MonoDevelop.VersionControl.Git
 			return this;
 		}
 		
-		public override bool CanUpdate (FilePath localPath)
-		{
-			return base.CanUpdate (localPath) && GetCurrentRemote () != null;
-		}
-
 		public override void Update (FilePath[] localPaths, bool recurse, IProgressMonitor monitor)
 		{
 			IEnumerable<Change> statusList = null;
@@ -749,7 +755,7 @@ namespace MonoDevelop.VersionControl.Git
 			cmd.SetRemote ("origin");
 			cmd.SetBranch ("refs/heads/master");
 			cmd.SetDirectory ((string)targetLocalPath);
-			cmd.SetProgressMonitor (new GitMonitor (monitor));
+			cmd.SetProgressMonitor (new GitMonitor (monitor, 4));
 			cmd.Call ();
 		}
 
@@ -1355,11 +1361,6 @@ namespace MonoDevelop.VersionControl.Git
 			monitor.EndTask ();
 		}
 
-		public override bool CanGetAnnotations (FilePath localPath)
-		{
-			return true;
-		}
-
 		public override Annotation[] GetAnnotations (FilePath repositoryPath)
 		{
 			RevCommit hc = GetHeadCommit ();
@@ -1489,39 +1490,90 @@ namespace MonoDevelop.VersionControl.Git
 	class GitMonitor: NGit.ProgressMonitor
 	{
 		IProgressMonitor monitor;
+		int currentWork;
+		int currentStep;
+		bool taskStarted;
+		int totalTasksOverride = -1;
 		
 		public GitMonitor (IProgressMonitor monitor)
 		{
 			this.monitor = monitor;
 		}
 		
+		public GitMonitor (IProgressMonitor monitor, int totalTasksOverride)
+		{
+			this.monitor = monitor;
+			this.totalTasksOverride = totalTasksOverride;
+		}
+		
 		public override void Start (int totalTasks)
 		{
-			monitor.BeginTask (null, totalTasks);
+			currentStep = 0;
+			currentWork = totalTasksOverride != -1 ? totalTasksOverride : (totalTasks > 0 ? totalTasks : 1);
+			totalTasksOverride = -1;
+			monitor.BeginTask (null, currentWork);
 		}
 		
 		
 		public override void BeginTask (string title, int totalWork)
 		{
-			monitor.BeginTask (title, totalWork);
+			if (taskStarted)
+				EndTask ();
+			
+			taskStarted = true;
+			currentStep = 0;
+			currentWork = totalWork > 0 ? totalWork : 1;
+			monitor.BeginTask (title, currentWork);
 		}
 		
 		
 		public override void Update (int completed)
 		{
-			monitor.Step (completed);
+			currentStep += completed;
+			if (currentStep >= (currentWork / 100)) {
+				monitor.Step (currentStep);
+				currentStep = 0;
+			}
 		}
 		
 		
 		public override void EndTask ()
 		{
+			taskStarted = false;
 			monitor.EndTask ();
+			monitor.Step (1);
 		}
 		
 		
 		public override bool IsCancelled ()
 		{
 			return monitor.IsCancelRequested;
+		}
+	}
+	
+	class LocalGitRepository: FileRepository
+	{
+		WeakReference dirCacheRef;
+		DateTime dirCacheTimestamp;
+		
+		public LocalGitRepository (string path): base (path)
+		{
+		}
+		
+		public override DirCache ReadDirCache ()
+		{
+			DirCache dc = null;
+			if (dirCacheRef != null)
+				dc = dirCacheRef.Target as DirCache;
+			if (dc != null) {
+				DateTime wt = File.GetLastWriteTime (GetIndexFile ());
+				if (wt == dirCacheTimestamp)
+					return dc;
+			}
+			dirCacheTimestamp = File.GetLastWriteTime (GetIndexFile ());
+			dc = base.ReadDirCache ();
+			dirCacheRef = new WeakReference (dc);
+			return dc;
 		}
 	}
 }

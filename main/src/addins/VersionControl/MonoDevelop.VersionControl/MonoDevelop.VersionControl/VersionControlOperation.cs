@@ -1,5 +1,5 @@
 // 
-// ProjectItemEventArgs.cs
+// VersionControlOperation.cs
 //  
 // Author:
 //       Lluis Sanchez Gual <lluis@novell.com>
@@ -24,42 +24,22 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 using System;
-using MonoDevelop.Core;
 
-namespace MonoDevelop.Projects
+namespace MonoDevelop.VersionControl
 {
-	public class ProjectItemEventArgs: EventArgsChain<ProjectItemEventInfo>
+	[Flags]
+	public enum VersionControlOperation
 	{
-		public ProjectItemEventArgs ()
-		{
-		}
-		
-		public ProjectItemEventArgs (SolutionEntityItem solutionItem, ProjectItem item)
-		{
-			Add (new ProjectItemEventInfo (solutionItem, item)); 
-		}
-	}
-	
-	public class ProjectItemEventInfo
-	{
-		ProjectItem item;
-		SolutionEntityItem solutionItem;
-		
-		public ProjectItemEventInfo (SolutionEntityItem solutionItem, ProjectItem item)
-		{
-			this.item = item;
-			this.solutionItem = solutionItem;
-		}
-		
-		public SolutionEntityItem SolutionItem {
-			get {
-				return solutionItem;
-			}
-		}
-		
-		public ProjectItem Item {
-			get { return item; }
-		}
+		None = 0,
+		Add = 1,
+		Remove = 2,
+		Commit = 4,
+		Revert = 8,
+		Update = 16,
+		Lock = 32,
+		Unlock = 64,
+		Annotate = 128,
+		Log = 256
 	}
 }
 

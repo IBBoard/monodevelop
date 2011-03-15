@@ -59,31 +59,11 @@ namespace MonoDevelop.VersionControl.Subversion
 			get { return (SubversionVersionControl) VersionControlSystem; }
 		}
 
-		public override bool IsModified (FilePath sourcefile)
-		{
-			return Svn.IsDiffAvailable (this, sourcefile);
-		}
-
-		public override bool IsVersioned (FilePath sourcefile)
+		bool IsVersioned (FilePath sourcefile)
 		{
 			return Svn.IsVersioned (sourcefile);
 		}
-
-		public override bool CanAdd (FilePath sourcepath)
-		{
-			if (IsVersioned (sourcepath) && File.Exists (sourcepath) && !Directory.Exists (sourcepath)) {
-				VersionInfo srcInfo = GetVersionInfo (sourcepath, false);
-				return srcInfo.HasLocalChange (VersionStatus.ScheduledDelete);
-			}
-
-			return Svn.CanAdd (this, sourcepath);
-		}
-
-		public override bool CanCommit (FilePath localPath)
-		{
-			return Svn.CanCommit (this, localPath);
-		}
-
+		
 		public override string GetBaseText (FilePath sourcefile)
 		{
 			return File.ReadAllText (Svn.GetPathToBaseText (sourcefile));
@@ -104,14 +84,21 @@ namespace MonoDevelop.VersionControl.Subversion
 			return Svn.GetHistory (this, sourcefile, since);
 		}
 
-		public override VersionInfo GetVersionInfo (FilePath localPath, bool getRemoteStatus)
+		protected override IEnumerable<VersionInfo> OnGetVersionInfo (IEnumerable<FilePath> paths, bool getRemoteStatus)
 		{
-			return Svn.GetVersionInfo (this, localPath, getRemoteStatus);
+			// TODO: optimize by adding a method for handling collections of files
+			foreach (var p in paths)
+				yield return Svn.GetVersionInfo (this, p, getRemoteStatus);
 		}
 
-		public override VersionInfo[] GetDirectoryVersionInfo (FilePath sourcepath, bool getRemoteStatus, bool recursive)
+		protected override VersionInfo[] OnGetDirectoryVersionInfo (FilePath sourcepath, bool getRemoteStatus, bool recursive)
 		{
 			return Svn.GetDirectoryVersionInfo (this, sourcepath, getRemoteStatus, recursive);
+		}
+		
+		protected override VersionControlOperation GetSupportedOperations (VersionInfo vinfo)
+		{
+			return Svn.GetSupportedOperations (this, vinfo, base.GetSupportedOperations (vinfo));
 		}
 
 		public override bool RequestFileWritePermission (FilePath path)
@@ -129,7 +116,7 @@ namespace MonoDevelop.VersionControl.Subversion
 				MessageService.ShowError (GettextCatalog.GetString ("The file '{0}' could not be unlocked", path), ex.Message);
 				return false;
 			}
-			VersionControlService.NotifyFileStatusChanged (this, path, false);
+			VersionControlService.NotifyFileStatusChanged (new FileUpdateEventArgs (this, path, false));
 			return true;
 		}
 
@@ -141,24 +128,6 @@ namespace MonoDevelop.VersionControl.Subversion
 		public override void Unlock (IProgressMonitor monitor, params FilePath[] localPaths)
 		{
 			Svn.Unlock (monitor, false, localPaths);
-		}
-
-		public override bool CanLock (FilePath localPath)
-		{
-			if (Directory.Exists (localPath))
-				return false;
-			VersionInfo ver = GetVersionInfo (localPath, false);
-			if (ver == null || !ver.IsVersioned || ver.HasLocalChanges)
-				return false;
-			return (ver.Status & VersionStatus.LockOwned) == 0;
-		}
-
-		public override bool CanUnlock (FilePath localPath)
-		{
-			if (Directory.Exists (localPath))
-				return false;
-			VersionInfo ver = GetVersionInfo (localPath, false);
-			return ver != null && (ver.Status & VersionStatus.LockOwned) != 0;
 		}
 
 		public override Repository Publish (string serverPath, FilePath localPath, FilePath[] files, string message, IProgressMonitor monitor)
@@ -230,8 +199,10 @@ namespace MonoDevelop.VersionControl.Subversion
 		public void Resolve (FilePath[] localPaths, bool recurse, IProgressMonitor monitor)
 		{
 			Svn.Resolve (localPaths, recurse, monitor);
-			foreach (string path in localPaths)
-				VersionControlService.NotifyFileStatusChanged (this, path, Directory.Exists (path));
+			FileUpdateEventArgs args = new FileUpdateEventArgs ();
+			foreach (var path in localPaths)
+				args.Add (new FileUpdateEventInfo (this, path, Directory.Exists (path)));
+			VersionControlService.NotifyFileStatusChanged (args);
 		}
 
 		public override void Revert (FilePath[] localPaths, bool recurse, IProgressMonitor monitor)
@@ -289,9 +260,12 @@ namespace MonoDevelop.VersionControl.Subversion
 
 						// Found all parent unversioned dirs. Versin them now.
 						dirChain.Reverse ();
-						foreach (var d in dirChain)
+						FileUpdateEventArgs args = new FileUpdateEventArgs ();
+						foreach (var d in dirChain) {
 							Svn.Add (d, false, monitor);
-						VersionControlService.NotifyFileStatusChanged (this, dirChain [0], true);
+							args.Add (new FileUpdateEventInfo (this, dirChain [0], true));
+						}
+						VersionControlService.NotifyFileStatusChanged (args);
 					}
 					Svn.Add (path, recurse, monitor);
 				}
@@ -515,11 +489,6 @@ namespace MonoDevelop.VersionControl.Subversion
 				string diff = Svn.GetUnifiedDiff (baseLocalPath, true, remoteDiff);
 				return GenerateUnifiedDiffInfo (diff, baseLocalPath, null);
 			}
-		}
-		
-		public override bool CanGetAnnotations (MonoDevelop.Core.FilePath localPath)
-		{
-		    return IsHistoryAvailable (localPath);
 		}
 		
 		public override Annotation[] GetAnnotations (FilePath localPath)

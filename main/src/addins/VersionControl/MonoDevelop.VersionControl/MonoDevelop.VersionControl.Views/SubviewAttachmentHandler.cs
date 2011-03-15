@@ -42,9 +42,9 @@ namespace MonoDevelop.VersionControl.Views
 			var repo = VersionControlService.GetRepository (e.Document.Project);
 			if (repo == null)
 				return;
-			if (!e.Document.IsFile || !repo.IsVersioned (e.Document.FileName))
+			if (!e.Document.IsFile || !repo.GetVersionInfo (e.Document.FileName).IsVersioned)
 				return;
-			var item = new VersionControlItem (repo, e.Document.Project, e.Document.FileName, false);
+			var item = new VersionControlItem (repo, e.Document.Project, e.Document.FileName, false, null);
 			
 			DiffView.AttachViewContents (e.Document, item);
 		}
