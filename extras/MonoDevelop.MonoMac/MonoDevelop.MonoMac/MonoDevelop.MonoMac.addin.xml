@@ -32,7 +32,14 @@
 		<Addin id="Core" version="2.6"/>
 		<Addin id="Ide"  version="2.6"/>
 		<Addin id="MacDev" version="2.6"/>
+		<Addin id="MacPlatform" version="2.6"/>
 	</Dependencies>
+	
+	<Extension path = "/MonoDevelop/Core/Applications">
+		<Application id = "mac-bundle"
+			      class = "MonoDevelop.MonoMac.MonoMacPackagingTool"
+			description = "Mac application bundle and installer generator."/>
+	</Extension>
 	
 	<Extension path = "/MonoDevelop/Ide/FileTemplates">
 		<FileTemplate id = "MonoMacPlist"
@@ -121,6 +128,7 @@
 			<Addin id="Ide"  version="2.6"/>
 			<Addin id="Debugger" version="2.6"/>
 			<Addin id="Debugger.Soft" version="2.6"/>
+			<Addin id="MacPlatform" version="2.6"/>
 		</Dependencies>
 	
 		<Extension path="/MonoDevelop/Debugging/DebuggerEngines">

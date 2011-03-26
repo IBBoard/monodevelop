@@ -88,32 +88,28 @@ namespace MonoDevelop.CSharp.Formatting
 			//		OnTheFlyFormatter.Format (policyParent, mimeTypeChain, data, dom, caretLocation, true);
 		}
 
-		public override void OnTheFlyFormat (PolicyContainer policyParent, IEnumerable<string> mimeTypeChain,
+		public override void OnTheFlyFormat (PolicyContainer policyParent, IEnumerable<string> mimeTypeChain, 
 			TextEditorData data, int startOffset, int endOffset)
 		{
-			var compilationUnit = new MonoDevelop.CSharp.Parser.CSharpParser ().Parse (data);
+			var parser = new MonoDevelop.CSharp.Parser.CSharpParser ();
+			var compilationUnit = parser.Parse (data);
+			bool hadErrors = parser.ErrorReportPrinter.ErrorsCount + parser.ErrorReportPrinter.FatalCounter > 0;
 			var policy = policyParent.Get<CSharpFormattingPolicy> (mimeTypeChain);
-			var domSpacingVisitor = new AstSpacingVisitor (policy, data) {
+			var formattingVisitor = new AstFormattingVisitor (policy, data) {
 				AutoAcceptChanges = false,
 			};
-			compilationUnit.AcceptVisitor (domSpacingVisitor, null);
-
-			var domIndentationVisitor = new AstIndentationVisitor (policy, data) {
-				AutoAcceptChanges = false,
-			};
-			compilationUnit.AcceptVisitor (domIndentationVisitor, null);
-
+			compilationUnit.AcceptVisitor (formattingVisitor, null);
+			
+			
 			var changes = new List<Change> ();
 
-			changes.AddRange (domSpacingVisitor.Changes.
-				Concat (domIndentationVisitor.Changes).
+			changes.AddRange (formattingVisitor.Changes.
 				Where (c => c is TextReplaceChange && (startOffset <= ((TextReplaceChange)c).Offset && ((TextReplaceChange)c).Offset < endOffset)));
 
 			RefactoringService.AcceptChanges (null, null, changes);
 		}
 
-		public override string FormatText (PolicyContainer policyParent, IEnumerable<string> mimeTypeChain,
-			string input, int startOffset, int endOffset)
+		public override string FormatText (PolicyContainer policyParent, IEnumerable<string> mimeTypeChain, string input, int startOffset, int endOffset)
 		{
 			var data = new TextEditorData ();
 			data.Document.SuppressHighlightUpdate = true;
@@ -130,23 +126,21 @@ namespace MonoDevelop.CSharp.Formatting
 			//System.Console.WriteLine (data.Text.Replace (" ", ".").Replace ("\t", "->"));
 			//System.Console.WriteLine ("-----");
 
-			var compilationUnit = new MonoDevelop.CSharp.Parser.CSharpParser ().Parse (data);
+			MonoDevelop.CSharp.Parser.CSharpParser parser = new MonoDevelop.CSharp.Parser.CSharpParser ();
+			var compilationUnit = parser.Parse (data);
+			bool hadErrors = parser.ErrorReportPrinter.ErrorsCount + parser.ErrorReportPrinter.FatalCounter > 0;
+			if (hadErrors)
+				return null;
 			var policy = policyParent.Get<CSharpFormattingPolicy> (mimeTypeChain);
 
-			var domSpacingVisitor = new AstSpacingVisitor (policy, data) {
-				AutoAcceptChanges = false,
+			var formattingVisitor = new AstFormattingVisitor (policy, data) {
+				AutoAcceptChanges = false
 			};
-			compilationUnit.AcceptVisitor (domSpacingVisitor, null);
-
-			var domIndentationVisitor = new AstIndentationVisitor (policy, data) {
-				AutoAcceptChanges = false,
-			};
-			compilationUnit.AcceptVisitor (domIndentationVisitor, null);
+			compilationUnit.AcceptVisitor (formattingVisitor, null);
 
 			var changes = new List<Change> ();
 
-			changes.AddRange (domSpacingVisitor.Changes.
-				Concat (domIndentationVisitor.Changes).
+			changes.AddRange (formattingVisitor.Changes.
 				Where (c => c is TextReplaceChange && (startOffset <= ((TextReplaceChange)c).Offset && ((TextReplaceChange)c).Offset < endOffset)));
 
 			RefactoringService.AcceptChanges (null, null, changes);

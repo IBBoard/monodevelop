@@ -69,7 +69,7 @@ namespace MonoDevelop.MonoMac.Gui
 			return mon.AsyncOperation;
 		}
 		
-		static bool BuildPackage (IProgressMonitor monitor, MonoMacProject project,
+		public static bool BuildPackage (IProgressMonitor monitor, MonoMacProject project,
 			ConfigurationSelector conf, MonoMacPackagingSettings settings, FilePath target)
 		{
 			string bundleKey = settings.BundleSigningKey;
@@ -143,6 +143,20 @@ namespace MonoDevelop.MonoMac.Gui
 					monitor.BeginTask (GettextCatalog.GetString ("Merging Mono into app bundle"), 0);
 					
 					var args = new ProcessArgumentBuilder ();
+					switch (settings.LinkerMode){
+					case MonoMacLinkerMode.LinkNone:
+						args.Add ("--nolink");
+						break;
+						
+					case MonoMacLinkerMode.LinkFramework:
+						args.Add ("--linksdkonly");
+						break;
+						
+					case MonoMacLinkerMode.LinkAll:
+						// nothing
+						break;
+					}
+					
 					args.Add ("-o");
 					args.AddQuoted (tempDir);
 					args.Add ("-n");

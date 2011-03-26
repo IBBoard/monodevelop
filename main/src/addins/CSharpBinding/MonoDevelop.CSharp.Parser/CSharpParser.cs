@@ -663,24 +663,46 @@ namespace MonoDevelop.CSharp.Parser
 			}
 			
 			static Dictionary<Mono.CSharp.Modifiers, MonoDevelop.Projects.Dom.Modifiers> modifierTable = new Dictionary<Mono.CSharp.Modifiers, MonoDevelop.Projects.Dom.Modifiers> ();
+			static string[] keywordTable;
+			
 			static ConversionVisitor ()
 			{
-				modifierTable[Mono.CSharp.Modifiers.NEW] = MonoDevelop.Projects.Dom.Modifiers.New;
-				modifierTable[Mono.CSharp.Modifiers.PUBLIC] = MonoDevelop.Projects.Dom.Modifiers.Public;
-				modifierTable[Mono.CSharp.Modifiers.PROTECTED] = MonoDevelop.Projects.Dom.Modifiers.Protected;
-				modifierTable[Mono.CSharp.Modifiers.PRIVATE] = MonoDevelop.Projects.Dom.Modifiers.Private;
-				modifierTable[Mono.CSharp.Modifiers.INTERNAL] = MonoDevelop.Projects.Dom.Modifiers.Internal;
-				modifierTable[Mono.CSharp.Modifiers.ABSTRACT] = MonoDevelop.Projects.Dom.Modifiers.Abstract;
-				modifierTable[Mono.CSharp.Modifiers.VIRTUAL] = MonoDevelop.Projects.Dom.Modifiers.Virtual;
-				modifierTable[Mono.CSharp.Modifiers.SEALED] = MonoDevelop.Projects.Dom.Modifiers.Sealed;
-				modifierTable[Mono.CSharp.Modifiers.STATIC] = MonoDevelop.Projects.Dom.Modifiers.Static;
-				modifierTable[Mono.CSharp.Modifiers.OVERRIDE] = MonoDevelop.Projects.Dom.Modifiers.Override;
-				modifierTable[Mono.CSharp.Modifiers.READONLY] = MonoDevelop.Projects.Dom.Modifiers.Readonly;
-//				modifierTable[Mono.CSharp.Modifiers.] = Modifiers.Const;
-				modifierTable[Mono.CSharp.Modifiers.PARTIAL] = MonoDevelop.Projects.Dom.Modifiers.Partial;
-				modifierTable[Mono.CSharp.Modifiers.EXTERN] = MonoDevelop.Projects.Dom.Modifiers.Extern;
-				modifierTable[Mono.CSharp.Modifiers.VOLATILE] = MonoDevelop.Projects.Dom.Modifiers.Volatile;
-				modifierTable[Mono.CSharp.Modifiers.UNSAFE] = MonoDevelop.Projects.Dom.Modifiers.Unsafe;
+				modifierTable [Mono.CSharp.Modifiers.NEW] = MonoDevelop.Projects.Dom.Modifiers.New;
+				modifierTable [Mono.CSharp.Modifiers.PUBLIC] = MonoDevelop.Projects.Dom.Modifiers.Public;
+				modifierTable [Mono.CSharp.Modifiers.PROTECTED] = MonoDevelop.Projects.Dom.Modifiers.Protected;
+				modifierTable [Mono.CSharp.Modifiers.PRIVATE] = MonoDevelop.Projects.Dom.Modifiers.Private;
+				modifierTable [Mono.CSharp.Modifiers.INTERNAL] = MonoDevelop.Projects.Dom.Modifiers.Internal;
+				modifierTable [Mono.CSharp.Modifiers.ABSTRACT] = MonoDevelop.Projects.Dom.Modifiers.Abstract;
+				modifierTable [Mono.CSharp.Modifiers.VIRTUAL] = MonoDevelop.Projects.Dom.Modifiers.Virtual;
+				modifierTable [Mono.CSharp.Modifiers.SEALED] = MonoDevelop.Projects.Dom.Modifiers.Sealed;
+				modifierTable [Mono.CSharp.Modifiers.STATIC] = MonoDevelop.Projects.Dom.Modifiers.Static;
+				modifierTable [Mono.CSharp.Modifiers.OVERRIDE] = MonoDevelop.Projects.Dom.Modifiers.Override;
+				modifierTable [Mono.CSharp.Modifiers.READONLY] = MonoDevelop.Projects.Dom.Modifiers.Readonly;
+				//				modifierTable[Mono.CSharp.Modifiers.] = Modifiers.Const;
+				modifierTable [Mono.CSharp.Modifiers.PARTIAL] = MonoDevelop.Projects.Dom.Modifiers.Partial;
+				modifierTable [Mono.CSharp.Modifiers.EXTERN] = MonoDevelop.Projects.Dom.Modifiers.Extern;
+				modifierTable [Mono.CSharp.Modifiers.VOLATILE] = MonoDevelop.Projects.Dom.Modifiers.Volatile;
+				modifierTable [Mono.CSharp.Modifiers.UNSAFE] = MonoDevelop.Projects.Dom.Modifiers.Unsafe;
+				
+				keywordTable = new string[255];
+				for (int i = 0; i< keywordTable.Length; i++) 
+					keywordTable [i] = "unknown";
+				
+				keywordTable [(int)BuiltinTypeSpec.Type.Other] = "void";
+				keywordTable [(int)BuiltinTypeSpec.Type.String] = "string";
+				keywordTable [(int)BuiltinTypeSpec.Type.Int] = "int";
+				keywordTable [(int)BuiltinTypeSpec.Type.Object] = "object";
+				keywordTable [(int)BuiltinTypeSpec.Type.Float] = "float";
+				keywordTable [(int)BuiltinTypeSpec.Type.Double] = "double";
+				keywordTable [(int)BuiltinTypeSpec.Type.Long] = "long";
+				keywordTable [(int)BuiltinTypeSpec.Type.Byte] = "byte";
+				keywordTable [(int)BuiltinTypeSpec.Type.UInt] = "uint";
+				keywordTable [(int)BuiltinTypeSpec.Type.ULong] = "ulong";
+				keywordTable [(int)BuiltinTypeSpec.Type.Short] = "short";
+				keywordTable [(int)BuiltinTypeSpec.Type.UShort] = "ushort";
+				keywordTable [(int)BuiltinTypeSpec.Type.SByte] = "sbyte";
+				keywordTable [(int)BuiltinTypeSpec.Type.Decimal] = "decimal";
+				keywordTable [(int)BuiltinTypeSpec.Type.Char] = "char";
 			}
 			
 			void AddModifiers (AttributedNode parent, LocationsBag.MemberLocations location)
@@ -883,12 +905,14 @@ namespace MonoDevelop.CSharp.Parser
 			public override object Visit (BlockConstantDeclaration blockVariableDeclaration)
 			{
 				var result = new VariableDeclarationStatement ();
+				
+				var location = LocationsBag.GetLocations (blockVariableDeclaration);
+				if (location != null)
+					result.AddChild (new CSharpModifierToken (Convert (location [0]), MonoDevelop.Projects.Dom.Modifiers.Const), VariableDeclarationStatement.ModifierRole);
+				
 				result.AddChild (ConvertToType (blockVariableDeclaration.TypeExpression), VariableDeclarationStatement.Roles.Type);
 				
 				var varInit = new VariableInitializer ();
-				var location = LocationsBag.GetLocations (blockVariableDeclaration);
-				if (location != null)
-					varInit.AddChild (new CSharpModifierToken (Convert (location[0]), MonoDevelop.Projects.Dom.Modifiers.Const), VariableDeclarationStatement.ModifierRole);
 				varInit.AddChild (new Identifier (blockVariableDeclaration.Variable.Name, Convert (blockVariableDeclaration.Variable.Location)), VariableInitializer.Roles.Identifier);
 				if (blockVariableDeclaration.Initializer != null) {
 					if (location != null)
@@ -1454,42 +1478,10 @@ namespace MonoDevelop.CSharp.Parser
 			{
 				return defaultParameterValueExpression.Child.Accept (this);
 			}
-			
+
 			public override object Visit (TypeExpression typeExpression)
 			{
-				string keyword;
-				if (typeExpression.Type == TypeManager.void_type) {
-					keyword = "void";
-				} else if (typeExpression.Type == TypeManager.string_type) {
-					keyword = "string";
-				} else if (typeExpression.Type == TypeManager.int32_type) {
-					keyword = "int";
-				} else if (typeExpression.Type == TypeManager.object_type) {
-					keyword = "object";
-				} else if (typeExpression.Type == TypeManager.float_type) {
-					keyword = "float";
-				} else if (typeExpression.Type == TypeManager.double_type) {
-					keyword = "double";
-				} else if (typeExpression.Type == TypeManager.int64_type) {
-					keyword = "long";
-				} else if (typeExpression.Type == TypeManager.byte_type) {
-					keyword = "byte";
-				} else if (typeExpression.Type == TypeManager.uint32_type) {
-					keyword = "uint";
-				} else if (typeExpression.Type == TypeManager.uint64_type) {
-					keyword = "ulong";
-				} else if (typeExpression.Type == TypeManager.short_type) {
-					keyword = "short";
-				} else if (typeExpression.Type == TypeManager.ushort_type) {
-					keyword = "ushort";
-				} else if (typeExpression.Type == TypeManager.sbyte_type) {
-					keyword = "sbyte";
-				} else if (typeExpression.Type == TypeManager.decimal_type) {
-					keyword = "decimal";
-				} else {
-					keyword = "unknown";
-				}
-				return new IdentifierExpression (keyword, Convert (typeExpression.Location));
+				return new IdentifierExpression (keywordTable [(int)typeExpression.Type.BuiltinType], Convert (typeExpression.Location));
 			}
 
 			public override object Visit (LocalVariableReference localVariableReference)
@@ -2486,9 +2478,9 @@ namespace MonoDevelop.CSharp.Parser
 				var comment = special as SpecialsBag.Comment;
 				
 				if (comment != null) {
-					var type  = (MonoDevelop.CSharp.Ast.CommentType)comment.CommentType;
-					var start =  new AstLocation (comment.Line, comment.Col);
-					var end =  new AstLocation (comment.EndLine, comment.EndCol);
+					var type = (MonoDevelop.CSharp.Ast.CommentType)comment.CommentType;
+					var start = new AstLocation (comment.Line, comment.Col);
+					var end = new AstLocation (comment.EndLine, comment.EndCol);
 					var domComment = new MonoDevelop.CSharp.Ast.Comment (type, start, end);
 					domComment.StartsLine = comment.StartsLine;
 					domComment.Content = comment.Content;
@@ -2501,7 +2493,7 @@ namespace MonoDevelop.CSharp.Parser
 
 		McsParser.ErrorReportPrinter errorReportPrinter = new McsParser.ErrorReportPrinter ();
 		
-		internal McsParser.ErrorReportPrinter ErrorReportPrinter {
+		public McsParser.ErrorReportPrinter ErrorReportPrinter {
 			get {
 				return errorReportPrinter;
 			}

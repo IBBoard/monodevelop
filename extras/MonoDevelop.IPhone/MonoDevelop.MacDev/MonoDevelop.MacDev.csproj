@@ -62,6 +62,15 @@
       <HintPath>..\..\..\main\build\AddIns\MonoDevelop.DesignerSupport\MonoDevelop.DesignerSupport.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="Mono.Posix" />
+    <Reference Include="MonoMac, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\main\build\AddIns\MonoMac.dll</HintPath>
+    </Reference>
+    <Reference Include="MacPlatform, Version=2.6.0.0, Culture=neutral, PublicKeyToken=null">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\main\build\AddIns\MacPlatform.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Folder Include="MonoDevelop.MacDev.Plist\" />
@@ -94,7 +103,6 @@
     <Compile Include="Keychain.cs" />
     <Compile Include="SigningIdentityCombo.cs" />
     <Compile Include="ObjCIntegration\NSObjectInfo.cs" />
-    <Compile Include="ObjCIntegration\NSObjectInfoTracker.cs" />
     <Compile Include="ObjCIntegration\IBOutlet.cs" />
     <Compile Include="ObjCIntegration\IBAction.cs" />
     <Compile Include="ObjCIntegration\IBActionParameter.cs" />
@@ -112,6 +120,9 @@
     <Compile Include="XcodeIntegration\XcodeObject.cs" />
     <Compile Include="XcodeIntegration\XcodeProject.cs" />
     <Compile Include="XcodeIntegration\XcodeType.cs" />
+    <Compile Include="XcodeIntegration\XcodeProjectTracker.cs" />
+    <Compile Include="ObjCIntegration\NSObjectInfoService.cs" />
+    <Compile Include="ObjCIntegration\NSObjectProjectInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="MonoDevelop.MacDev.addin.xml">

@@ -86,35 +86,34 @@ namespace MonoDevelop.CSharp.Formatting
 			}
 			sb.AppendLine ();
 			int startOffset = sb.Length;
-			sb.Append (data.Editor.GetTextBetween (member.Location.Line, 1, member.BodyRegion.End.Line + (runAferCR ? 1 : 0), member.BodyRegion.End.Column));
+			int memberStart = data.Editor.LocationToOffset (member.Location.Line, 1);
+			int memberEnd = data.Editor.LocationToOffset (member.BodyRegion.End.Line + (runAferCR ? 1 : 0), member.BodyRegion.End.Column);
+			if (memberEnd < 0)
+				memberEnd = data.Editor.Length;
+			sb.Append (data.Editor.GetTextBetween (memberStart, memberEnd));
 			int endOffset = sb.Length;
 			sb.AppendLine ();
 			sb.Append (new string ('}', closingBrackets));
 			TextEditorData stubData = new TextEditorData () { Text = sb.ToString () };
 			stubData.Document.FileName = data.FileName;
 			var parser = new MonoDevelop.CSharp.Parser.CSharpParser ();
+			bool hadErrors = parser.ErrorReportPrinter.ErrorsCount + parser.ErrorReportPrinter.FatalCounter > 0;
 			var compilationUnit = parser.Parse (stubData);
 			
 			var policy = policyParent.Get<CSharpFormattingPolicy> (mimeTypeChain);
-			var domSpacingVisitor = new AstSpacingVisitor (policy, stubData) {
+			var domSpacingVisitor = new AstFormattingVisitor (policy, stubData) {
 				AutoAcceptChanges = false,
 			};
 			compilationUnit.AcceptVisitor (domSpacingVisitor, null);
 
-			var domIndentationVisitor = new AstIndentationVisitor (policy, stubData) {
-				AutoAcceptChanges = false,
-			};
-			domIndentationVisitor.CorrectBlankLines = correctBlankLines;
-			compilationUnit.AcceptVisitor (domIndentationVisitor, null);
 			
 			var changes = new List<Change> ();
 			changes.AddRange (domSpacingVisitor.Changes.Cast<TextReplaceChange> ().Where (c => startOffset < c.Offset && c.Offset < endOffset));
-			changes.AddRange (domIndentationVisitor.Changes.Cast<TextReplaceChange> ().Where (c => startOffset < c.Offset && c.Offset < endOffset));
 			int delta = data.Editor.LocationToOffset (member.Location.Line, 1) - startOffset;
 			HashSet<int> lines = new HashSet<int> ();
 			foreach (TextReplaceChange change in changes) {
-				if (change is AstSpacingVisitor.MyTextReplaceChange) 
-					((AstSpacingVisitor.MyTextReplaceChange)change).SetTextEditorData (data.Editor);
+				if (change is AstFormattingVisitor.MyTextReplaceChange) 
+					((AstFormattingVisitor.MyTextReplaceChange)change).SetTextEditorData (data.Editor);
 				change.Offset += delta;
 				lines.Add (data.Editor.OffsetToLineNumber (change.Offset));
 			}

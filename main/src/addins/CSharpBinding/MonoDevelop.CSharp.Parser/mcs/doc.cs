@@ -271,39 +271,40 @@ namespace Mono.CSharp {
 		private static TypeSpec FindDocumentedTypeNonArray (MemberCore mc, 
 			string identifier, DeclSpace ds, string cref, Report r)
 		{
+			var types = mc.Module.Compiler.BuiltinTypes;
 			switch (identifier) {
 			case "int":
-				return TypeManager.int32_type;
+				return types.Int;
 			case "uint":
-				return TypeManager.uint32_type;
+				return types.UInt;
 			case "short":
-				return TypeManager.short_type;;
+				return types.Short;
 			case "ushort":
-				return TypeManager.ushort_type;
+				return types.UShort;
 			case "long":
-				return TypeManager.int64_type;
+				return types.Long;
 			case "ulong":
-				return TypeManager.uint64_type;;
+				return types.ULong;
 			case "float":
-				return TypeManager.float_type;;
+				return types.Float;
 			case "double":
-				return TypeManager.double_type;
+				return types.Double;
 			case "char":
-				return TypeManager.char_type;;
+				return types.Char;
 			case "decimal":
-				return TypeManager.decimal_type;;
+				return types.Decimal;
 			case "byte":
-				return TypeManager.byte_type;;
+				return types.Byte;
 			case "sbyte":
-				return TypeManager.sbyte_type;;
+				return types.SByte;
 			case "object":
-				return TypeManager.object_type;;
+				return types.Object;
 			case "bool":
-				return TypeManager.bool_type;;
+				return types.Bool;
 			case "string":
-				return TypeManager.string_type;;
+				return types.String;
 			case "void":
-				return TypeManager.void_type;;
+				return types.Void;
 			}
 			FullNamedExpression e = ds.LookupNamespaceOrType (identifier, 0, mc.Location, false);
 			if (e != null) {
@@ -888,7 +889,7 @@ namespace Mono.CSharp {
 		//
 		// Outputs XML documentation comment from tokenized comments.
 		//
-		public bool OutputDocComment (string asmfilename, Report Report)
+		public bool OutputDocComment (string asmfilename, ModuleContainer module)
 		{
 			XmlTextWriter w = null;
 			try {
@@ -904,14 +905,14 @@ namespace Mono.CSharp {
 				w.WriteEndElement (); // assembly
 				w.WriteStartElement ("members");
 				XmlCommentOutput = w;
-				GenerateDocComment (Report);
+				GenerateDocComment (module);
 				w.WriteFullEndElement (); // members
 				w.WriteEndElement ();
 				w.WriteWhitespace (Environment.NewLine);
 				w.WriteEndDocument ();
 				return true;
 			} catch (Exception ex) {
-				Report.Error (1569, "Error generating XML documentation file `{0}' (`{1}')", docfilename, ex.Message);
+				module.Compiler.Report.Error (1569, "Error generating XML documentation file `{0}' (`{1}')", docfilename, ex.Message);
 				return false;
 			} finally {
 				if (w != null)
@@ -922,13 +923,11 @@ namespace Mono.CSharp {
 		//
 		// Fixes full type name of each documented types/members up.
 		//
-		public void GenerateDocComment (Report r)
+		void GenerateDocComment (ModuleContainer module)
 		{
-			TypeContainer root = RootContext.ToplevelTypes;
-
-			if (root.Types != null)
-				foreach (TypeContainer tc in root.Types)
-					DocUtil.GenerateTypeDocComment (tc, null, r);
+			if (module.Types != null)
+				foreach (TypeContainer tc in module.Types)
+					DocUtil.GenerateTypeDocComment (tc, null, module.Compiler.Report);
 		}
 	}
 }

@@ -153,13 +153,13 @@ namespace MonoDevelop.Projects.Dom.Serialization
 			return database.GetDocumentation (member);
 		}
 		
-		public override TypeUpdateInformation UpdateFromParseInfo (ICompilationUnit unit)
+		public override TypeUpdateInformation UpdateFromParseInfo (ICompilationUnit unit, bool isFromFile)
 		{
 			if (string.IsNullOrEmpty (unit.FileName))
 				throw new ArgumentException ("Compilation unit has no file name set.", "unit");
 			ProjectCodeCompletionDatabase db = database as ProjectCodeCompletionDatabase;
 			if (db != null)
-				return db.UpdateFromParseInfo (unit, unit.FileName);
+				return db.UpdateFromParseInfo (unit, unit.FileName, isFromFile);
 			
 			SimpleCodeCompletionDatabase sdb = database as SimpleCodeCompletionDatabase;
 			if (sdb != null)
@@ -194,6 +194,13 @@ namespace MonoDevelop.Projects.Dom.Serialization
 		protected override void ForceUpdateBROKEN ()
 		{
 			database.ForceUpdateBROKEN ();
+		}
+		
+		internal override ProjectDomStats GetStats ()
+		{
+			ProjectDomStats s = database.GetStats ();
+			s.Add (base.GetStats ());
+			return s;
 		}
 	}
 }

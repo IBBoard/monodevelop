@@ -100,7 +100,7 @@ MonoDevelop.app:
 	@echo "Copying supported extras into app bundle"
 	@echo ""
 
-	for ADDIN in MonoDevelop.IPhone MonoDevelop.MonoMac MonoDevelop.Database MonoDevelop.MonoDroid; do \
+	for ADDIN in MonoDevelop.IPhone MonoDevelop.Database; do \
 		(ls $(EXTRAS)/$${ADDIN}/build/* > /dev/null 2>&1 && \
 			echo "Copying $${ADDIN}" && \
 			mkdir -p $(MAC_APP_LIB_DIR)/AddIns/$${ADDIN} && \
@@ -141,6 +141,9 @@ MonoDevelop.app:
 	@rm -f missing-stuff
 
 MonoDevelop.app.zip: MonoDevelop.app
-	zip -r9uq MonoDevelop.app.zip MonoDevelop.app
+	zip -r9uyq MonoDevelop.app.zip MonoDevelop.app
+
+update-png:
+	/Applications/Inkscape.app/Contents/Resources/script --without-gui --export-png=`pwd`/dmg-bg.png `pwd`/dmg-bg.svg
 
 .PHONY: MonoDevelop.app

@@ -58,9 +58,8 @@ namespace MonoDevelop.Ide
 			
 			var generator = dotNetProject.LanguageBinding.GetCodeDomProvider ();
 			StringWriter sw = new StringWriter ();
-			
 			var options = new CodeGeneratorOptions ();
-			options.IndentString = "\t";
+			options.IndentString = data.GetLineIndent (type.Location.Line) + "\t";
 			if (newMember is CodeMemberMethod)
 				options.BracingStyle = "C";
 			generator.GenerateCodeFromMember (newMember, sw, options);
@@ -89,6 +88,8 @@ namespace MonoDevelop.Ide
 			var suitableInsertionPoint = GetSuitableInsertionPoint (insertionPoints, type, newMember);
 			
 			var generator = CreateCodeGenerator (data);
+
+			generator.IndentLevel = CalculateBodyIndentLevel (parsedDocument.CompilationUnit.GetTypeAt (type.Location));
 			var generatedCode = generator.CreateMemberImplementation (type, newMember, implementExplicit);
 			suitableInsertionPoint.Insert (data, generatedCode.Code);
 			if (!isOpen) {
@@ -99,6 +100,24 @@ namespace MonoDevelop.Ide
 					MessageService.ShowError (GettextCatalog.GetString ("Failed to write file '{0}'.", type.CompilationUnit.FileName));
 				}
 			}
+		}
+		
+		public static int CalculateBodyIndentLevel (IType declaringType)
+		{
+			int indentLevel = 0;
+			IType t = declaringType;
+			do {
+				indentLevel++;
+				t = t.DeclaringType;
+			} while (t != null);
+			DomLocation lastLoc = DomLocation.Empty;
+			foreach (IUsing us in declaringType.CompilationUnit.Usings.Where (u => u.IsFromNamespace && u.ValidRegion.Contains (declaringType.Location))) {
+				if (lastLoc == us.Region.Start)
+					continue;
+				lastLoc = us.Region.Start;
+				indentLevel++;
+			}
+			return indentLevel;
 		}
 		
 		public static void AddNewMembers (IType type, IEnumerable<IMember> newMembers, string regionName = null, Func<IMember, bool> implementExplicit = null)
@@ -112,7 +131,7 @@ namespace MonoDevelop.Ide
 			var suitableInsertionPoint = GetSuitableInsertionPoint (insertionPoints, type, newMembers.First ());
 			
 			var generator = CreateCodeGenerator (data);
-			
+			generator.IndentLevel = CalculateBodyIndentLevel (parsedDocument.CompilationUnit.GetTypeAt (type.Location));
 			StringBuilder sb = new StringBuilder ();
 			foreach (IMember newMember in newMembers) {
 				if (sb.Length > 0) {
@@ -237,7 +256,7 @@ namespace MonoDevelop.Ide
 			}
 			
 			if (doc.GetLineIndent (line).Length + 1 < point.Location.Column)
-				point.LineBefore = isEndPoint ? NewLineInsertion.Eol : NewLineInsertion.BlankLine;
+				point.LineBefore = NewLineInsertion.Eol;
 			if (point.Location.Column < line.EditableLength + 1)
 				point.LineAfter = isEndPoint ? NewLineInsertion.Eol : NewLineInsertion.BlankLine;
 		}
@@ -248,9 +267,8 @@ namespace MonoDevelop.Ide
 			LineSegment curLine = doc.GetLine (line);
 			if (curLine != null) {
 				if (bodyEndOffset < curLine.Offset + curLine.EditableLength) {
-					System.Console.WriteLine (1);
 					// case1: positition is somewhere inside the start line
-					return new InsertionPoint (new DocumentLocation (line, column + 1), NewLineInsertion.BlankLine, NewLineInsertion.BlankLine);
+					return new InsertionPoint (new DocumentLocation (line, column + 1), NewLineInsertion.Eol, NewLineInsertion.BlankLine);
 				}
 			}
 			
@@ -259,16 +277,17 @@ namespace MonoDevelop.Ide
 			if (nextLine == null) // check for 1 line case.
 				return new InsertionPoint (new DocumentLocation (line, column + 1), NewLineInsertion.BlankLine, NewLineInsertion.BlankLine);
 			
-			for (int i = nextLine.Offset; i < nextLine.EndOffset; i++) {
+			for (int i = nextLine.Offset; i < nextLine.Offset + nextLine.EditableLength; i++) {
 				char ch = doc.GetCharAt (i);
 				if (!char.IsWhiteSpace (ch)) {
 					// case2: next line contains non ws chars.
-					System.Console.WriteLine (2);
-					return new InsertionPoint (new DocumentLocation (line + 1, 1), NewLineInsertion.BlankLine, NewLineInsertion.BlankLine);
+					if (line == 39)
+						System.Console.WriteLine (2 + "ch:" + (int)ch);
+					return new InsertionPoint (new DocumentLocation (line + 1, 1), NewLineInsertion.Eol, NewLineInsertion.BlankLine);
 				}
 			}
 			// case3: whitespace line
-			return new InsertionPoint (new DocumentLocation (line + 1, 1), NewLineInsertion.BlankLine, NewLineInsertion.None);
+			return new InsertionPoint (new DocumentLocation (line + 1, 1), NewLineInsertion.Eol, NewLineInsertion.None);
 		}
 		
 		static InsertionPoint GetSuitableInsertionPoint (IEnumerable<InsertionPoint> points, IType cls, IMember member)

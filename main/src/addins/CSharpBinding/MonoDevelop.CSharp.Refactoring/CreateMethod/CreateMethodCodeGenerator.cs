@@ -91,6 +91,8 @@ namespace MonoDevelop.CSharp.Refactoring.CreateMethod
 			}
 			
 			if (declaringType != null && !HasCompatibleMethod (declaringType, methodName, invocation)) {
+				if (declaringType.HasParts)
+					declaringType = declaringType.Parts.FirstOrDefault (t => t.CompilationUnit.FileName == options.Document.FileName) ?? declaringType;
 				var doc = ProjectDomService.GetParsedDocument (declaringType.SourceProjectDom, declaringType.CompilationUnit.FileName);
 				declaringType = doc.CompilationUnit.GetTypeAt (declaringType.Location) ?? declaringType;
 				return true;
@@ -214,8 +216,8 @@ namespace MonoDevelop.CSharp.Refactoring.CreateMethod
 				modifiers = options.ResolveResult.CallingMember.Modifiers;
 				if (declaringType.DecoratedFullName != options.ResolveResult.CallingType.DecoratedFullName) {
 					modifiers = MonoDevelop.Projects.Dom.Modifiers.Public;
-					if (options.ResolveResult.CallingMember.IsStatic)
-						isStatic = true;
+	//				if (options.ResolveResult.CallingMember.IsStatic)
+	//					isStatic = true;
 				}
 				if (isStatic)
 					modifiers |= MonoDevelop.Projects.Dom.Modifiers.Static;
@@ -239,6 +241,7 @@ namespace MonoDevelop.CSharp.Refactoring.CreateMethod
 		
 		InvocationExpression invocation;
 		IType delegateType;
+		TextEditorData data;
 		
 		MonoDevelop.Projects.Dom.Modifiers modifiers;
 		
@@ -255,8 +258,7 @@ namespace MonoDevelop.CSharp.Refactoring.CreateMethod
 		
 		public override void Run (RefactoringOptions options)
 		{
-			TextEditorData data = options.GetTextEditorData ();
-			
+			data = options.GetTextEditorData ();
 			fileName = declaringType.CompilationUnit.FileName;
 			
 			var openDocument = IdeApp.Workbench.OpenDocument (fileName);
@@ -277,10 +279,10 @@ namespace MonoDevelop.CSharp.Refactoring.CreateMethod
 			}
 			indent += "\t";
 			
-			InsertionCursorEditMode mode = new InsertionCursorEditMode (data.Parent, CodeGenerationService.GetInsertionPoints (options.Document, declaringType));
+			InsertionCursorEditMode mode = new InsertionCursorEditMode (data.Parent, CodeGenerationService.GetInsertionPoints (openDocument, declaringType));
 			if (fileName == options.Document.FileName) {
 				for (int i = 0; i < mode.InsertionPoints.Count; i++) {
-					var point = mode.InsertionPoints[i];
+					var point = mode.InsertionPoints [i];
 					if (point.Location < data.Caret.Location) {
 						mode.CurIndex = i;
 					} else {
@@ -305,13 +307,9 @@ namespace MonoDevelop.CSharp.Refactoring.CreateMethod
 					BaseRun (options);
 					if (string.IsNullOrEmpty (fileName))
 						return;
-					MonoDevelop.Ide.Gui.Document document = IdeApp.Workbench.OpenDocument (fileName);
-					TextEditorData docData = document.Editor;
-					if (docData != null) {
-						docData.ClearSelection ();
-						docData.Caret.Offset = selectionEnd;
-						docData.SetSelection (selectionStart, selectionEnd);
-					}
+					data.ClearSelection ();
+					data.Caret.Offset = selectionEnd;
+					data.SetSelection (selectionStart, selectionEnd);
 				}
 			};
 		}
@@ -359,7 +357,6 @@ namespace MonoDevelop.CSharp.Refactoring.CreateMethod
 		IMethod ConstructMethodFromInvocation (RefactoringOptions options)
 		{
 			var resolver = options.GetResolver ();
-			var data = options.GetTextEditorData ();
 			
 			DomMethod result = new DomMethod (methodName, modifiers, MethodModifier.None, DomLocation.Empty, DomRegion.Empty, returnType);
 			result.DeclaringType = new DomType ("GeneratedType") { ClassType = declaringType.ClassType };
@@ -402,48 +399,45 @@ namespace MonoDevelop.CSharp.Refactoring.CreateMethod
 		
 		public override List<Change> PerformChanges (RefactoringOptions options, object prop)
 		{
+			if (data == null)
+				data = options.GetTextEditorData ();
 			List<Change> result = new List<Change> ();
 			TextReplaceChange insertNewMethod = new TextReplaceChange ();
 			insertNewMethod.FileName = fileName;
-			insertNewMethod.RemovedChars = insertionPoint.LineBefore == NewLineInsertion.Eol ? 0 : insertionPoint.Location.Column;
-			var data = options.GetTextEditorData ();
+			insertNewMethod.RemovedChars = 0;//insertionPoint.LineBefore == NewLineInsertion.Eol ? 0 : insertionPoint.Location.Column - 1;
 			int insertionOffset = data.Document.LocationToOffset (insertionPoint.Location);
-			insertNewMethod.Offset = insertionOffset - insertNewMethod.RemovedChars;
+			insertNewMethod.Offset = insertionOffset /*- insertNewMethod.RemovedChars*/;
 			
 			StringBuilder sb = new StringBuilder ();
-			sb.AppendLine ();
 			switch (insertionPoint.LineBefore) {
 			case NewLineInsertion.Eol:
-				sb.AppendLine ();
+				sb.Append (data.EolMarker);
 				break;
 			case NewLineInsertion.BlankLine:
-				sb.AppendLine ();
+				sb.Append (data.EolMarker);
 				sb.Append (indent);
-				sb.AppendLine ();
+				sb.Append (data.EolMarker);
 				break;
 			}
 
 			var generator = options.Document.CreateCodeGenerator ();
 			sb.Append (generator.CreateMemberImplementation (declaringType, ConstructMethod (options), false).Code);
-			
+			sb.Append (data.EolMarker);
 			switch (insertionPoint.LineAfter) {
 			case NewLineInsertion.Eol:
-				sb.AppendLine ();
 				break;
 			case NewLineInsertion.BlankLine:
-				sb.AppendLine ();
-				sb.AppendLine ();
 				sb.Append (indent);
+				sb.Append (data.EolMarker);
 				break;
 			}
-			
 			insertNewMethod.InsertedText = sb.ToString ();
 			result.Add (insertNewMethod);
 			selectionStart = selectionEnd = insertNewMethod.Offset;
 			int idx = insertNewMethod.InsertedText.IndexOf ("throw");
 			if (idx >= 0) {
 				selectionStart = insertNewMethod.Offset + idx;
-				selectionEnd   = insertNewMethod.Offset + insertNewMethod.InsertedText.IndexOf (';', idx) + 1;
+				selectionEnd = insertNewMethod.Offset + insertNewMethod.InsertedText.IndexOf (';', idx) + 1;
 			} else {
 				selectionStart = selectionEnd = insertNewMethod.Offset;
 			}

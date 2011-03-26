@@ -224,16 +224,7 @@ namespace MonoDevelop.Projects.Dom.Parser
 		// Parses a file an updates the parser database
 		public static ParsedDocument Parse (Project project, string fileName)
 		{
-			return Parse (project, fileName, delegate () {
-				if (!System.IO.File.Exists (fileName))
-					return "";
-				try {
-					return System.IO.File.ReadAllText (fileName);
-				} catch (Exception e) {
-					LoggingService.LogError ("Error reading file {0} for ProjectDomService: {1}", fileName, e);
-					return "";
-				}
-			});
+			return Parse (project, fileName, (Func<string>)null);
 		}
 		
 		public static ParsedDocument Parse (Project project, string fileName, string content)
@@ -866,9 +857,16 @@ namespace MonoDevelop.Projects.Dom.Parser
 				ParsedDocument parseInformation = null;
 				string fileContent;
 				if (getContent == null) {
-					StreamReader sr = new StreamReader (fileName);
-					fileContent = sr.ReadToEnd ();
-					sr.Close ();
+					if (!System.IO.File.Exists (fileName))
+						fileContent = "";
+					else {
+						try {
+							fileContent = System.IO.File.ReadAllText (fileName);
+						} catch (Exception e) {
+							LoggingService.LogError ("Error reading file {0} for ProjectDomService: {1}", fileName, e);
+							fileContent = "";
+						}
+					}
 				} else
 					fileContent = getContent ();
 				
@@ -902,7 +900,7 @@ namespace MonoDevelop.Projects.Dom.Parser
 									} else {
 										db.UpdateTagComments (fileName, parseInformation.TagComments);
 										db.RemoveTemporaryCompilationUnit (parseInformation.CompilationUnit);
-										TypeUpdateInformation res = db.UpdateFromParseInfo (parseInformation.CompilationUnit);
+										TypeUpdateInformation res = db.UpdateFromParseInfo (parseInformation.CompilationUnit, getContent == null);
 										if (res != null)
 											NotifyTypeUpdate (project, fileName, res);
 										UpdatedCommentTasks (fileName, parseInformation.TagComments, project);
@@ -914,7 +912,7 @@ namespace MonoDevelop.Projects.Dom.Parser
 						}
 					} else {
 						ProjectDom db = GetFileDom (fileName);
-						db.UpdateFromParseInfo (parseInformation.CompilationUnit);
+						db.UpdateFromParseInfo (parseInformation.CompilationUnit, getContent == null);
 					}
 				}
 				
@@ -1061,6 +1059,65 @@ namespace MonoDevelop.Projects.Dom.Parser
 			
 			return unresolvedCount;
 		}
+		
+		internal static void DumpSharedReturnTypes ()
+		{
+			StreamWriter w = new StreamWriter ("rt.txt");
+			
+			w.WriteLine ("Summary");
+			w.WriteLine ("-------");
+			w.WriteLine ();
+			
+			ProjectDomStats globalStats = new ProjectDomStats ();
+			int nt = 0;
+			Dictionary<string,int> count = new Dictionary<string, int> ();
+			foreach (ProjectDom p in databases.Values) {
+				w.WriteLine (p.GetSharedReturnTypes ().Count () + " " + p.Uri);
+				ProjectDomStats stats = p.GetStats ();
+				globalStats.Add (stats);
+				stats.Dump (w, "  ");
+				foreach (var tt in p.GetSharedReturnTypes ().Select (tt => tt.ToInvariantString ())) {
+					int c;
+					count.TryGetValue (tt, out c);
+					count [tt] = c + 1;
+					nt++;
+				}
+			}
+			
+			w.WriteLine ();
+			w.WriteLine ("Totals");
+			w.WriteLine ("------");
+			w.WriteLine ();
+			
+			w.WriteLine ("Total databases: " + databases.Count);
+			w.WriteLine ("Total RTs in cache: " + nt);
+			w.WriteLine ("Total RTs in cache shareable: " + count.Count);
+			
+			globalStats.Dump (w, "");
+			
+			w.WriteLine ();
+			w.WriteLine ("Detail");
+			w.WriteLine ("------");
+			w.WriteLine ();
+			
+			foreach (ProjectDom p in databases.Values) {
+				w.WriteLine ("### " + p.Uri);
+				List<string> ts = new List<string> (p.GetSharedReturnTypes ().Select (tt => tt.ToInvariantString ()));
+				ts.Sort ();
+				w.WriteLine ("Total: " + ts.Count);
+				foreach (var tt in ts)
+					w.WriteLine (tt);
+				w.WriteLine ();
+			}
+			
+			w.WriteLine ("@@@ Summary");
+			List<KeyValuePair<string,int>> names = new List<KeyValuePair<string, int>> (count);
+			names.Sort ((a,b) => a.Value != b.Value ? a.Value.CompareTo(b.Value) : a.Key.CompareTo(b.Key));
+			w.WriteLine ("Total: " + names.Count);
+			foreach (var tt in names)
+				w.WriteLine (tt.Value + "\t" + tt.Key);
+			w.Close ();
+		}
 
 		internal static void StartParseOperation ()
 		{
@@ -1140,5 +1197,4 @@ namespace MonoDevelop.Projects.Dom.Parser
 	{
 		IProgressMonitor CreateProgressMonitor ();
 	}
-	
 }

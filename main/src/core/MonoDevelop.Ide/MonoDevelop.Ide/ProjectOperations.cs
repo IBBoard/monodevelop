@@ -314,7 +314,7 @@ namespace MonoDevelop.Ide
 			try {
 				if (MessageService.RunCustomDialog (dlg) == (int) Gtk.ResponseType.Ok) {
 					
-					using (IProgressMonitor mon = IdeApp.Workbench.ProgressMonitors.GetOutputProgressMonitor (GettextCatalog.GetString ("Export Project"), null, true, true)) {
+					using (IProgressMonitor mon = IdeApp.Workbench.ProgressMonitors.GetToolOutputProgressMonitor (true)) {
 						string folder = dlg.TargetFolder;
 						
 						string file = entry is WorkspaceItem ? ((WorkspaceItem)entry).FileName : ((SolutionEntityItem)entry).FileName;
@@ -1156,18 +1156,20 @@ namespace MonoDevelop.Ide
 					}
 				} catch {}
 				
-				Task jumpTask = null;
-				switch (IdeApp.Preferences.JumpToFirstErrorOrWarning) {
-				case JumpToFirst.Error:
-					jumpTask = tasks.FirstOrDefault (t => t.Severity == TaskSeverity.Error && TaskStore.IsProjectTaskFile (t));
-					break;
-				case JumpToFirst.ErrorOrWarning:
-					jumpTask = tasks.FirstOrDefault (t => (t.Severity == TaskSeverity.Error || t.Severity == TaskSeverity.Warning) && TaskStore.IsProjectTaskFile (t));
-					break;
-				}
-				if (jumpTask != null) {
-					tt.Trace ("Jumping to first result position");
-					jumpTask.JumpToPosition ();
+				if (tasks != null) {
+					Task jumpTask = null;
+					switch (IdeApp.Preferences.JumpToFirstErrorOrWarning) {
+					case JumpToFirst.Error:
+						jumpTask = tasks.FirstOrDefault (t => t.Severity == TaskSeverity.Error && TaskStore.IsProjectTaskFile (t));
+						break;
+					case JumpToFirst.ErrorOrWarning:
+						jumpTask = tasks.FirstOrDefault (t => (t.Severity == TaskSeverity.Error || t.Severity == TaskSeverity.Warning) && TaskStore.IsProjectTaskFile (t));
+						break;
+					}
+					if (jumpTask != null) {
+						tt.Trace ("Jumping to first result position");
+						jumpTask.JumpToPosition ();
+					}
 				}
 				
 			} finally {
@@ -1468,8 +1470,15 @@ namespace MonoDevelop.Ide
 			try {
 				//get the real ProjectFiles
 				if (sourceProject != null) {
-					var virtualPath = sourcePath.ToRelative (sourceProject.BaseDirectory);
-					filesToMove = sourceProject.Files.GetFilesInVirtualPath (virtualPath).ToList ();
+					if (sourceIsFolder) {
+						var virtualPath = sourcePath.ToRelative (sourceProject.BaseDirectory);
+						filesToMove = sourceProject.Files.GetFilesInVirtualPath (virtualPath).ToList ();
+					} else {
+						filesToMove = new List<ProjectFile> ();
+						var pf = sourceProject.GetProjectFile (sourcePath);
+						if (pf != null)
+							filesToMove.Add (pf);
+					}
 				}
 				//get all the non-project files and create fake ProjectFiles
 				if (!copyOnlyProjectFiles || sourceProject == null) {

@@ -399,8 +399,10 @@ namespace MonoDevelop.VersionControl
 			FileUpdateEventArgs vargs = new FileUpdateEventArgs ();
 			IProgressMonitor monitor = null;
 			try {
-				foreach (var repoFiles in e.GroupBy (i => GetRepository (i.Project))) {
-					Repository repo = repoFiles.Key;
+				foreach (var repoFiles in e.GroupBy (i => i.Project)) {
+					Repository repo = GetRepository (repoFiles.Key);
+					if (repo == null)
+						continue;
 					var versionInfos = repo.GetVersionInfo (repoFiles.Select (f => f.ProjectFile.FilePath));
 					FilePath[] paths = versionInfos.Where (i => i.CanAdd).Select (i => i.LocalPath).ToArray ();
 					if (paths.Length > 0) {
@@ -518,7 +520,7 @@ namespace MonoDevelop.VersionControl
 		
 		public static IProgressMonitor GetProgressMonitor (string operation)
 		{
-			IProgressMonitor monitor = IdeApp.Workbench.ProgressMonitors.GetOutputProgressMonitor ("Version Control", "md-version-control", false, true);
+			IProgressMonitor monitor = IdeApp.Workbench.ProgressMonitors.GetOutputProgressMonitor ("MonoDevelop.VersionControlOutput", "Version Control", "md-version-control", false, true);
 			Pad outPad = IdeApp.Workbench.ProgressMonitors.GetPadForMonitor (monitor);
 			
 			AggregatedProgressMonitor mon = new AggregatedProgressMonitor (monitor);

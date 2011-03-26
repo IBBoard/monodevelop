@@ -51,7 +51,7 @@ namespace MonoDevelop.Projects.Dom.Serialization
 	{
 		static protected readonly int MAX_ACTIVE_COUNT = 100;
 		static protected readonly int MIN_ACTIVE_COUNT = 10;
-		static protected readonly int FORMAT_VERSION   = 83;
+		static protected readonly int FORMAT_VERSION   = 84;
 		
 		Dictionary<string, ClassEntry> typeEntries = new Dictionary<string, ClassEntry> ();
 		Dictionary<string, ClassEntry> typeEntriesIgnoreCase = new Dictionary<string, ClassEntry> (StringComparer.InvariantCultureIgnoreCase);
@@ -112,6 +112,36 @@ namespace MonoDevelop.Projects.Dom.Serialization
 				classEntries[ce.Namespace].Add (ce);
 				AddNamespace (ce.Namespace);
 			}
+		}
+		
+		internal ProjectDomStats GetStats ()
+		{
+			ProjectDomStats stats = new ProjectDomStats ();
+			stats.ClassEntries = typeEntries.Count;
+			
+			int typesWithUnshared = 0;
+			StatsVisitor v = new StatsVisitor (stats);
+			v.SharedTypes = SourceProjectDom.GetSharedReturnTypes ().ToArray ();
+			List<string> detail = new List<string> ();
+			foreach (ClassEntry ce in typeEntries.Values) {
+				if (ce.Class != null) {
+					stats.LoadedClasses++;
+					v.Reset ();
+					v.Visit (ce.Class, "");
+					if (v.Failures.Count > 0) {
+						stats.UnsharedReturnTypes += v.Failures.Count;
+						stats.ClassesWithUnsharedReturnTypes++;
+						if (typesWithUnshared++ < 10) {
+							detail.Add (" * " + ce.Class.FullName + ": RTs:" + v.ReturnTypeCount + ", non shared:" + v.Failures.Count);
+							foreach (var s in v.Failures)
+								detail.Add ("    - " + s);
+						}
+					}
+				}
+			}
+			
+			stats.UnsharedReturnTypesDetail = detail;
+			return stats;
 		}
 		
 		public virtual string GetDocumentation (IMember member)
@@ -534,9 +564,6 @@ namespace MonoDevelop.Projects.Dom.Serialization
 				globalAttributesPosition = attributesOffset;
 			}
 			
-#if CHECK_STRINGS
-			StringNameTable.PrintTop100 ();
-#endif
 			return true;
 		}
 		
@@ -669,8 +696,7 @@ namespace MonoDevelop.Projects.Dom.Serialization
 			if (genericArguments != null)
 				genericArgumentCount = genericArguments.Count;
 			string fullName = ParserDatabase.GetDecoratedName (typeName, genericArgumentCount);
-			lock (rwlock)
-			{
+			lock (rwlock) {
 				ClassEntry ce;
 				if (!(caseSensitive ? typeEntries : typeEntriesIgnoreCase).TryGetValue (fullName, out ce)) {
 					int idx = typeName.LastIndexOf ('.');
@@ -684,7 +710,10 @@ namespace MonoDevelop.Projects.Dom.Serialization
 					}
 					return null;
 				}
-				return genericArguments == null || genericArguments.Count == 0 ? GetClass (ce) : sourceProjectDom.CreateInstantiatedGenericType (GetClass (ce), genericArguments);
+				var result = GetClass (ce);
+				if (genericArguments != null && genericArguments.Count > 0)
+					result = sourceProjectDom.CreateInstantiatedGenericType (result, genericArguments);
+				return result;
 			}
 		}
 		
@@ -1545,8 +1574,17 @@ namespace MonoDevelop.Projects.Dom
 #if CHECK_STRINGS
 		static Hashtable all = new Hashtable ();
 		static int count;
+#pragma warning disable 0414
+		static TablePrinter printer = new TablePrinter ();
+#pragma warning restore 0414
 		
-		public static void PrintTop100 ()
+		class TablePrinter {
+			~TablePrinter () {
+				StringNameTable.PrintTop200 ();
+			}
+		}
+
+		public static void PrintTop200 ()
 		{
 			string[] ss = new string [all.Count];
 			int[] nn = new int [all.Count];
@@ -1560,7 +1598,7 @@ namespace MonoDevelop.Projects.Dom
 			n=0;
 			Console.WriteLine ("{0} total strings", count);
 			Console.WriteLine ("{0} unique strings", nn.Length);
-			for (int i = nn.Length - 1; i > nn.Length - 101 && i >= 0; i--) {
+			for (int i = nn.Length - 1; i > nn.Length - 201 && i >= 0; i--) {
 				Console.WriteLine ("\"{1}\", // {2}", n, ss[i], nn[i]);
 			}
 		}

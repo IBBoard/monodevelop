@@ -28,7 +28,6 @@
     <OutputPath>..\..\..\build\bin\</OutputPath>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
     <Execution>
       <Execution clr-version="Net_2_0" />
     </Execution>
@@ -496,6 +495,8 @@
     <Compile Include="MonoDevelop.Projects\ProjectModelDataItemAttribute.cs" />
     <Compile Include="MonoDevelop.Projects.Dom\DomOutputVisitor.cs" />
     <Compile Include="MonoDevelop.Core\FilePath.cs" />
+    <Compile Include="MonoDevelop.Projects.Dom.Serialization\StatsVisitor.cs" />
+    <Compile Include="MonoDevelop.Projects.Dom.Parser\ProjectDomStats.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="ChangeLog" />

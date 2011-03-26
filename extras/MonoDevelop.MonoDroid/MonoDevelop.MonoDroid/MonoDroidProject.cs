@@ -213,7 +213,7 @@ namespace MonoDevelop.MonoDroid
 				conf.MonoDroidLinkMode = MonoDroidLinkMode.None;
 			} else {
 				conf.AndroidUseSharedRuntime = false;
-				conf.MonoDroidLinkMode = MonoDroidLinkMode.Full;
+				conf.MonoDroidLinkMode = MonoDroidLinkMode.SdkOnly;
 			}
 
 			return conf;
@@ -369,7 +369,7 @@ namespace MonoDevelop.MonoDroid
 			
 			if (NeedsBuilding (configSel)) {
 				monitor.ReportError (
-					GettextCatalog.GetString ("MonoDroid projects must be built before uploading"), null);
+					GettextCatalog.GetString ("Mono for Android projects must be built before uploading"), null);
 				return;
 			}
 			
@@ -546,7 +546,7 @@ namespace MonoDevelop.MonoDroid
 			if (Loading)
 				return;
 			
-			foreach (ProjectFileRenamedEventInfo e in args) {
+			foreach (ProjectFileEventInfo e in args) {
 				if (e.ProjectFile.BuildAction == MonoDroidBuildAction.AndroidResource)
 					QueueResgenUpdate ();
 				//clear the manifest element if the file is removed
@@ -579,7 +579,7 @@ namespace MonoDevelop.MonoDroid
 			if (Loading)
 				return;
 			
-			foreach (ProjectFileRenamedEventInfo e in args) {
+			foreach (ProjectFileEventInfo e in args) {
 				if (e.ProjectFile.BuildAction == MonoDroidBuildAction.AndroidResource)
 					QueueResgenUpdate ();
 				//if adding a file called AndroidManifest.xml, and the manifest element is not in use, set it as a convenience
@@ -655,8 +655,11 @@ namespace MonoDevelop.MonoDroid
 				}
 			}
 
-			if (!String.IsNullOrEmpty (MonoDroidAssetsPrefix) && ((FilePath)fileName).IsChildPathOf (BaseDirectory.Combine (MonoDroidAssetsPrefix)))
-				return MonoDroidBuildAction.AndroidAsset;
+			if (!String.IsNullOrEmpty (MonoDroidAssetsPrefix)) {
+				var assetsDir = BaseDirectory.Combine (MonoDroidAssetsPrefix);
+				if (((FilePath)fileName).IsChildPathOf (assetsDir) && !fileName.Contains ("AboutAssets.txt"))
+					return MonoDroidBuildAction.AndroidAsset;
+			}
 				
 			return baseAction;
 		}

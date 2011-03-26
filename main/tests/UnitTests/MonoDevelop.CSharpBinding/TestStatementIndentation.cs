@@ -59,7 +59,7 @@ this.TestMethod ();
 			
 			policy.ClassBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test {
 	Test TestMethod ()
 	{
@@ -86,7 +86,7 @@ this.TestMethod ();
 			
 			policy.IndentBlocks = true;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
 {
 	Test TestMethod ()
@@ -98,7 +98,7 @@ this.TestMethod ();
 }", data.Document.Text);
 			policy.IndentBlocks = false;
 			compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			
 			Assert.AreEqual (@"class Test
 {
@@ -128,7 +128,7 @@ this.TestMethod ();
 			
 			policy.ClassBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test {
 	Test TestMethod ()
 	{
@@ -154,7 +154,7 @@ checked {
 			
 			policy.ClassBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test {
 	Test TestMethod ()
 	{
@@ -180,11 +180,12 @@ checked {
 			
 			policy.ClassBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
+
 			Assert.AreEqual (@"class Test {
 	Test TestMethod ()
 	{
-		base.FooBar();
+		base.FooBar ();
 	}
 }", data.Document.Text);
 		}
@@ -206,7 +207,7 @@ unchecked {
 			
 			policy.ClassBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test {
 	Test TestMethod ()
 	{
@@ -232,7 +233,7 @@ continue;
 			
 			policy.ClassBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test {
 	Test TestMethod ()
 	{
@@ -257,7 +258,7 @@ continue;
 			
 			policy.ClassBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test {
 	Test TestMethod ()
 	{
@@ -283,7 +284,7 @@ fixed (object* obj = &obj)
 			
 			policy.ClassBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test {
 	Test TestMethod ()
 	{
@@ -313,7 +314,7 @@ fixed (object* obj = &obj)
 			policy.StatementBraceStyle = BraceStyle.EndOfLine;
 			policy.FixedBraceForcement = BraceForcement.AddBraces;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			
 			Assert.AreEqual (@"class Test
 {
@@ -346,7 +347,7 @@ foreach (var obj in col) {
 			
 			policy.StatementBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
 {
 	Test TestMethod ()
@@ -374,7 +375,7 @@ for (;;) {
 			
 			policy.ClassBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test {
 	Test TestMethod ()
 	{
@@ -400,7 +401,7 @@ goto label;
 			
 			policy.ClassBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test {
 	Test TestMethod ()
 	{
@@ -425,7 +426,7 @@ return;
 			
 			policy.ClassBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test {
 	Test TestMethod ()
 	{
@@ -451,7 +452,7 @@ lock (this) {
 			
 			policy.ClassBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test {
 	Test TestMethod ()
 	{
@@ -478,7 +479,7 @@ throw new NotSupportedException ();
 			
 			policy.ClassBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test {
 	Test TestMethod ()
 	{
@@ -504,7 +505,7 @@ unsafe {
 			
 			policy.ClassBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test {
 	Test TestMethod ()
 	{
@@ -531,7 +532,7 @@ using (var o = new MyObj()) {
 			
 			policy.ClassBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test {
 	Test TestMethod ()
 	{
@@ -561,7 +562,7 @@ using (var o = new MyObj()) {
 			policy.StatementBraceStyle = BraceStyle.EndOfLine;
 			policy.UsingBraceForcement = BraceForcement.AddBraces;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			
 			Assert.AreEqual (@"class Test
 {
@@ -596,7 +597,7 @@ using (var o = new MyObj()) {
 			policy.StatementBraceStyle = BraceStyle.EndOfLine;
 			policy.UsingBraceForcement = BraceForcement.DoNotChange;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			
 			Assert.AreEqual (@"class Test
 {
@@ -628,7 +629,7 @@ using (var o = new MyObj()) {
 			policy.AlignEmbeddedUsingStatements = true;
 			policy.ClassBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test {
 	Test TestMethod ()
 	{
@@ -639,7 +640,7 @@ using (var o = new MyObj()) {
 }", data.Document.Text);
 			policy.AlignEmbeddedUsingStatements = false;
 			compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test {
 	Test TestMethod ()
 	{
@@ -663,10 +664,9 @@ Test a;
 }";
 			
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
-			Console.WriteLine (data.Document.Text);
 			policy.ClassBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test {
 	Test TestMethod ()
 	{
@@ -675,6 +675,29 @@ Test a;
 }", data.Document.Text);
 		}
 		
+		[Test()]
+		public void TestConstantVariableDeclarationIndentation ()
+		{
+			TextEditorData data = new TextEditorData ();
+			data.Document.FileName = "a.cs";
+			data.Document.Text = @"class Test {
+	Test TestMethod ()
+	{
+const int a = 5;
+	}
+}";
+			
+			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
+			policy.ClassBraceStyle = BraceStyle.EndOfLine;
+			var compilationUnit = new CSharpParser ().Parse (data);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
+			Assert.AreEqual (@"class Test {
+	Test TestMethod ()
+	{
+		const int a = 5;
+	}
+}", data.Document.Text);
+		}
 		
 		[Test()]
 		public void TestYieldIndentation ()
@@ -692,7 +715,7 @@ yield return null;
 			
 			policy.ClassBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test {
 	Test TestMethod ()
 	{
@@ -718,7 +741,7 @@ while (true)
 			
 			policy.ClassBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test {
 	Test TestMethod ()
 	{
@@ -745,7 +768,7 @@ do {
 			
 			policy.ClassBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test {
 	Test TestMethod ()
 	{
@@ -773,7 +796,7 @@ do {
 			
 			policy.StatementBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
 {
 	Test TestMethod ()
@@ -801,7 +824,7 @@ do {
 			
 			policy.StatementBraceStyle = BraceStyle.NextLineShifted2;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
 {
 	Test TestMethod ()
@@ -835,9 +858,7 @@ do {
 			policy.StatementBraceStyle = BraceStyle.NextLine;
 			policy.ForEachBraceForcement = BraceForcement.AddBraces;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
-			
-			Console.WriteLine (data.Document.Text);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			
 			Assert.AreEqual (@"class Test
 {
@@ -875,7 +896,7 @@ do {
 			policy.StatementBraceStyle = BraceStyle.NextLine;
 			policy.ForBraceForcement = BraceForcement.AddBraces;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			
 			Assert.AreEqual (@"class Test
 {
@@ -918,9 +939,7 @@ do {
 			policy.StatementBraceStyle = BraceStyle.NextLine;
 			policy.ForEachBraceForcement = BraceForcement.RemoveBraces;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
-			
-			Console.WriteLine (data.Document.Text);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			
 			Assert.AreEqual (@"class Test
 {
@@ -955,7 +974,7 @@ do {
 			
 			policy.StatementBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
 {
 	Test TestMethod ()
@@ -984,7 +1003,7 @@ do {
 }";
 			
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
 {
 	Test TestMethod ()
@@ -1003,7 +1022,7 @@ do {
 }";
 			
 			compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
 {
 	Test TestMethod ()
@@ -1022,7 +1041,7 @@ do {
 }";
 			
 			compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
 {
 	Test TestMethod ()
@@ -1042,7 +1061,7 @@ do {
 }";
 			
 			compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
 {
 	Test TestMethod ()
@@ -1072,7 +1091,7 @@ do {
 			
 			policy.StatementBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
 {
 	Test TestMethod ()
@@ -1110,9 +1129,7 @@ do {
 			policy.StatementBraceStyle = BraceStyle.NextLine;
 			policy.IfElseBraceForcement = BraceForcement.RemoveBraces;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
-			
-			Console.WriteLine (data.Document.Text);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			
 			Assert.AreEqual (@"class Test
 {
@@ -1147,7 +1164,7 @@ if (b) {
 			policy.AlignEmbeddedIfStatements = true;
 			policy.ClassBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test {
 	Test TestMethod ()
 	{
@@ -1158,7 +1175,7 @@ if (b) {
 }", data.Document.Text);
 			policy.AlignEmbeddedIfStatements = false;
 			compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test {
 	Test TestMethod ()
 	{
@@ -1189,8 +1206,7 @@ if (b) {
 			policy.StatementBraceStyle = BraceStyle.EndOfLine;
 			policy.IfElseBraceForcement = BraceForcement.AddBraces;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
-			System.Console.WriteLine (data.Document.Text);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
 {
 	void TestMethod ()
@@ -1200,6 +1216,14 @@ if (b) {
 		}
 	}
 }", data.Document.Text);
+		}
+		
+		static void TestErrors (CSharpParser parser)
+		{
+			foreach (var error in parser.ErrorReportPrinter.Errors) {
+				Console.WriteLine (error.Message);
+			}
+			Assert.AreEqual (0, parser.ErrorReportPrinter.ErrorsCount);
 		}
 		
 		[Test()]
@@ -1220,9 +1244,10 @@ if (b) {
 			
 			policy.StatementBraceStyle = BraceStyle.EndOfLine;
 			policy.IfElseBraceForcement = BraceForcement.AddBraces;
-			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
-			System.Console.WriteLine (data.Document.Text);
+			CSharpParser parser = new CSharpParser ();
+			var compilationUnit = parser.Parse (data);
+			TestErrors (parser);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
 {
 	void TestMethod ()
@@ -1256,8 +1281,7 @@ if (b) {
 			policy.StatementBraceStyle = BraceStyle.EndOfLine;
 			policy.IfElseBraceForcement = BraceForcement.AddBraces;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
-			System.Console.WriteLine (data.Document.Text);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
 {
 	void TestMethod ()
@@ -1292,8 +1316,7 @@ if (b) {
 			policy.StatementBraceStyle = BraceStyle.EndOfLine;
 			policy.IfElseBraceForcement = BraceForcement.AddBraces;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
-			System.Console.WriteLine (data.Document.Text);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
 {
 	void TestMethod ()
@@ -1327,9 +1350,7 @@ if (b) {
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.PlaceElseOnNewLine = true;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
-			
-			Console.WriteLine (data.Document.Text);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			
 			Assert.AreEqual (@"class Test
 {
@@ -1365,7 +1386,7 @@ if (b) {
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.PlaceElseIfOnNewLine = true;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			
 			Assert.AreEqual (@"class Test
 {
@@ -1402,9 +1423,7 @@ if (b) {
 			CSharpFormattingPolicy policy = new CSharpFormattingPolicy ();
 			policy.PlaceElseOnNewLine = false;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
-			
-			Console.WriteLine (data.Document.Text);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			
 			Assert.AreEqual (@"class Test
 {
@@ -1437,7 +1456,7 @@ if (b) {
 			policy.StatementBraceStyle = BraceStyle.EndOfLine;
 			policy.PlaceElseIfOnNewLine = false; // for simple statements it must be new line.
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
 {
 	void TestMethod ()
@@ -1476,9 +1495,7 @@ if (b) {
 			policy.StatementBraceStyle = BraceStyle.NextLine;
 			policy.WhileBraceForcement = BraceForcement.RemoveBraces;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
-			
-			Console.WriteLine (data.Document.Text);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			
 			Assert.AreEqual (@"class Test
 {
@@ -1514,8 +1531,7 @@ if (b) {
 			policy.StatementBraceStyle = BraceStyle.NextLineShifted;
 			policy.FixedBraceForcement = BraceForcement.AddBraces;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
-			Console.WriteLine (data.Document.Text);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
 {
 	Test TestMethod ()
@@ -1545,7 +1561,7 @@ if (b) {
 			
 			policy.StatementBraceStyle = BraceStyle.EndOfLineWithoutSpace;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
 {
 	Test TestMethod ()
@@ -1574,7 +1590,7 @@ if (b) {
 			
 			policy.StatementBraceStyle = BraceStyle.EndOfLineWithoutSpace;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
 {
 	Test TestMethod ()
@@ -1603,7 +1619,7 @@ if (b) {
 			
 			policy.StatementBraceStyle = BraceStyle.EndOfLineWithoutSpace;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
 {
 	Test TestMethod ()
@@ -1635,7 +1651,7 @@ if (b) {
 			
 			policy.StatementBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
 {
 	Test TestMethod ()
@@ -1667,7 +1683,7 @@ if (b) {
 			
 			policy.StatementBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
 {
 	Test TestMethod ()
@@ -1699,7 +1715,7 @@ if (b) {
 			
 			policy.StatementBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
 {
 	Test TestMethod ()
@@ -1731,7 +1747,7 @@ if (b) {
 			
 			policy.StatementBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
 {
 	Test TestMethod ()
@@ -1763,7 +1779,7 @@ if (b) {
 			
 			policy.StatementBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
 {
 	Test TestMethod ()
@@ -1794,7 +1810,7 @@ if (b) {
 			policy.IndentCaseBody = true;
 			policy.IndentBreakStatements = true;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
 {
 	Test TestMethod ()
@@ -1802,7 +1818,7 @@ if (b) {
 		switch (a) {
 			case 1:
 			case 2:
-				DoSomething();
+				DoSomething ();
 				break;
 			default:
 				Foo ();
@@ -1831,7 +1847,7 @@ if (b) {
 			policy.IndentCaseBody = false;
 			policy.IndentBreakStatements = false;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			Assert.AreEqual (@"class Test
 {
 	Test TestMethod ()
@@ -1839,7 +1855,7 @@ if (b) {
 		switch (a) {
 		case 1:
 		case 2:
-		DoSomething();
+		DoSomething ();
 		break;
 		default:
 		Foo ();
@@ -1866,9 +1882,8 @@ if (b) {
 			
 			policy.StatementBraceStyle = BraceStyle.EndOfLine;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			
-			Console.WriteLine (data.Document.Text);
 			Assert.AreEqual (@"class Test
 {
 	Test TestMethod ()
@@ -1903,9 +1918,8 @@ if (b) {
 			
 			policy.PlaceCatchOnNewLine = true;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			
-			Console.WriteLine (data.Document.Text);
 			Assert.AreEqual (@"class Test
 {
 	Test TestMethod ()
@@ -1941,9 +1955,8 @@ if (b) {
 			
 			policy.PlaceFinallyOnNewLine = true;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			
-			Console.WriteLine (data.Document.Text);
 			Assert.AreEqual (@"class Test
 {
 	Test TestMethod ()
@@ -1977,9 +1990,8 @@ if (b) {
 			
 			policy.PlaceWhileOnNewLine = true;
 			var compilationUnit = new CSharpParser ().Parse (data);
-			compilationUnit.AcceptVisitor (new AstIndentationVisitor (policy, data), null);
+			compilationUnit.AcceptVisitor (new AstFormattingVisitor (policy, data), null);
 			
-			Console.WriteLine (data.Document.Text);
 			Assert.AreEqual (@"class Test
 {
 	Test TestMethod ()
