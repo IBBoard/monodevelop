@@ -918,7 +918,7 @@ namespace Mono.TextEditor
 				if (foldSegmentWorker == null) {
 					foldSegmentWorker = new BackgroundWorker ();
 					foldSegmentWorker.WorkerSupportsCancellation = true;
-					foldSegmentWorker.DoWork += FoldSegmentWork;
+					foldSegmentWorker.DoWork += UpdateFoldSegmentWorker;
 				}
 				return foldSegmentWorker;
 			}
@@ -937,7 +937,7 @@ namespace Mono.TextEditor
 			
 			InterruptFoldWorker ();
 			if (!runInThread) {
-				FoldSegmentWork (null, new DoWorkEventArgs (newSegments));
+				UpdateFoldSegmentWorker (null, new DoWorkEventArgs (newSegments));
 				return;
 			}
 			FoldSegmentWorker.RunWorkerAsync (newSegments);
@@ -951,7 +951,11 @@ namespace Mono.TextEditor
 			foldedSegments.Remove (folding);
 		}
 		
-		void FoldSegmentWork (object sender, DoWorkEventArgs e)
+		/// <summary>
+		/// Updates the fold segments in a background worker thread. Don't call this method outside of a background worker.
+		/// Use UpdateFoldSegments instead.
+		/// </summary>
+		public void UpdateFoldSegmentWorker (object sender, DoWorkEventArgs e)
 		{
 			BackgroundWorker worker = sender as BackgroundWorker;
 			var newSegments = (List<FoldSegment>)e.Argument;
@@ -972,17 +976,15 @@ namespace Mono.TextEditor
 					FoldSegment curSegment = oldSegments [oldIndex];
 					curSegment.Length = newFoldSegment.Length;
 					curSegment.Description = newFoldSegment.Description;
-					if (curSegment.IsFolded && !newFoldSegment.IsFolded) {
-						foldedSegments.Remove (curSegment);
-					} else if (!curSegment.IsFolded && newFoldSegment.IsFolded) {
+					if (!curSegment.IsFolded && newFoldSegment.IsFolded) {
 						curSegment.isFolded = true;
 						foldedSegments.Add (curSegment);
-					} 
+					}
 				} else {
 					LineSegment startLine = splitter.GetLineByOffset (offset);
 					LineSegment endLine = splitter.GetLineByOffset (newFoldSegment.EndOffset);
-					newFoldSegment.EndColumn = newFoldSegment.EndOffset - endLine.Offset;
-					newFoldSegment.Column = offset - startLine.Offset;
+					newFoldSegment.EndColumn = newFoldSegment.EndOffset - endLine.Offset + 1;
+					newFoldSegment.Column = offset - startLine.Offset + 1;
 					newFoldSegment.isAttached = true;
 					if (newFoldSegment.IsFolded)
 						foldedSegments.Add (newFoldSegment);
@@ -1080,7 +1082,7 @@ namespace Mono.TextEditor
 		public void EnsureOffsetIsUnfolded (int offset)
 		{
 			bool needUpdate = false;
-			foreach (FoldSegment fold in GetFoldingsFromOffset (offset)) {
+			foreach (FoldSegment fold in GetFoldingsFromOffset (offset).Where (f => f.Offset < offset && offset <= f.EndOffset)) {
 				needUpdate |= fold.IsFolded;
 				fold.IsFolded = false;
 			}
