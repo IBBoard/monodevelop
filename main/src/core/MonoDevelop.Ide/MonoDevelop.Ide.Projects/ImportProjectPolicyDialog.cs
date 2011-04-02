@@ -1,10 +1,10 @@
 // 
-// IAttachableDisplayBinding.cs
+// ImportProjectPolicyDialog.cs
 //  
 // Author:
-//       Mike Krüger <mkrueger@novell.com>
+//       Lluis Sanchez Gual <lluis@novell.com>
 // 
-// Copyright (c) 2009 Novell, Inc (http://www.novell.com)
+// Copyright (c) 2011 Novell, Inc (http://www.novell.com)
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -23,16 +23,46 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-
 using System;
-using MonoDevelop.Ide.Gui;
+using MonoDevelop.Projects;
+using MonoDevelop.Projects.Policies;
 
-
-namespace MonoDevelop.Ide.Codons
+namespace MonoDevelop.Ide.Projects
 {
-	public interface IAttachableDisplayBinding
+	partial class ImportProjectPolicyDialog : Gtk.Dialog
 	{
-		bool CanAttachTo (IViewContent content);
-		IAttachableViewContent CreateViewContent (IViewContent viewContent);
+		public ImportProjectPolicyDialog ()
+		{
+			this.Build ();
+			selector.RootItem = IdeApp.Workspace;
+			selector.SelectedItem = IdeApp.ProjectOperations.CurrentSelectedBuildTarget;
+			selector.SelectableItemTypes = new Type[] { typeof(IPolicyProvider) };
+			UpdateOk ();
+		}
+		
+		public string PolicyName {
+			get { return entryName.Text; }
+			set { entryName.Text = value; }
+		}
+		
+		public IPolicyProvider SelectedItem {
+			get { return (IPolicyProvider) selector.SelectedItem; }
+		}
+
+		protected void OnEntryNameChanged (object sender, System.EventArgs e)
+		{
+			UpdateOk ();
+		}
+		
+		void UpdateOk ()
+		{
+			buttonOk.Sensitive = selector.SelectedItem != null && PolicyName.Length > 0;
+		}
+
+		protected void OnSelectorSelectionChanged (object sender, System.EventArgs e)
+		{
+			UpdateOk ();
+		}
 	}
 }
+
