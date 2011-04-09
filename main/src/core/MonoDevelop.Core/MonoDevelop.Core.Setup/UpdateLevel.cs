@@ -1,10 +1,10 @@
 // 
-// IBOutlet.cs
+// UpdateLevel.cs
 //  
 // Author:
 //       Michael Hutchinson <mhutchinson@novell.com>
 // 
-// Copyright (c) 2011 Novell, Inc.
+// Copyright (c) 2011 Novell, Inc (http://www.novell.com)
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -24,25 +24,13 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-using System;
-using System.Collections.Generic;
-
-namespace MonoDevelop.MacDev.ObjCIntegration
+namespace MonoDevelop.Core.Setup
 {
-	public class IBOutlet
+	public enum UpdateLevel
 	{
-		public IBOutlet (string objcName, string cliName, string objcType, string cliType)
-		{
-			this.ObjCName = objcName;
-			this.CliName = cliName;
-			this.ObjCType = objcType;
-			this.CliType = cliType;
-		}
-		
-		public string ObjCName { get; private set; }
-		public string CliName { get; internal set; }
-		public string ObjCType { get; internal set; }
-		public string CliType { get; internal set; }
-		public bool IsDesigner { get; internal set; }
+		Stable = 0,
+		Beta = 1,
+		Alpha = 2,
+		Test = 3
 	}
 }

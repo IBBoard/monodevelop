@@ -1,10 +1,10 @@
 // 
-// IBOutlet.cs
+// IApplicationInfo.cs
 //  
 // Author:
-//       Michael Hutchinson <mhutchinson@novell.com>
+//       Lluis Sanchez Gual <lluis@novell.com>
 // 
-// Copyright (c) 2011 Novell, Inc.
+// Copyright (c) 2011 Novell, Inc (http://www.novell.com)
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,24 +25,23 @@
 // THE SOFTWARE.
 
 using System;
-using System.Collections.Generic;
-
-namespace MonoDevelop.MacDev.ObjCIntegration
+using System.Linq;
+using System.Collections;
+using System.Runtime.InteropServices;
+using System.Text;
+using MonoDevelop.Core;
+using MonoDevelop.Core.Assemblies;
+using MonoDevelop.Core.AddIns;
+using MonoDevelop.Core.Execution;
+using Mono.Addins;
+using Mono.Addins.Setup;
+using MonoDevelop.Core.Instrumentation;
+using System.Threading;
+namespace MonoDevelop.Core
 {
-	public class IBOutlet
+	public interface IApplicationInfo
 	{
-		public IBOutlet (string objcName, string cliName, string objcType, string cliType)
-		{
-			this.ObjCName = objcName;
-			this.CliName = cliName;
-			this.ObjCType = objcType;
-			this.CliType = cliType;
-		}
-		
-		public string ObjCName { get; private set; }
-		public string CliName { get; internal set; }
-		public string ObjCType { get; internal set; }
-		public string CliType { get; internal set; }
-		public bool IsDesigner { get; internal set; }
+		string Id { get; }
+		string Description { get; }
 	}
 }
