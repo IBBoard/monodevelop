@@ -362,9 +362,9 @@ namespace MonoDevelop.VersionControl.Git
 			RevCommit[] lines = new RevCommit [lineCount];
 			RevWalk revWalker = new RevWalk (repo);
 			revWalker.MarkStart (commit);
-			List<RevCommit> commitHistory = new List<RevCommit> ();
+			List<RevCommit> commitHistory = new List<RevCommit>();
 			FilePath localCpath = FromGitPath (repo, localFile);
-
+			
 			foreach (RevCommit ancestorCommit in revWalker) {
 				foreach (Change change in GetCommitChanges (repo, ancestorCommit)) {
 					FilePath cpath = FromGitPath (repo, change.Path);
@@ -375,55 +375,56 @@ namespace MonoDevelop.VersionControl.Git
 					}
 				}
 			}
-
+			
 			int historySize = commitHistory.Count;
-
+			
 			if (historySize > 1) {
-				RevCommit recentCommit = commitHistory [0];
+				RevCommit recentCommit = commitHistory[0];
 				RawText latestRawText = GetRawText (repo, localFile, recentCommit);
-
+				
 				for (int i = 1; i < historySize; i++) {
-					RevCommit ancestorCommit = commitHistory [i];
+					RevCommit ancestorCommit = commitHistory[i];
 					RawText ancestorRawText = GetRawText (repo, localFile, ancestorCommit);
-					lineCount -= SetBlameLines (repo, lines, recentCommit, latestRawText, ancestorRawText);
+					lineCount -= SetBlameLines(repo, lines, recentCommit, latestRawText, ancestorRawText);
 					recentCommit = ancestorCommit;
-
-					if (lineCount <= 0) {
+					
+					if (lineCount <= 0)
+					{
 						break;
 					}
 				}
-
+				
 				if (lineCount > 0) {
-					RevCommit firstCommit = commitHistory [historySize - 1];
-
+					RevCommit firstCommit = commitHistory[historySize - 1];
+					
 					for (int i = 0; i < totalLines; i++) {
-						if (lines [i] == null) {
-							lines [i] = firstCommit;
+						if (lines[i] == null) {
+							lines[i] = firstCommit;
 						}
 					}
 				}
 			} else if (historySize == 1) {
-				RevCommit firstCommit = commitHistory [0];
-
+				RevCommit firstCommit = commitHistory[0];
+					
 				for (int i = 0; i < totalLines; i++) {
-					lines [i] = firstCommit;
+					lines[i] = firstCommit;
 				}
 			}
-
+			
 			return lines;
 		}
-
-		static int GetFileLineCount (NGit.Repository repo, TreeWalk tw)
-		{
+		
+		static int GetFileLineCount (NGit.Repository repo, TreeWalk tw) {
 			ObjectId id = tw.GetObjectId (0);
 			byte[] data = repo.ObjectDatabase.Open (id).GetBytes ();			
-			return new RawText (data).Size ();
+			return new RawText (data).Size();
 		}
-
-		static RawText GetRawText (NGit.Repository repo, string file, RevCommit commit)
-		{
+		
+		static RawText GetRawText(NGit.Repository repo, string file, RevCommit commit) {
 			TreeWalk tw = TreeWalk.ForPath (repo, file, commit.Tree);
-			ObjectId objectID = tw.GetObjectId (0);
+			if (tw == null)
+				return new RawText (new byte[0]);
+			ObjectId objectID = tw.GetObjectId(0);
 			byte[] data = repo.ObjectDatabase.Open (objectID).GetBytes ();
 			return new RawText (data);
 		}
@@ -443,10 +444,10 @@ namespace MonoDevelop.VersionControl.Git
 					}
 				}
 			}
-
+			
 			return lineCount;
 		}
-
+		
 		static IEnumerable<Hunk> GetDiffHunks (RawText curText, RawText ancestorText)
 		{
 			Dictionary<string, int> codeDictionary = new Dictionary<string, int> ();
@@ -487,14 +488,14 @@ namespace MonoDevelop.VersionControl.Git
 		static int FillRemainingBlame (RevCommit[] lines, RevCommit commit)
 		{
 			int lineCount = 0;
-
+			
 			for (int n=0; n<lines.Length; n++) {
 				if (lines [n] == null) {
 					lines [n] = commit;
 					lineCount++;
 				}
 			}
-
+			
 			return lineCount;
 		}
 		

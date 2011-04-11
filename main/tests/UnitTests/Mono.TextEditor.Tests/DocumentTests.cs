@@ -25,11 +25,9 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
+
 using System;
 using NUnit.Framework;
-using Mono.TextEditor.Utils;
-using NUnit.Framework.SyntaxHelpers;
-using System.Collections.Generic;
 
 namespace Mono.TextEditor.Tests
 {
@@ -165,161 +163,7 @@ namespace Mono.TextEditor.Tests
 			}
 			Assert.AreEqual (1, document.LineCount);
 		}
-
-		[Test]
-		public void TestDiffWithNoChangesReturnsNothing ()
-		{
-			string docText = "Some string here";
-			IEnumerable<Hunk> hunks = GenerateDiffHunks(docText, docText);
-			int count = 0;
-			
-			foreach (Hunk hunk in hunks) {
-				count++;
-			}
-			
-			Assert.That (count, Is.EqualTo (0));
-		}
-
-		[Test]
-		public void TestDiffWithOneAdditionReturnsOneHunk ()
-		{
-			string docText = "Some string here";
-			IEnumerable<Hunk> hunks = GenerateDiffHunks(docText + "extra", docText);
-			int count = 0;
-			
-			foreach (Hunk hunk in hunks) {
-				count++;
-			}
-			
-			Assert.That (count, Is.EqualTo (1));
-		}
-
-		[Test]
-		public void TestDiffWithOneChangeReturnsExpectedHunk ()
-		{
-			string docText = "Some string here";
-			string extra = "extra";
-			IEnumerable<Hunk> hunks = GenerateDiffHunks(docText + extra, docText);
-			IEnumerator<Mono.TextEditor.Utils.Hunk> enumerator = hunks.GetEnumerator ();
-			enumerator.MoveNext();
-			Hunk hunk = enumerator.Current;
-			Assert.That(hunk.Inserted, Is.EqualTo(1));
-			Assert.That(hunk.InsertStart, Is.EqualTo(1));
-			Assert.That(hunk.Removed, Is.EqualTo(1));
-			Assert.That(hunk.RemoveStart, Is.EqualTo(1));
-		}
-		
-		[Test]
-		public void TestMultilineDiffWithOneAdditionReturnsOneHunk ()
-		{
-			string docText = "Some string here\nSomeOtherText";
-			string extra = "extra";
-			IEnumerable<Hunk> hunks = GenerateDiffHunks(docText + extra, docText);
-			int count = 0;
-			
-			foreach (Hunk hunk in hunks) {
-				count++;
-			}
-			
-			Assert.That (count, Is.EqualTo (1));
-		}
-		
-		[Test]
-		public void TestMultilineDiffWithOneAdditionReturnsExpectedHunk ()
-		{
-			string docText = "Some string here\nSomeOtherText";
-			string extra = "extra";
-			IEnumerable<Hunk> hunks = GenerateDiffHunks(docText + extra, docText);
-			IEnumerator<Mono.TextEditor.Utils.Hunk> enumerator = hunks.GetEnumerator ();
-			enumerator.MoveNext();
-			Hunk hunk = enumerator.Current;
-			Assert.That(hunk.Inserted, Is.EqualTo(1));
-			Assert.That(hunk.InsertStart, Is.EqualTo(2));
-			Assert.That(hunk.Removed, Is.EqualTo(1));
-			Assert.That(hunk.RemoveStart, Is.EqualTo(2));
-		}
-		
-		[Test]
-		public void TestMultilineDiffWithAddedLineReturnsOneHunk ()
-		{
-			string docText = "Some string here\nSomeOtherText";
-			string extra = "\nThirdLine";
-			IEnumerable<Hunk> hunks = GenerateDiffHunks(docText + extra, docText);
-			int count = 0;
-			
-			foreach (Hunk hunk in hunks) {
-				count++;
-			}
-			
-			Assert.That (count, Is.EqualTo (1));
-		}
-		
-		[Test]
-		public void TestMultilineDiffWithAddedLineReturnsExpectedHunk ()
-		{
-			string docText = "Some string here\nSomeOtherText";
-			string extra = "\nThirdLine";
-			IEnumerable<Hunk> hunks = GenerateDiffHunks(docText + extra, docText);
-			IEnumerator<Mono.TextEditor.Utils.Hunk> enumerator = hunks.GetEnumerator ();
-			enumerator.MoveNext();
-			Hunk hunk = enumerator.Current;
-			Assert.That(hunk.Inserted, Is.EqualTo(1));
-			Assert.That(hunk.InsertStart, Is.EqualTo(3));
-			Assert.That(hunk.Removed, Is.EqualTo(0));
-			Assert.That(hunk.RemoveStart, Is.EqualTo(3));
-		}
-		
-		[Test]
-		public void TestChangeInMiddleOfMultiLineReturnsOneHunk()
-		{
-			string text = "12345678\n" +
-			"1234567\n" +
-			"123456\n" +
-			"12345\n" +
-			"1234\n" +
-			"123\n" +
-			"12\n" +
-			"1\n" +
-			"\n";
-			IEnumerable<Hunk> hunks = GenerateDiffHunks(text + "middle line\n" + text, text + text);			
-			int count = 0;
-			
-			foreach (Hunk hunk in hunks) {
-				count++;
-			}
-			
-			Assert.That (count, Is.EqualTo (1));
-		}
-		
-		[Test]
-		public void TestChangeInMiddleOfMultiLineReturnsExpectedHunk()
-		{
-			string text = "12345678\n" +
-			"1234567\n" +
-			"123456\n" +
-			"12345\n" +
-			"1234\n" +
-			"123\n" +
-			"12\n" +
-			"1\n" +
-			"\n";
-			IEnumerable<Hunk> hunks = GenerateDiffHunks(text + "middle line\n" + text, text + text);
-			IEnumerator<Mono.TextEditor.Utils.Hunk> enumerator = hunks.GetEnumerator ();
-			enumerator.MoveNext();
-			Hunk hunk = enumerator.Current;
-			Assert.That(hunk.Inserted, Is.EqualTo(1));
-			Assert.That(hunk.InsertStart, Is.EqualTo(10));
-			Assert.That(hunk.Removed, Is.EqualTo(0));
-			Assert.That(hunk.RemoveStart, Is.EqualTo(10));
-		}
-		
-		private IEnumerable<Hunk> GenerateDiffHunks(string currentDocText, string originalText)
-		{
-			Document document = new Document (originalText);
-			Document changedDocument = new Document (currentDocText);
-			return document.Diff (changedDocument);
-		}
-
+				
 		[TestFixtureSetUp] 
 		public void SetUp()
 		{
