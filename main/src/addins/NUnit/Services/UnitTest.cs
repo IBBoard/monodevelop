@@ -298,6 +298,12 @@ namespace MonoDevelop.NUnit
 			}
 		}
 		
+		public virtual string NamespacedName {
+			get {
+				return Name;
+			}
+		}
+		
 		protected IWorkspaceObject OwnerSolutionItem {
 			get { return ownerSolutionItem; }
 		}
