@@ -241,6 +241,10 @@ namespace MonoDevelop.NUnit
 		public void OnTestSuiteChanged (object sender, EventArgs e)
 		{
 			results.Clear ();
+			
+			error = null;
+			errorMessage = null;
+			
 			failuresStore.Clear ();
 			outputView.Buffer.Clear ();
 			outIters.Clear ();
@@ -286,6 +290,10 @@ namespace MonoDevelop.NUnit
 			rootTest = test;
 			results.Clear ();
 			testsToRun = test.CountTestCases ();
+			
+			error = null;
+			errorMessage = null;
+			
 			progressBar.Fraction = 0;
 			progressBar.Text = "";
 			progressBar.Text = "0 / " + testsToRun;
@@ -549,7 +557,8 @@ namespace MonoDevelop.NUnit
 			if (result.IsFailure) {
 				if (!buttonFailures.Active)
 					return;
-				TreeIter testRow = failuresStore.AppendValues (CircleImage.Failure, Escape (test.NamespacedName), test);
+				string file = test.SourceCodeLocation != null ? test.SourceCodeLocation.FileName + ":" + test.SourceCodeLocation.Line : null;
+				TreeIter testRow = failuresStore.AppendValues (CircleImage.Failure, Escape (test.NamespacedName), test, file);
 				bool hasMessage = result.Message != null && result.Message.Length > 0;
 				if (hasMessage)
 					failuresStore.AppendValues (testRow, null, Escape (result.Message), test);
