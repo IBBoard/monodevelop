@@ -543,13 +543,13 @@ namespace MonoDevelop.NUnit
 			if (result.IsSuccess) {
 				if (!buttonSuccess.Active)
 					return;
-				TreeIter testRow = failuresStore.AppendValues (CircleImage.Success, Escape (test.FullName), test);
+				TreeIter testRow = failuresStore.AppendValues (CircleImage.Success, Escape (test.NamespacedName), test);
 				failuresTreeView.ScrollToCell (failuresStore.GetPath (testRow), null, false, 0, 0);
 			}
 			if (result.IsFailure) {
 				if (!buttonFailures.Active)
 					return;
-				TreeIter testRow = failuresStore.AppendValues (CircleImage.Failure, Escape (test.FullName), test);
+				TreeIter testRow = failuresStore.AppendValues (CircleImage.Failure, Escape (test.NamespacedName), test);
 				bool hasMessage = result.Message != null && result.Message.Length > 0;
 				if (hasMessage)
 					failuresStore.AppendValues (testRow, null, Escape (result.Message), test);
@@ -564,13 +564,13 @@ namespace MonoDevelop.NUnit
 			if (result.IsIgnored) {
 				if (!buttonIgnored.Active)
 					return;
-				TreeIter testRow = failuresStore.AppendValues (CircleImage.NotRun, Escape (test.FullName), test);
+				TreeIter testRow = failuresStore.AppendValues (CircleImage.NotRun, Escape (test.NamespacedName), test);
 				if (result.Message != null)
 					failuresStore.AppendValues (testRow, null, Escape (result.Message), test);
 				failuresTreeView.ScrollToCell (failuresStore.GetPath (testRow), null, false, 0, 0);
 			}
 			
-			string msg = GettextCatalog.GetString ("Running {0} ...", test.FullName);
+			string msg = GettextCatalog.GetString ("Running {0} ...", test.NamespacedName);
 			TextIter it = outputView.Buffer.EndIter;
 			outIters [test] = it.Offset;
 			outputView.Buffer.InsertWithTags (ref it, msg, bold);

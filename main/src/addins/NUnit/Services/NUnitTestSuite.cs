@@ -95,6 +95,15 @@ namespace MonoDevelop.NUnit
 				return null; 
 			}
 		}
+		
+		public override string NamespacedName {
+			get {
+				if (Parent is NUnitTestSuite)					
+					return Parent.NamespacedName + "." + Name;
+				else
+					return Name;
+			}
+		}
 	}
 }
 

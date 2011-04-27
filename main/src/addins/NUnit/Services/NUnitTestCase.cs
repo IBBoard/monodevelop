@@ -74,6 +74,12 @@ namespace MonoDevelop.NUnit
 				return null; 
 			}
 		}
+		
+		public override string NamespacedName {
+			get {
+				return Parent.NamespacedName + "." + Name;
+			}
+		}
 	}
 }
 
