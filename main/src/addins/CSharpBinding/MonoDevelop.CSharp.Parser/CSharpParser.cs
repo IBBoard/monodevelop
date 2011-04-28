@@ -87,9 +87,15 @@ namespace MonoDevelop.CSharp.Parser
 				
 				if (typeName is Mono.CSharp.QualifiedAliasMember) {
 					var qam = (Mono.CSharp.QualifiedAliasMember)typeName;
-					// TODO: Overwork the return type model - atm we don't have a good representation
-					// for qualified alias members.
-					return new SimpleType (qam.Name, Convert (qam.Location));
+					var memberType = new MonoDevelop.CSharp.Ast.MemberType ();
+					if (qam.LeftExpression == null) {
+						memberType.Target = new SimpleType ("global", Convert (qam.Location));
+					} else { 
+						memberType.Target = ConvertToType (qam.LeftExpression);
+					}
+					memberType.IsDoubleColon = true;
+					memberType.MemberName = qam.Name;
+					return memberType;
 				}
 				
 				if (typeName is MemberAccess) {
@@ -121,14 +127,12 @@ namespace MonoDevelop.CSharp.Parser
 						result.PointerRank++;
 					} else {
 						var location = LocationsBag.GetLocations (cc.Spec);
-						var spec = new ArraySpecifier () { Dimensions = cc.Spec.Dimension - 1 };
+						var spec = new ArraySpecifier () { Dimensions = cc.Spec.Dimension };
 						spec.AddChild (new CSharpTokenNode (Convert (cc.Spec.Location), 1), FieldDeclaration.Roles.LBracket);
 						if (location != null)
 							spec.AddChild (new CSharpTokenNode (Convert (location [0]), 1), FieldDeclaration.Roles.RBracket);
 						
-						result.ArraySpecifiers = new ArraySpecifier[] {
-							spec
-						};
+						result.AddChild (spec, ComposedType.ArraySpecifierRole);
 					}
 					return result;
 				}
@@ -1486,9 +1490,19 @@ namespace MonoDevelop.CSharp.Parser
 
 			public override object Visit (LocalVariableReference localVariableReference)
 			{
-				return CreateIdentifier (localVariableReference.Name, Convert (localVariableReference.Location));;
+				return CreateIdentifier (localVariableReference.Name, Convert (localVariableReference.Location));
 			}
-
+			
+			public override object Visit (QualifiedAliasMember qualifiedAliasMember)
+			{
+				var result = new MonoDevelop.CSharp.Ast.MemberType ();
+				result.Target = new SimpleType (qualifiedAliasMember.alias, Convert (qualifiedAliasMember.Location));
+				result.IsDoubleColon = true;
+				var location = LocationsBag.GetLocations (qualifiedAliasMember);
+				result.AddChild (new Identifier (qualifiedAliasMember.Name, location != null ? Convert (location [0]) : AstLocation.Empty), MemberReferenceExpression.Roles.Identifier);
+				return  new TypeReferenceExpression () { Type = result };
+			}
+			
 			public override object Visit (MemberAccess memberAccess)
 			{
 				var result = new MemberReferenceExpression ();
@@ -1837,9 +1851,9 @@ namespace MonoDevelop.CSharp.Parser
 			
 			Identifier CreateIdentifier (string name, AstLocation loc)
 			{
-				bool isQuoted = name.StartsWith ("@");
+				bool isQuoted = name != null ? name.StartsWith ("@") : false;
 				string id = isQuoted ? name.Substring (1) : name;
-				return new Identifier (id, loc) { IsQuoted = isQuoted };
+				return new Identifier (id ?? "", loc) { IsQuoted = isQuoted };
 			}
 			
 			void AddTypeParameters (AstNode parent, List<Location> location, Mono.CSharp.TypeArguments typeArguments)

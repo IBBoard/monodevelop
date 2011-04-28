@@ -485,10 +485,15 @@ namespace Mono.Debugging.Soft
 		protected override void OnContinue ()
 		{
 			ThreadPool.QueueUserWorkItem (delegate {
-				Adaptor.CancelAsyncOperations (); // This call can block, so it has to run in background thread to avoid keeping the main session lock
-				OnResumed ();
-				vm.Resume ();
-				DequeueEventsForFirstThread ();
+				try {
+					Adaptor.CancelAsyncOperations (); // This call can block, so it has to run in background thread to avoid keeping the main session lock
+					OnResumed ();
+					vm.Resume ();
+					DequeueEventsForFirstThread ();
+				} catch (Exception ex) {
+					if (!HandleException (ex))
+						OnDebuggerOutput (true, ex.ToString ());
+				}
 			});
 		}
 
@@ -1448,8 +1453,10 @@ namespace Mono.Debugging.Soft
 						Location loc = met.LocationAtILOffset (ins.Offset);
 						if (loc != null && lastLine == -1) {
 							lastLine = loc.LineNumber;
-							for (int n=firstPos; n<lines.Count; n++)
-								lines [n].SourceLine = loc.LineNumber;
+							for (int n=firstPos; n<lines.Count; n++) {
+								AssemblyLine old = lines [n];
+								lines [n] = new AssemblyLine (old.Address, old.AddressSpace, old.Code, loc.LineNumber);
+							}
 						}
 						lines.Add (new AssemblyLine (ins.Offset, addrSpace, Disassemble (ins), loc != null ? loc.LineNumber : lastLine));
 					}
