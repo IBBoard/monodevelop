@@ -366,24 +366,71 @@ namespace MonoDevelop.MonoDroid
 		}
 	}
 
-	public sealed class AdbGetPartitionSizeOperation : AdbBaseShellOperation
+	public sealed class AdbGetAvailableSpaceOperation : AdbBaseShellOperation
 	{
-		string partition;
+		long externalSpace = -1;
+		long internalSpace = -1;
 
-		public AdbGetPartitionSizeOperation (AndroidDevice device, string partition) : base (device, "df " + partition)
+		const long Kilobyte = 1024;
+		const long Megabyte = 1024 * 1024;
+		const long Gigabyte = 1024 * 1024 * 1024;
+
+		const string InternalPartition = "/data";
+		const string ExternalPartition = "/mnt/sdcard";
+
+		public AdbGetAvailableSpaceOperation (AndroidDevice device) : base (device, "df")
 		{
-			this.partition = partition;
 			BeginConnect ();
 		}
 
-		bool ParseDfOutput (string output, out long size)
+		bool ParseDfOutput (string output)
 		{
-			size = 0;
+			return output.StartsWith ("Filesystem") ? ParseNewFormat (output) : ParseOldFormat (output);
+		}
 
+		bool ParseNewFormat (string output)
+		{
+			string s;
+			var reader = new StringReader (output);
+
+			reader.ReadLine (); //  header line
+
+			// /data      496M    54M   442M   4096
+			while ((s = reader.ReadLine ()) != null) {
+				var parts = s.Split (new char [] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+				if (parts.Length != 5)
+					return false;
+
+				string partition = parts [0];
+				if (partition != InternalPartition && partition != ExternalPartition)
+					continue;
+
+				long size;
+				if (!ParseToBytes (parts [3], out size))
+					return false;
+
+				if (partition == InternalPartition)
+					internalSpace = size;
+				else
+					externalSpace = size;
+			}
+
+			// if /data was not found, then something went wrong.
+			return internalSpace > -1;
+		}
+
+		bool ParseOldFormat (string output)
+		{
 			string s;
 			var reader = new StringReader (output);
 			while ((s = reader.ReadLine ()) != null) {
-				if (!s.StartsWith (partition))
+				int idx = s.IndexOf (':');
+				if (idx < 0)
+					return false;
+
+				long size = 0;
+				string partition = s.Substring (0, idx);
+				if (partition != InternalPartition && partition != ExternalPartition)
 					continue;
 
 				// /data/: 508416K total, 98548K used, 409868K available (block size 4096)
@@ -393,50 +440,67 @@ namespace MonoDevelop.MonoDroid
 
 				// the actual available component
 				parts = parts [2].Split (new char [] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-				var available = parts [0].Trim ();
-				var unit = available [available.Length - 1];
-				available = available.Substring (0, available.Length - 1);
-				if (!long.TryParse (available, out size))
+				if (!ParseToBytes (parts [0].Trim (), out size))
 					return false;
 
-				switch (unit) {
-					case 'K': 
-						break; // No conversion needed
-					case 'M': size *= 1024;
-						break;
-					case 'G': size *= 1024 * 1024;
-						break;
-					default: 
-						  return false;
-				}
-
-				return true;
+				if (partition == InternalPartition)
+					internalSpace = size;
+				else
+					externalSpace = size;
 			}
 
-			return false;
+			// if /data was not found, then something went wrong.
+			return internalSpace > -1;
 		}
 
-		long? size;
+		bool ParseToBytes (string s, out long value)
+		{
+			var unit = s [s.Length - 1];
+			var available = s.Substring (0, s.Length - 1);
+			if (!long.TryParse (available, out value))
+				return false;
+
+			switch (unit) {
+				case 'K': value *= Kilobyte;
+					  break;
+				case 'M': value *= Megabyte;
+					  break;
+				case 'G': value *= Gigabyte;
+					  break;
+				default:
+					  return false;
+			}
+
+			return true;
+		}
+
+		bool? success;
 
 		public override bool Success {
 			get {
 				if (!base.Success)
 					return false;
-				if (!size.HasValue) {
-					long value;
-					size = ParseDfOutput (Output, out value) ? value : -1;
-				}
+				if (!success.HasValue)
+					success = ParseDfOutput (Output);
 
-				return size >= 0;
+				return success.Value;
 			}
 		}
 
-		public long Size {
+		public long InternalSpace {
 			get {
 				if (!Success)
 					throw new InvalidOperationException ("Error getting partition size from device:\n" + Output);
 				//Success will have parsed the value 
-				return size.Value;
+				return internalSpace;
+			}
+		}
+
+		public long ExternalSpace {
+			get {
+				if (!Success)
+					throw new InvalidOperationException ("Error getting partition size from device:\n" + Output);
+				return externalSpace;
 			}
 		}
 	}

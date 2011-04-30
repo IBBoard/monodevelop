@@ -773,10 +773,8 @@ namespace MonoDevelop.CSharp.Completion
 			if (typeString.Contains ("."))
 				completionList.Add (typeString, resolvedType.StockIcon);
 			foreach (var field in resolvedType.Fields) {
-				if (field.IsSpecialName)
-					continue;
-				
-				completionList.Add (typeString + "." + field.Name, field.StockIcon);
+				if (field.IsConst || field.IsStatic)
+					completionList.Add (typeString + "." + field.Name, field.StockIcon);
 			}
 			completionList.DefaultCompletionString = typeString;
 		}
@@ -1734,7 +1732,7 @@ namespace MonoDevelop.CSharp.Completion
 			
 			// special handling for nullable types: Bug 674516 - new completion for nullables should not include "Nullable"
 			if (type is InstantiatedType && ((InstantiatedType)type).UninstantiatedType.FullName == "System.Nullable" && ((InstantiatedType)type).GenericParameters.Count == 1) {
-				var genericParameter = ((InstantiatedType)type).GenericParameters[0];
+				var genericParameter = ((InstantiatedType)type).GenericParameters [0];
 				returnType = returnTypeUnresolved = Document.CompilationUnit.ShortenTypeName (genericParameter, location);
 				type = dom.SearchType (Document.CompilationUnit, callingType, location, genericParameter);
 			}
@@ -1764,7 +1762,7 @@ namespace MonoDevelop.CSharp.Completion
 			//			}
 			if (type == null)
 				return result;
-			HashSet<string> usedNamespaces = new HashSet<string> (GetUsedNamespaces ());
+			HashSet<string > usedNamespaces = new HashSet<string> (GetUsedNamespaces ());
 			if (type.FullName == DomReturnType.Object.FullName) 
 				AddPrimitiveTypes (col);
 			
@@ -1797,6 +1795,7 @@ namespace MonoDevelop.CSharp.Completion
 					}
 				}
 			}
+			result.AutoCompleteEmptyMatch = true;
 			return result;
 		}
 		
