@@ -77,11 +77,6 @@
       <Name>Mono.TextEditor</Name>
       <Private>False</Private>
     </ProjectReference>
-    <ProjectReference Include="..\..\..\contrib\NRefactory\Project\NRefactory.csproj">
-      <Project>{3A9AE6AA-BC07-4A2F-972C-581E3AE2F195}</Project>
-      <Name>NRefactory</Name>
-      <Private>False</Private>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -159,6 +154,7 @@
     <Compile Include="MonoDevelop.SourceEditor\MessageBubbleCommands.cs" />
     <Compile Include="MonoDevelop.SourceEditor\MessageBubbleTextMarker.cs" />
     <Compile Include="MonoDevelop.SourceEditor\MessageBubbleHighlightPopupWindow.cs" />
+    <Compile Include="MonoDevelop.SourceEditor\MessageBubbleCache.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="gtk-gui\gui.stetic">

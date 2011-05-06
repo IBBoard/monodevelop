@@ -54,7 +54,7 @@ namespace MonoDevelop.MacDev.XcodeIntegration
 		
 		bool updatingProjectFiles;
 		
-		FilePath outputDir;
+		FilePath outputDir, xcproj, pbxproj;
 		
 		static bool? trackerEnabled;
 		public static bool TrackerEnabled {
@@ -69,22 +69,6 @@ namespace MonoDevelop.MacDev.XcodeIntegration
 		{
 			this.dnp = dnp;
 			this.wrapperName = wrapperName;
-		}
-		
-		public IAsyncOperation OpenDocument (FilePath xib)
-		{
-			//FIXME: show a UI and progress while we do the initial sync
-			EnableSyncing ();
-			UpdateTypes (true);
-			UpdateXcodeProject ();
-			
-			//FIXME: detect when the project's opened, so it will open the xib file in the project
-			var xcode = XcodeInterfaceBuilderDesktopApplication.XCODE_LOCATION;
-			MonoMac.AppKit.NSWorkspace.SharedWorkspace.OpenFile (outputDir.Combine (dnp.Name + ".xcodeproj"), xcode);
-			MonoMac.AppKit.NSWorkspace.SharedWorkspace.OpenFile (outputDir.Combine (xib.FileName), xcode);
-			
-			//FIXME: actually report progress of this operation
-			return MonoDevelop.Core.ProgressMonitoring.NullAsyncOperation.Success;
 		}
 		
 		void EnableSyncing ()
@@ -102,14 +86,19 @@ namespace MonoDevelop.MacDev.XcodeIntegration
 			dnp.FileChangedInProject += FileChangedInProject;
 			dnp.NameChanged += ProjectNameChanged;
 			MonoDevelop.Ide.IdeApp.CommandService.ApplicationFocusIn += AppRegainedFocus;
+			MonoDevelop.Ide.IdeApp.CommandService.ApplicationFocusOut += AppLostFocus;
 		}
 		
 		void DisableSyncing ()
 		{
-			if (syncing)
+			if (!syncing)
 				return;
 			syncing = false;
 			xcodeProjectDirty = false;
+			
+			XcodeCloseWorkspaceInPath (outputDir);
+			if (Directory.Exists (outputDir))
+				Directory.Delete (outputDir, true);
 			
 			dnp.FileAddedToProject -= FileAddedToProject;
 			dnp.FilePropertyChangedInProject -= FilePropertyChangedInProject;;
@@ -117,18 +106,61 @@ namespace MonoDevelop.MacDev.XcodeIntegration
 			dnp.FileChangedInProject -= FileChangedInProject;
 			dnp.NameChanged -= ProjectNameChanged;
 			MonoDevelop.Ide.IdeApp.CommandService.ApplicationFocusIn -= AppRegainedFocus;
-		}
-
-		void AppRegainedFocus (object sender, EventArgs e)
-		{
-			DetectXcodeChanges ();
-			
-			//FIXME: detect when the project's been closed in xcode, and disable syncing
+			MonoDevelop.Ide.IdeApp.CommandService.ApplicationFocusOut -= AppLostFocus;
 		}
 		
 		void UpdateOutputDir ()
 		{
 			outputDir = dnp.BaseDirectory.Combine ("obj", "Xcode");
+			xcproj = outputDir.Combine (dnp.Name + ".xcodeproj");
+			pbxproj = xcproj.Combine (dnp.Name + ".pbxproj");
+		}
+		
+		void AppRegainedFocus (object sender, EventArgs e)
+		{
+			if (IsXcodeProjectOpen ()) {
+				XcodeSaveAllInPath (outputDir);
+			} else {
+				DisableSyncing ();
+			}
+			DetectXcodeChanges ();
+		}
+		
+		void AppLostFocus (object sender, EventArgs e)
+		{
+			//TODO: sync changed types
+		}
+		
+		bool IsXcodeProjectOpen ()
+		{
+			return XcodeCheckRunning () && XcodeCheckProjectOpen (xcproj);
+		}
+		
+		void OpenXcodeProject ()
+		{
+			//FIXME: show a UI and progress while we do the initial sync
+			EnableSyncing ();
+			UpdateTypes (true);
+			UpdateXcodeProject ();
+			
+			MonoMac.AppKit.NSWorkspace.SharedWorkspace.OpenFile (
+				xcproj,
+				XcodeInterfaceBuilderDesktopApplication.XCODE_LOCATION);
+		}
+		
+		public IAsyncOperation OpenDocument (FilePath xib)
+		{
+			OpenXcodeProject ();
+			
+			//FIXME: detect when the project's opened, so it will open the xib file in the project
+			//FIXME: why is the xcode project sometime "locked for editing"?
+			//FIXME: switch xcode to the assistant view with the correct header file
+			MonoMac.AppKit.NSWorkspace.SharedWorkspace.OpenFile (
+				outputDir.Combine (xib.FileName),
+				XcodeInterfaceBuilderDesktopApplication.XCODE_LOCATION);
+			
+			//FIXME: actually report progress of this operation
+			return MonoDevelop.Core.ProgressMonitoring.NullAsyncOperation.Success;
 		}
 		
 		static bool IsPage (ProjectFile pf)
@@ -150,16 +182,22 @@ namespace MonoDevelop.MacDev.XcodeIntegration
 		
 		void ProjectNameChanged (object sender, SolutionItemRenamedEventArgs e)
 		{
-			//FIXME: get Xcode to close and re-open the project
-			if (!outputDir.IsNullOrEmpty && Directory.Exists (outputDir)) {
-				Directory.Delete (outputDir, true);
-			}
+			if (outputDir.IsNullOrEmpty || !Directory.Exists (outputDir))
+				return;
+			
+			var isOpen = IsXcodeProjectOpen ();
+			if (isOpen)
+				XcodeCloseWorkspaceInPath (outputDir);
+			
+			Directory.Delete (outputDir, true);
 			UpdateOutputDir ();
+			
+			if (isOpen)
+				OpenXcodeProject ();
 		}
 		
 		void FileRemovedFromProject (object sender, ProjectFileEventArgs e)
 		{
-			//FIXME: do we need to disable syncing here?
 			if (syncing && e.Any (finf => IsPage (finf.ProjectFile)))
 				if (!dnp.Files.Any (IsPage))
 					DisableSyncing ();
@@ -270,8 +308,7 @@ namespace MonoDevelop.MacDev.XcodeIntegration
 		//FIXME: report errors
 		void UpdateXcodeProject ()
 		{
-			var projFile = outputDir.Combine (dnp.Name + ".xcodeproj", dnp.Name + ".pbxproj");
-			if (!xcodeProjectDirty && File.Exists (projFile))
+			if (!xcodeProjectDirty && File.Exists (pbxproj))
 				return;
 			
 			xcodeProjectDirty = false;
@@ -281,6 +318,7 @@ namespace MonoDevelop.MacDev.XcodeIntegration
 			
 			trackedFiles.Clear ();
 			
+			//FIXME: use resource directories in Xcode
 			var xcp = new XcodeProject (dnp.Name);
 			foreach (var file in dnp.Files.Where (IsPageOrContent)) {
 				string pvp = file.ProjectVirtualPath;
@@ -318,11 +356,24 @@ namespace MonoDevelop.MacDev.XcodeIntegration
 					if (job != null)
 						typeSyncJobs.Add (job);
 				}
-				//TODO: copy changed xibs back into the project
+				CopyChangedXibsBack ();
 			}
 			
 			if (typeSyncJobs.Count > 0) {
 				UpdateCliTypes (pinfo, typeSyncJobs);
+			}
+		}
+		
+		//FIXME: error reporting
+		void CopyChangedXibsBack ()
+		{
+			foreach (var file in dnp.Files.Where (IsPage)) {
+				var target = outputDir.Combine (file.ProjectVirtualPath);
+				if (!File.Exists (target))
+					continue;
+				DateTime modified;
+				if (trackedFiles.TryGetValue (target, out modified) && File.GetLastWriteTime (target) > modified)
+					File.Copy (target, file.FilePath);
 			}
 		}
 		
@@ -348,20 +399,13 @@ namespace MonoDevelop.MacDev.XcodeIntegration
 				return null;
 			}
 			
-			//FIXME: fix data loss when there are multiple designer types in one designer file, like MT templates
-			var designerFile = objcType.GetDesignerFile ();
-			
-			//FIXME: add a designer file if there are any designer outlets and actions
-			if (designerFile == null)
-				return null;
-			
 			//FIXME: detect unresolved types
 			parsed.MergeCliInfo (objcType);
 			pinfo.ResolveTypes (parsed);
 			
 			return new SyncObjcBackJob () {
 				HFile = hFile,
-				DesignerFile = designerFile,
+				DesignerFile = objcType.GetDesignerFile (),
 				Type = parsed,
 			};
 		}
@@ -369,14 +413,25 @@ namespace MonoDevelop.MacDev.XcodeIntegration
 		//FIXME: error handling
 		void UpdateCliTypes (NSObjectProjectInfo pinfo, List<SyncObjcBackJob> typeSyncJobs)
 		{
-			var provider = System.CodeDom.Compiler.CodeDomProvider.CreateProvider ("C#");
+			var provider = dnp.LanguageBinding.GetCodeDomProvider ();
 			var options = new System.CodeDom.Compiler.CodeGeneratorOptions ();
 			var writer = MonoDevelop.DesignerSupport.CodeBehindWriter.CreateForProject (
 				new MonoDevelop.Core.ProgressMonitoring.NullProgressMonitor (), dnp);
 			
-			//group all the types by designer file
+			
 			var designerFile = new Dictionary<string, List<NSObjectTypeInfo>> ();
+			Dictionary<string,ProjectFile> newFiles = null;
 			foreach (var job in typeSyncJobs) {
+				//generate designer filenames for classes without designer files
+				if (job.DesignerFile == null) {
+					var df = CreateDesignerFile (job);
+					job.DesignerFile = df.FilePath;
+					if (newFiles == null)
+						newFiles = new Dictionary<string, ProjectFile> ();
+					if (!newFiles.ContainsKey (job.DesignerFile))
+						newFiles.Add (job.DesignerFile, df);
+				}
+				//group all the types by designer file
 				List<NSObjectTypeInfo> types;
 				if (!designerFile.TryGetValue (job.DesignerFile, out types))
 					designerFile[job.DesignerFile] = types = new List<NSObjectTypeInfo> ();
@@ -408,9 +463,29 @@ namespace MonoDevelop.MacDev.XcodeIntegration
 					trackedFiles[job.HFile] = File.GetLastWriteTime (job.HFile);
 				}
 				
+				if (newFiles != null) {
+					foreach (var f in newFiles)
+						dnp.AddFile (f.Value);
+					Ide.IdeApp.ProjectOperations.Save (dnp);
+				}
 			} finally {
 				updatingProjectFiles = false;
 			}
+		}
+		
+		//FIXME: create the designer file based on xibs that use the class, not the other parts?
+		ProjectFile CreateDesignerFile (SyncObjcBackJob job)
+		{
+			int i = 0;
+			FilePath designerFile = null;
+			do {
+				FilePath f = job.Type.DefinedIn[0];
+				string suffix = (i > 0? i.ToString () : "");
+				string name = f.FileNameWithoutExtension + suffix + ".designer" + f.Extension;
+				designerFile = f.ParentDirectory.Combine (name);
+			} while (dnp.Files.GetFileWithVirtualPath (designerFile.ToRelative (dnp.BaseDirectory)) != null);
+			var dependsOn = ((FilePath)job.Type.DefinedIn[0]).FileName;
+			return new ProjectFile (designerFile, BuildAction.Compile) { DependsOn = dependsOn };
 		}
 		
 		System.CodeDom.CodeCompileUnit GenerateCompileUnit (System.CodeDom.Compiler.CodeDomProvider provider,
@@ -446,9 +521,85 @@ namespace MonoDevelop.MacDev.XcodeIntegration
 			if (disposed)
 				return;
 			disposed = true;
-			
-			//FIXME: close the project in Xcode
 			DisableSyncing ();
 		}
+		
+		static bool XcodeCheckRunning ()
+		{
+			var appPathKey = new MonoMac.Foundation.NSString ("NSApplicationPath");
+			var xcodePath = new MonoMac.Foundation.NSString (XcodeInterfaceBuilderDesktopApplication.XCODE_LOCATION);
+			return MonoMac.AppKit.NSWorkspace.SharedWorkspace.LaunchedApplications.Any (
+				app => xcodePath.Equals (app[appPathKey]));
+		}
+		
+		static void XcodeSaveAllInPath (string path)
+		{
+			MacInterop.AppleScript.Run (
+				XCODE_SAVE_IN_PATH,
+				XcodeInterfaceBuilderDesktopApplication.XCODE_LOCATION,
+				path);
+		}
+		
+		static bool XcodeCheckProjectOpen (string project)
+		{
+			var ret = MacInterop.AppleScript.Run (
+				XCODE_CHECK_PROJECT_OPEN,
+				XcodeInterfaceBuilderDesktopApplication.XCODE_LOCATION,
+				project);
+			return ret == "true";
+		}
+		
+		static bool XcodeCloseWorkspaceInPath (string path)
+		{
+			var ret = MacInterop.AppleScript.Run (
+				XCODE_CLOSE_WORKSPACE_IN_PATH,
+				XcodeInterfaceBuilderDesktopApplication.XCODE_LOCATION,
+				path);
+			return ret == "true";
+		}
+		
+		const string XCODE_SAVE_IN_PATH =
+@"tell application ""{0}""
+set pp to ""{1}""
+	set ext to {{ "".xib"", "".h"", "".m"" }}
+	repeat with d in documents
+		if d is modified then
+			set f to path of d
+			if f starts with pp then
+				repeat with e in ext
+					if f ends with e then
+						save d
+						exit repeat
+					end if
+				end repeat
+			end if
+		end if
+	end repeat
+end tell";
+		
+		const string XCODE_CLOSE_WORKSPACE_IN_PATH =
+@"tell application ""{0}""
+	set pp to ""{1}""
+	repeat with d in documents
+		set f to path of d
+		if f starts with pp and f ends with "".xcworkspace"" then
+			close d
+			return true
+		end if
+	end repeat
+	return false
+end tell";
+		
+		const string XCODE_CHECK_PROJECT_OPEN =
+@"tell application ""{0}""
+	set pp to ""{1}""
+	repeat with p in projects
+		if real path of p is pp then
+			return true
+			exit repeat
+		end if
+	end repeat
+	return false
+end tell";
 	}
 }

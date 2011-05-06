@@ -33,9 +33,10 @@ using MonoDevelop.Refactoring;
 using System;
 using System.Collections.Generic;
 using MonoDevelop.Projects.Policies;
-using MonoDevelop.CSharp.Ast;
+using ICSharpCode.NRefactory.CSharp;
 using System.Text;
 using System.Linq;
+using ICSharpCode.NRefactory;
 
 namespace MonoDevelop.CSharp.Formatting
 {
@@ -101,32 +102,34 @@ namespace MonoDevelop.CSharp.Formatting
 			sb.Append (new string ('}', closingBrackets));
 			TextEditorData stubData = new TextEditorData () { Text = sb.ToString () };
 			stubData.Document.FileName = data.FileName;
-			var parser = new MonoDevelop.CSharp.Parser.CSharpParser ();
+			var parser = new ICSharpCode.NRefactory.CSharp.CSharpParser ();
 			var compilationUnit = parser.Parse (stubData);
 			bool hadErrors = parser.HasErrors;
 			var policy = policyParent.Get<CSharpFormattingPolicy> (mimeTypeChain);
-			var domSpacingVisitor = new AstFormattingVisitor (policy, stubData) {
-				AutoAcceptChanges = false,
+			var adapter = new TextEditorDataAdapter (stubData);
+			
+			var domSpacingVisitor = new AstFormattingVisitor (policy.CreateOptions (), adapter) {
 				HadErrors = hadErrors
 			};
 			compilationUnit.AcceptVisitor (domSpacingVisitor, null);
-
-			var changes = new List<Change> ();
-			changes.AddRange (domSpacingVisitor.Changes.Cast<TextReplaceChange> ().Where (c => startOffset < c.Offset && c.Offset < endOffset));
+			
+			var changes = new List<ICSharpCode.NRefactory.Change> ();
+			changes.AddRange (domSpacingVisitor.Changes.Where (c => startOffset < c.Offset && c.Offset < endOffset));
+			
 			int delta = data.Editor.LocationToOffset (member.Location.Line, 1) - startOffset;
-			HashSet<int > lines = new HashSet<int> ();
-			foreach (TextReplaceChange change in changes) {
-				if (change is AstFormattingVisitor.MyTextReplaceChange) 
-					((AstFormattingVisitor.MyTextReplaceChange)change).SetTextEditorData (data.Editor);
+			HashSet<int> lines = new HashSet<int> ();
+			foreach (var change in changes) {
 				change.Offset += delta;
 				lines.Add (data.Editor.OffsetToLineNumber (change.Offset));
 			}
 			// be sensible in documents with parser errors - only correct up to the caret position.
 			if (hadErrors || data.ParsedDocument.Errors.Any (e => e.ErrorType == ErrorType.Error)) {
 				var lastOffset = data.Editor.Caret.Offset;
-				changes.RemoveAll (c => ((TextReplaceChange)c).Offset > lastOffset);
+				changes.RemoveAll (c => c.Offset > lastOffset);
 			}
-			RefactoringService.AcceptChanges (null, null, changes);
+			
+			new TextEditorDataAdapter (data.Editor).AcceptChanges (changes);
+			
 			foreach (int line in lines)
 				data.Editor.Document.CommitLineUpdate (line);
 			stubData.Dispose ();

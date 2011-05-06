@@ -111,7 +111,6 @@
     <ProjectReference Include="..\..\src\addins\CSharpBinding\CSharpBinding.csproj">
       <Project>{07CC7654-27D6-421D-A64C-0FFA40456FA2}</Project>
       <Name>CSharpBinding</Name>
-      <Private>False</Private>
     </ProjectReference>
     <ProjectReference Include="..\..\src\core\Mono.Texteditor\Mono.TextEditor.csproj">
       <Project>{A2329308-3751-4DBD-9A75-5F7B8B024625}</Project>
@@ -126,11 +125,6 @@
     <ProjectReference Include="..\..\src\addins\AspNet\MonoDevelop.AspNet\MonoDevelop.AspNet.csproj">
       <Project>{1CF94D07-5480-4D10-A3CD-2EBD5E87B02E}</Project>
       <Name>MonoDevelop.AspNet</Name>
-      <Private>False</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\contrib\NRefactory\Project\NRefactory.csproj">
-      <Project>{3A9AE6AA-BC07-4A2F-972C-581E3AE2F195}</Project>
-      <Name>NRefactory</Name>
       <Private>False</Private>
     </ProjectReference>
     <ProjectReference Include="..\..\src\addins\MonoDevelop.DesignerSupport\MonoDevelop.DesignerSupport.csproj">
@@ -156,6 +150,16 @@
     <ProjectReference Include="..\..\contrib\Sharpen\Sharpen.csproj">
       <Project>{72944A6C-45FF-4EF8-B349-8C9CABF519D4}</Project>
       <Name>Sharpen</Name>
+      <Private>False</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\contrib\NRefactory\Project\NRefactory.csproj">
+      <Project>{3A9AE6AA-BC07-4A2F-972C-581E3AE2F195}</Project>
+      <Name>NRefactory</Name>
+      <Private>False</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\contrib\ICSharpCode.NRefactory\ICSharpCode.NRefactory.csproj">
+      <Project>{3B2A5653-EC97-4001-BB9B-D90F1AF2C371}</Project>
+      <Name>ICSharpCode.NRefactory</Name>
       <Private>False</Private>
     </ProjectReference>
   </ItemGroup>
@@ -217,11 +221,6 @@
     <Compile Include="MonoDevelop.AspNet\AspNetCompletionTests.cs" />
     <Compile Include="MonoDevelop.AspNet\AspNetTesting.cs" />
     <Compile Include="MonoDevelop.Refactoring\BaseRefactorerTests.cs" />
-    <Compile Include="MonoDevelop.CSharpBinding\TestSpacingVisitor.cs" />
-    <Compile Include="MonoDevelop.CSharpBinding\TestBraceStlye.cs" />
-    <Compile Include="MonoDevelop.CSharpBinding\TestStatementIndentation.cs" />
-    <Compile Include="MonoDevelop.CSharpBinding\TestTypeLevelIndentation.cs" />
-    <Compile Include="MonoDevelop.CSharpBinding\TestFormattingBugs.cs" />
     <Compile Include="MonoDevelop.Refactoring\GenerateNewMemberTests.cs" />
     <Compile Include="Mono.TextEditor.Tests\ViTests.cs" />
     <Compile Include="Mono.TextEditor.Tests\VirtualSpacesTests.cs" />
@@ -229,13 +228,13 @@
     <Compile Include="Mono.TextEditor.Tests\BufferTests.cs" />
     <Compile Include="Mono.TextEditor.Tests\InsertionModeTests.cs" />
     <Compile Include="MonoDevelop.Refactoring\CreateMethodTests.cs" />
-    <Compile Include="MonoDevelop.CSharpBinding\TestBlankLineFormatting.cs" />
     <Compile Include="MonoDevelop.Refactoring\ImplementInterfaceTests.cs" />
     <Compile Include="MonoDevelop.VersionControl.Views\EditorCompareWidgetBaseTest.cs" />
     <Compile Include="Mono.TextEditor.Tests\TextBreakerTests.cs" />
     <Compile Include="MonoDevelop.VersionControl.Git\GitUtilsTests.cs" />
     <Compile Include="Mono.TextEditor.Tests\SegmentTreeTests.cs" />
     <Compile Include="Mono.TextEditor.Tests\RedBlackTreeTests.cs" />
+    <Compile Include="Mono.TextEditor.Tests\HeightTreeTests.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <Import Project="..\..\md.targets" />

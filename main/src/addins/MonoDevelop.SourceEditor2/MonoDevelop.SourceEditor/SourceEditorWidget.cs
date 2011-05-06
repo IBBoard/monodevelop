@@ -337,14 +337,16 @@ namespace MonoDevelop.SourceEditor
 			BackgroundWorker worker = sender as BackgroundWorker;
 			ParsedDocument parsedDocument = (ParsedDocument)e.Argument;
 			var doc = Document;
-			if (doc == null || parsedDocument == null || !options.ShowFoldMargin)
+			if (doc == null || parsedDocument == null)
 				return;
 			UpdateErrorUndelines (parsedDocument);
+			if (!options.ShowFoldMargin)
+				return;
 			// don't update parsed documents that contain errors - the foldings from there may be invalid.
 			if (doc.HasFoldSegments && parsedDocument.HasErrors)
 				return;
 			try {
-				List<FoldSegment> foldSegments = new List<FoldSegment> ();
+				List<FoldSegment > foldSegments = new List<FoldSegment> ();
 				bool updateSymbols = parsedDocument.Defines.Count != symbols.Count;
 				if (!updateSymbols) {
 					foreach (PreProcessorDefine define in parsedDocument.Defines) {
@@ -1503,6 +1505,7 @@ namespace MonoDevelop.SourceEditor
 		{
 			this.Info = info;
 			this.LineSegment = line; // may be null if no line is assigned to the error.
+			this.Wave = true;
 			
 			ColorName = info.ErrorType == ErrorType.Warning ? Mono.TextEditor.Highlighting.Style.WarningUnderlineString : Mono.TextEditor.Highlighting.Style.ErrorUnderlineString;
 			

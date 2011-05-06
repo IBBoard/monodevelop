@@ -31,6 +31,7 @@ FILES =  \
 	MonoDevelop.SourceEditor/LanguageItemTooltipProvider.cs \
 	MonoDevelop.SourceEditor/LanguageItemWindow.cs \
 	MonoDevelop.SourceEditor/MarkerOperationsHandler.cs \
+	MonoDevelop.SourceEditor/MessageBubbleCache.cs \
 	MonoDevelop.SourceEditor/MessageBubbleCommands.cs \
 	MonoDevelop.SourceEditor/MessageBubbleHighlightPopupWindow.cs \
 	MonoDevelop.SourceEditor/MessageBubbleTextMarker.cs \
@@ -61,8 +62,7 @@ DEPS =  \
 	$(top_builddir)/build/bin/Mono.Debugging.dll \
 	$(top_builddir)/build/bin/Mono.TextEditor.dll \
 	$(top_builddir)/build/bin/MonoDevelop.Core.dll \
-	$(top_builddir)/build/bin/MonoDevelop.Ide.dll \
-	$(top_builddir)/build/bin/NRefactory.dll
+	$(top_builddir)/build/bin/MonoDevelop.Ide.dll
 
 REFS =  \
 	$(GLIB_SHARP_LIBS) \

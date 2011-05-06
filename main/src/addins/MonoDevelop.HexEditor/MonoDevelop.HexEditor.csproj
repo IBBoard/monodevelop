@@ -148,11 +148,6 @@
       <Name>Mono.Debugging</Name>
       <Private>False</Private>
     </ProjectReference>
-    <ProjectReference Include="..\..\..\contrib\NRefactory\Project\NRefactory.csproj">
-      <Project>{3A9AE6AA-BC07-4A2F-972C-581E3AE2F195}</Project>
-      <Name>NRefactory</Name>
-      <Private>False</Private>
-    </ProjectReference>
     <ProjectReference Include="..\MonoDevelop.AssemblyBrowser\MonoDevelop.AssemblyBrowser.csproj">
       <Project>{0EA3AD14-404A-4D3F-979B-F087E2E70C82}</Project>
       <Name>MonoDevelop.AssemblyBrowser</Name>

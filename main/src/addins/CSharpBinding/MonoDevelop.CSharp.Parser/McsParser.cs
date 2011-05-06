@@ -1,3 +1,4 @@
+using Mono.CSharp;
 // 
 // McsParser.cs
 //  
@@ -31,7 +32,7 @@ using System.IO;
 using Mono.CSharp;
 using System.Text;
 using Mono.TextEditor;
-using MonoDevelop.CSharp.Ast;
+using ICSharpCode.NRefactory.CSharp;
 using MonoDevelop.Projects.Dom;
 using MonoDevelop.Projects.Dom.Parser;
 using MonoDevelop.CSharp.Resolver;
@@ -51,7 +52,7 @@ namespace MonoDevelop.CSharp.Parser
 		public override IResolver CreateResolver (ProjectDom dom, object editor, string fileName)
 		{
 			MonoDevelop.Ide.Gui.Document doc = (MonoDevelop.Ide.Gui.Document)editor;
-			return new NRefactoryResolver (dom, doc.CompilationUnit, ICSharpCode.NRefactory.SupportedLanguage.CSharp, doc.Editor, fileName);
+			return new NRefactoryResolver (dom, doc.CompilationUnit, ICSharpCode.OldNRefactory.SupportedLanguage.CSharp, doc.Editor, fileName);
 		}
 		
 		public class ErrorReportPrinter : ReportPrinter
@@ -117,7 +118,6 @@ namespace MonoDevelop.CSharp.Parser
 				}
 				if (top == null)
 					return null;
-				
 				foreach (var special in top.SpecialsBag.Specials) {
 					var comment = special as SpecialsBag.Comment;
 					if (comment != null) {
@@ -126,22 +126,18 @@ namespace MonoDevelop.CSharp.Parser
 						VisitPreprocessorDirective (result, special as SpecialsBag.PreProcessorDirective);
 					}
 				}
-				
 				// convert DOM
 				var conversionVisitor = new ConversionVisitor (top.LocationsBag);
-				conversionVisitor.Dom = dom;
-				conversionVisitor.ParsedDocument = result;
-				conversionVisitor.Unit = unit;
-				top.UsingsBag.Global.Accept (conversionVisitor);
-				top.ModuleCompiled.Accept (conversionVisitor);
-				/*
 				try {
-					unit.Tag = CSharpParser.Parse (top);
+					conversionVisitor.Dom = dom;
+					conversionVisitor.ParsedDocument = result;
+					conversionVisitor.Unit = unit;
+					top.UsingsBag.Global.Accept (conversionVisitor);
+					top.ModuleCompiled.Accept (conversionVisitor);
 				} catch (Exception ex) {
 					System.Console.WriteLine (ex);
-				}*/
-				
-				// parser errors
+				}
+				// parser errorse
 				errorReportPrinter.Errors.ForEach (e => conversionVisitor.ParsedDocument.Add (e));
 				return result;
 			}
@@ -205,7 +201,7 @@ namespace MonoDevelop.CSharp.Parser
 			conditionalRegions.Pop ();
 		}
 
-		static ICSharpCode.NRefactory.PrettyPrinter.CSharpOutputVisitor visitor = new ICSharpCode.NRefactory.PrettyPrinter.CSharpOutputVisitor ();
+		static ICSharpCode.OldNRefactory.PrettyPrinter.CSharpOutputVisitor visitor = new ICSharpCode.OldNRefactory.PrettyPrinter.CSharpOutputVisitor ();
 
 		void VisitPreprocessorDirective (ParsedDocument result, SpecialsBag.PreProcessorDirective directive)
 		{

@@ -29,9 +29,9 @@ using System.IO;
 using System.Reflection;
 using System.Text;
 
-using ICSharpCode.NRefactory;
-using ICSharpCode.NRefactory.Ast;
-using ICSharpCode.NRefactory.PrettyPrinter;
+using ICSharpCode.OldNRefactory;
+using ICSharpCode.OldNRefactory.Ast;
+using ICSharpCode.OldNRefactory.PrettyPrinter;
 
 using Mono.TextEditor;
 using MonoDevelop.CSharp.Formatting;
@@ -45,6 +45,8 @@ using MonoDevelop.Ide;
 using MonoDevelop.Refactoring;
 using System.Linq;
 using MonoDevelop.Ide.CodeFormatting;
+using ICSharpCode.NRefactory;
+using ICSharpCode.NRefactory.CSharp;
 
 namespace MonoDevelop.CSharp.Formatting
 {
@@ -91,23 +93,24 @@ namespace MonoDevelop.CSharp.Formatting
 		public override void OnTheFlyFormat (PolicyContainer policyParent, IEnumerable<string> mimeTypeChain, 
 			TextEditorData data, int startOffset, int endOffset)
 		{
-			var parser = new MonoDevelop.CSharp.Parser.CSharpParser ();
+			var parser = new CSharpParser ();
 			var compilationUnit = parser.Parse (data);
-			bool hadErrors = parser.HasErrors;
+
 			var policy = policyParent.Get<CSharpFormattingPolicy> (mimeTypeChain);
-			var formattingVisitor = new AstFormattingVisitor (policy, data) {
-				AutoAcceptChanges = false,
-				HadErrors = hadErrors
+			var adapter = new TextEditorDataAdapter (data);
+			
+			var formattingVisitor = new ICSharpCode.NRefactory.CSharp.AstFormattingVisitor (policy.CreateOptions (), adapter) {
+				HadErrors =  parser.HasErrors
 			};
 			compilationUnit.AcceptVisitor (formattingVisitor, null);
 			
 			
-			var changes = new List<Change> ();
+			var changes = new List<ICSharpCode.NRefactory.Change> ();
 
 			changes.AddRange (formattingVisitor.Changes.
-				Where (c => c is TextReplaceChange && (startOffset <= ((TextReplaceChange)c).Offset && ((TextReplaceChange)c).Offset < endOffset)));
+				Where (c => (startOffset <= c.Offset && c.Offset < endOffset)));
 
-			RefactoringService.AcceptChanges (null, null, changes);
+			adapter.AcceptChanges (changes);
 		}
 
 		public override string FormatText (PolicyContainer policyParent, IEnumerable<string> mimeTypeChain, string input, int startOffset, int endOffset)
@@ -127,34 +130,38 @@ namespace MonoDevelop.CSharp.Formatting
 //			System.Console.WriteLine (data.Text.Replace (" ", ".").Replace ("\t", "->"));
 //			System.Console.WriteLine ("-----");
 
-			MonoDevelop.CSharp.Parser.CSharpParser parser = new MonoDevelop.CSharp.Parser.CSharpParser ();
+			var parser = new CSharpParser ();
 			var compilationUnit = parser.Parse (data);
 			bool hadErrors = parser.HasErrors;
+			
 			if (hadErrors) {
 //				foreach (var e in parser.ErrorReportPrinter.Errors)
 //					Console.WriteLine (e.Message);
 				return input.Substring (startOffset, Math.Max (0, Math.Min (endOffset, input.Length) - startOffset));
 			}
 			var policy = policyParent.Get<CSharpFormattingPolicy> (mimeTypeChain);
-
-			var formattingVisitor = new AstFormattingVisitor (policy, data) {
-				AutoAcceptChanges = false,
+			var adapter = new TextEditorDataAdapter (data);
+			var formattingVisitor = new ICSharpCode.NRefactory.CSharp.AstFormattingVisitor (policy.CreateOptions (), adapter) {
 				HadErrors = hadErrors
 			};
+			
 			compilationUnit.AcceptVisitor (formattingVisitor, null);
-
-			var changes = new List<Change> ();
+			
+			
+			var changes = new List<ICSharpCode.NRefactory.Change> ();
 
 			changes.AddRange (formattingVisitor.Changes.
-				Where (c => c is TextReplaceChange && (startOffset <= ((TextReplaceChange)c).Offset && ((TextReplaceChange)c).Offset < endOffset)));
-
-			RefactoringService.AcceptChanges (null, null, changes);
+				Where (c => (startOffset <= c.Offset && c.Offset < endOffset)));
+			
+			adapter.AcceptChanges (changes);
+			
 			int end = endOffset;
-			foreach (TextReplaceChange c in changes) {
+			foreach (var c in changes) {
 				end -= c.RemovedChars;
 				if (c.InsertedText != null)
 					end += c.InsertedText.Length;
 			}
+			
 			/*			System.Console.WriteLine ("-----");
 			System.Console.WriteLine (data.Text.Replace (" ", "^").Replace ("\t", "->"));
 			System.Console.WriteLine ("-----");*/
