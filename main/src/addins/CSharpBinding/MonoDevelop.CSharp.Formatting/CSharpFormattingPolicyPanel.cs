@@ -29,6 +29,7 @@ using MonoDevelop.Ide.CodeFormatting;
 using MonoDevelop.Projects.Text;
 using System.Xml;
 using MonoDevelop.Ide.Gui.Dialogs;
+using System;
 
 namespace MonoDevelop.CSharp.Formatting
 {
@@ -43,11 +44,12 @@ namespace MonoDevelop.CSharp.Formatting
 		
 		protected override void LoadFrom (CSharpFormattingPolicy policy)
 		{
-			panel.Policy = policy;
+			panel.Policy = policy.Clone ();
 		}
 		
 		protected override CSharpFormattingPolicy GetPolicy ()
 		{
+			// return cloned policy
 			return panel.Policy;
 		}
 	}

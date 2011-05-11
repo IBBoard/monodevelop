@@ -290,8 +290,8 @@ namespace Mono.TextEditor
 			document.Undone -= DocumentHandleUndone;
 			document.Redone -= DocumentHandleRedone;
 			document.TextSet -= HandleDocTextSet;
-			document.Folded += HandleTextEditorDataDocumentFolded;
-			document.FoldTreeUpdated += HandleTextEditorDataDocumentFoldTreeUpdated;
+			document.Folded -= HandleTextEditorDataDocumentFolded;
+			document.FoldTreeUpdated -= HandleTextEditorDataDocumentFoldTreeUpdated;
 			
 			document = null;
 		}
@@ -1171,6 +1171,42 @@ namespace Mono.TextEditor
 			} else {
 				heightTree.Unfold (start, end - start);
 			}
+		}
+		
+		#endregion
+	
+	
+		#region SkipChars
+		public class SkipChar
+		{
+			
+			public int Start { get; set; }
+			
+			public int Offset { get; set; }
+
+			public char Char  { get; set; }
+
+			public override string ToString ()
+			{
+				return string.Format ("[SkipChar: Start={0}, Offset={1}, Char={2}]", Start, Offset, Char);
+			}
+		}
+		
+		List<SkipChar> skipChars = new List<SkipChar> ();
+		
+		public List<SkipChar> SkipChars {
+			get {
+				return skipChars;
+			}
+		}
+		
+		public void SetSkipChar (int offset, char ch)
+		{
+			skipChars.Add (new SkipChar () {
+				Start = offset - 1,
+				Offset = offset,
+				Char = ch
+			});
 		}
 		
 		#endregion
