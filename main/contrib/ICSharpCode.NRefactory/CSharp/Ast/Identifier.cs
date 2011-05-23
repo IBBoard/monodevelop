@@ -1,4 +1,4 @@
-﻿// 
+// 
 // Identifier.cs
 //  
 // Author:
@@ -28,7 +28,7 @@ using System;
 
 namespace ICSharpCode.NRefactory.CSharp
 {
-	public class Identifier : AstNode
+	public class Identifier : AstNode, IRelocatable
 	{
 		public static readonly new Identifier Null = new NullIdentifier ();
 		class NullIdentifier : Identifier
@@ -79,7 +79,15 @@ namespace ICSharpCode.NRefactory.CSharp
 			get {
 				return startLocation;
 			}
+			
 		}
+		
+		#region IRelocationable implementation
+		void IRelocatable.SetStartLocation (AstLocation startLocation)
+		{
+			this.startLocation = startLocation;
+		}
+		#endregion
 		
 		public override AstLocation EndLocation {
 			get {

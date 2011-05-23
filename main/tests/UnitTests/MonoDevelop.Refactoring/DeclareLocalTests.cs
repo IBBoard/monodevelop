@@ -27,8 +27,8 @@
 using System;
 using NUnit.Framework;
 using MonoDevelop.Refactoring;
-using MonoDevelop.Refactoring.DeclareLocal;
 using System.Collections.Generic;
+using MonoDevelop.CSharp.Refactoring.DeclareLocal;
 
 namespace MonoDevelop.Refactoring.Tests
 {
@@ -65,6 +65,9 @@ namespace MonoDevelop.Refactoring.Tests
 ");
 		}
 		
+		/// <summary>
+		/// Bug 693855 - Extracting variable from ELSE IF puts it in the wrong place
+		/// </summary>
 		[Test()]
 		public void DeclareLocalexpressionTest ()
 		{
@@ -84,6 +87,79 @@ namespace MonoDevelop.Refactoring.Tests
 	}
 }
 ");
+		}
+		
+		/// <summary>
+		/// Bug 693855 - Extracting variable from ELSE IF puts it in the wrong place
+		/// </summary>
+		[Test()]
+		public void TestBug693855 ()
+		{
+			TestDeclareLocal (@"class TestClass
+{
+	void Test ()
+	{
+		string str = ""test"";
+		if (str == ""something"") {
+			//do A
+		} else if (<-str == ""other""->) {
+			//do B
+		} else {
+			//do C
+		}
+	}
+}", 
+@"class TestClass
+{
+	void Test ()
+	{
+		string str = ""test"";
+		bool b = str == ""other"";
+		if (str == ""something"") {
+			//do A
+		} else if (b) {
+			//do B
+		} else {
+			//do C
+		}
+	}
+}");
+		}
+		
+		
+		/// <summary>
+		/// Bug 693875 - Extract Local on just method name leaves brackets in wrong place
+		/// </summary>
+		[Test()]
+		public void TestBug693875 ()
+		{
+			TestDeclareLocal (@"class TestClass
+{
+	void DoStuff() 
+	{
+		if (<-GetInt->() == 0) {
+		}
+	}
+	
+	int GetInt()
+	{
+		return 1;
+	}
+}", 
+@"class TestClass
+{
+	void DoStuff() 
+	{
+		System.Func<int> func = GetInt;
+		if (func() == 0) {
+		}
+	}
+	
+	int GetInt()
+	{
+		return 1;
+	}
+}");
 		}
 	}
 }

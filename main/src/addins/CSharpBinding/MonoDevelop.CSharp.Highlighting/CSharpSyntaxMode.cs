@@ -40,6 +40,7 @@ using MonoDevelop.Projects.Dom;
 using MonoDevelop.Ide.Gui;
 using MonoDevelop.Ide;
 using MonoDevelop.Ide.Tasks;
+using ICSharpCode.NRefactory.CSharp;
 
 namespace MonoDevelop.CSharp.Highlighting
 {
@@ -193,11 +194,56 @@ namespace MonoDevelop.CSharp.Highlighting
 		protected class CSharpChunkParser : ChunkParser
 		{
 			HashSet<string> tags = new HashSet<string> ();
+			ParsedDocument parsedDocument;
+			
 			public CSharpChunkParser (SpanParser spanParser, Mono.TextEditor.Document doc, Style style, SyntaxMode mode, LineSegment line) : base (spanParser, doc, style, mode, line)
 			{
+				ProjectDom dom = ProjectDomService.GetProjectDom (IdeApp.ProjectOperations.CurrentSelectedProject);
+				parsedDocument = ProjectDomService.GetParsedDocument (dom, doc.FileName);
+				
 				foreach (var tag in ProjectDomService.SpecialCommentTags) {
 					tags.Add (tag.Tag);
 				}
+			}
+			
+			protected override void AddRealChunk (Chunk chunk)
+			{
+				if (parsedDocument != null && parsedDocument.LanguageAST != null) {
+					var unit = parsedDocument.LanguageAST as ICSharpCode.NRefactory.CSharp.CompilationUnit;
+					var loc = doc.OffsetToLocation (chunk.Offset);
+					var node = unit.GetNodeAt (loc.Line, loc.Column);
+					if (node is Identifier) {
+						
+						switch (((Identifier)node).Name) {
+						case "value":
+							// highlight 'value' in property setters.
+							var n = node.Parent;
+							while (n != null) {
+								if (n is Accessor && n.Role == PropertyDeclaration.SetterRole) {
+									base.AddRealChunk (chunk);
+									return;
+								}
+								n = n.Parent;
+							}
+							break;
+						case "var": 
+							if (node.Parent != null) {
+								var vds = node.Parent.Parent as VariableDeclarationStatement;
+								if (node.Parent.Parent is ForeachStatement && ((ForeachStatement)node.Parent.Parent).VariableType.StartLocation == node.StartLocation ||
+									vds != null && node.StartLocation == vds.Type.StartLocation) {
+									base.AddRealChunk (chunk);
+									return;
+								}
+							}
+							break;
+						}
+						
+							
+						chunk.Style = "text";
+					}
+				}
+							
+				base.AddRealChunk (chunk);
 			}
 			
 			protected override string GetStyle (Chunk chunk)

@@ -85,16 +85,28 @@ namespace MonoDevelop.CSharp.Completion
 			textEditorData = Document.Editor;
 			
 			InitTracker ();
-			IEnumerable<string> types = MonoDevelop.Ide.DesktopService.GetMimeTypeInheritanceChain (CSharpFormatter.MimeType);
+			IEnumerable<string > types = MonoDevelop.Ide.DesktopService.GetMimeTypeInheritanceChain (CSharpFormatter.MimeType);
 			if (dom != null && dom.Project != null)
 				policy = dom.Project.Policies.Get<CSharpFormattingPolicy> (types);
 			UpdatePath (null, null);
 			textEditorData.Caret.PositionChanged += UpdatePath;
 			Document.DocumentParsed += HandleDocumentDocumentParsed;
 		}
-
+		
+		public ICSharpCode.NRefactory.CSharp.CompilationUnit LanguageAST {
+			get;
+			set;
+		}
+		
 		void HandleDocumentDocumentParsed (object sender, EventArgs e)
 		{
+			var unit = Document.ParsedDocument;
+			if (unit != null) {
+				LanguageAST = unit.LanguageAST as ICSharpCode.NRefactory.CSharp.CompilationUnit;
+				Editor.Parent.TextViewMargin.PurgeLayoutCache ();
+				Editor.Parent.RedrawMarginLines (Editor.Parent.TextViewMargin, 1, Editor.LineCount);
+			}
+			
 			UpdatePath (null, null);
 		}
 
@@ -179,6 +191,11 @@ namespace MonoDevelop.CSharp.Completion
 				}
 			}*/
 			return result;
+		}
+		
+		internal Document GetDocument ()
+		{
+			return Document;
 		}
 		
 		bool tryToForceCompletion = false;
@@ -1079,10 +1096,10 @@ namespace MonoDevelop.CSharp.Completion
 				if (result.ExpressionContext == ExpressionContext.InheritableType) {
 					IType cls = NRefactoryResolver.GetTypeAtCursor (Document.CompilationUnit, Document.FileName, new DomLocation (completionContext.TriggerLine, completionContext.TriggerLineOffset));
 					CompletionDataList completionList = new ProjectDomCompletionDataList ();
-					List<string> namespaceList = GetUsedNamespaces ();
+					List<string > namespaceList = GetUsedNamespaces ();
 					var col = new CSharpTextEditorCompletion.CompletionDataCollector (this, dom, completionList, Document.CompilationUnit, null, location);
 					bool isInterface = false;
-					HashSet<string> baseTypeNames = new HashSet<string> ();
+					HashSet<string > baseTypeNames = new HashSet<string> ();
 					if (cls != null) {
 						baseTypeNames.Add (cls.Name);
 						if (cls.ClassType == ClassType.Struct)
@@ -1090,14 +1107,14 @@ namespace MonoDevelop.CSharp.Completion
 					}
 					int tokenIndex = completionContext.TriggerOffset;
 
-										// Search base types " : [Type1, ... ,TypeN,] <Caret>"
+					// Search base types " : [Type1, ... ,TypeN,] <Caret>"
 					string token = null;
 					do {
 						token = GetPreviousToken (ref tokenIndex, false);
 						if (string.IsNullOrEmpty (token))
 							break;
 						token = token.Trim ();
-						if (Char.IsLetterOrDigit (token[0]) || token[0] == '_') {
+						if (Char.IsLetterOrDigit (token [0]) || token [0] == '_') {
 							IType baseType = dom.SearchType (Document.CompilationUnit, cls, result.Region.Start, token);
 							if (baseType != null) {
 								if (baseType.ClassType != ClassType.Interface)
@@ -1116,7 +1133,7 @@ namespace MonoDevelop.CSharp.Completion
 						col.Add (o);
 					}
 					// Add inner classes
-					Stack<IType> innerStack = new Stack<IType> ();
+					Stack<IType > innerStack = new Stack<IType> ();
 					innerStack.Push (cls);
 					while (innerStack.Count > 0) {
 						IType curType = innerStack.Pop ();
@@ -1165,7 +1182,7 @@ namespace MonoDevelop.CSharp.Completion
 								AddAsCompletionData (col, type);
 							}
 						}
-						List<string> namespaceList = GetUsedNamespaces ();
+						List<string > namespaceList = GetUsedNamespaces ();
 						foreach (object o in dom.GetNamespaceContents (namespaceList, true, true)) {
 							if (o is IType) {
 								IType type = (IType)o;
@@ -1199,6 +1216,10 @@ namespace MonoDevelop.CSharp.Completion
 					} else
 						break;
 				}
+				var line = Editor.GetLineText (Editor.Caret.Line).Trim ();
+				if (line.Length != Editor.Caret.Column - 3)
+					return null;
+				
 				IType overrideCls = NRefactoryResolver.GetTypeAtCursor (Document.CompilationUnit, Document.FileName, new DomLocation (completionContext.TriggerLine, completionContext.TriggerLineOffset));
 				if (overrideCls == null)
 					overrideCls = NRefactoryResolver.GetTypeAtCursor (Document.CompilationUnit, Document.FileName, new DomLocation (completionContext.TriggerLine - 1, 1));
@@ -1221,6 +1242,10 @@ namespace MonoDevelop.CSharp.Completion
 					} else
 						break;
 				}
+				line = Editor.GetLineText (Editor.Caret.Line).Trim ();
+				if (line.Length != Editor.Caret.Column - 3)
+					return null;
+				
 				overrideCls = NRefactoryResolver.GetTypeAtCursor (Document.CompilationUnit, Document.FileName, new DomLocation (completionContext.TriggerLine, completionContext.TriggerLineOffset));
 				if (overrideCls != null && (overrideCls.ClassType == ClassType.Class || overrideCls.ClassType == ClassType.Struct)) {
 					string modifiers = textEditorData.GetTextBetween (firstMod, wordStart);
@@ -1242,7 +1267,7 @@ namespace MonoDevelop.CSharp.Completion
 						resolver.SetupResolver (new DomLocation (completionContext.TriggerLine, completionContext.TriggerLineOffset));
 						IReturnType returnType = resolver.CallingMember.ReturnType;
 						if (yieldToken == "yield" && returnType.GenericArguments.Count > 0)
-							returnType = returnType.GenericArguments[0];
+							returnType = returnType.GenericArguments [0];
 						if (resolver.CallingMember != null)
 							return CreateTypeCompletionData (location, callingType, newExactContext, null, returnType);
 					}
@@ -2413,10 +2438,13 @@ namespace MonoDevelop.CSharp.Completion
 				return amb.GetString (x, OutputFlags.IncludeGenerics | OutputFlags.IncludeParameters | OutputFlags.ReformatDelegates);
 			}
 			
-			public string GetText (int n)
+			public string GetMarkup (int n)
 			{
-				return GetString (amb, memberList[n]);
+				if (memberList[n].IsObsolete)
+					return "<s>" + GLib.Markup.EscapeText (GetString (amb, memberList[n])) + "</s>";
+				return GLib.Markup.EscapeText (GetString (amb, memberList[n]));
 			}
+
 
 			public Gdk.Pixbuf GetIcon (int n)
 			{
@@ -2462,9 +2490,9 @@ namespace MonoDevelop.CSharp.Completion
 			{
 			}
 			
-			public string GetText (int n)
+			public string GetMarkup (int n)
 			{
-				return Document.ParsedDocument.UserRegions.ElementAt (n).Name;
+				return GLib.Markup.EscapeText (Document.ParsedDocument.UserRegions.ElementAt (n).Name);
 			}
 			
 			internal static Gdk.Pixbuf Pixbuf {
@@ -2550,11 +2578,13 @@ namespace MonoDevelop.CSharp.Completion
 						entry = new PathEntry (GettextCatalog.GetString ("No region"));
 					} else {
 						entry = new PathEntry (CompilationUnitDataProvider.Pixbuf,
-						                       reg.Name);
+						                       GLib.Markup.EscapeText (reg.Name));
 					}
 					entry.Position = EntryPosition.Right;
 				} else {
-					entry = new PathEntry (ImageService.GetPixbuf (((IMember)node).StockIcon, IconSize.Menu), amb.GetString ((IMember)node, OutputFlags.IncludeGenerics | OutputFlags.IncludeParameters | OutputFlags.ReformatDelegates));
+					var m = (IMember)node;
+					string markup = amb.GetString (m, OutputFlags.IncludeGenerics | OutputFlags.IncludeParameters | OutputFlags.ReformatDelegates | OutputFlags.IncludeMarkup);
+					entry = new PathEntry (ImageService.GetPixbuf (((IMember)node).StockIcon, IconSize.Menu), m.IsObsolete ? "<s>" + markup + "</s>" : markup);
 				}
 				entry.Tag = node;
 				result.Insert (0, entry);

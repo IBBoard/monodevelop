@@ -121,6 +121,46 @@ namespace MonoDevelop.CSharp.Completion
 				DisplayFlags |= DisplayFlags.Obsolete;
 		}
 		
+		public bool SearchBracket (int start, out int pos)
+		{
+			pos = -1;
+			
+			for (int i = start; i < Editor.Length; i++) {
+				char ch = Editor.GetCharAt (i);
+				if (ch == '(') {
+					pos = i + 1;
+					return true;
+				}
+				if (!char.IsWhiteSpace (ch))
+					return false;
+			}
+			return false;
+		}
+		
+		static bool HasNonMethodMembersWithSameName (MonoDevelop.Projects.Dom.IMember member)
+		{
+			var type = member.DeclaringType;
+			bool anyOverloadWithParameters = false;
+			foreach (var t in type.SourceProjectDom.GetInheritanceTree (type)) {
+				if (t.SearchMember (member.Name, true).Any (m => m.MemberType != MonoDevelop.Projects.Dom.MemberType.Method)) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+		bool HasAnyOverloadWithParameters (IMethod method)
+		{
+			var type = method.DeclaringType;
+			List<IType > accessibleExtTypes = DomType.GetAccessibleExtensionTypes (editorCompletion.Dom, editorCompletion.GetDocument ().CompilationUnit);
+			
+			foreach (var t in type.SourceProjectDom.GetInheritanceTree (type)) {
+				if (t.Methods.Concat (t.GetExtensionMethods (accessibleExtTypes)).Any (m => m.Name == method.Name && m.Parameters.Count > 0))
+					return true;
+			}
+			return false;
+		}
+		
 		public override void InsertCompletionText (CompletionListWindow window, ref KeyActions ka, Gdk.Key closeChar, char keyChar, Gdk.ModifierType modifier)
 		{
 			string text = CompletionText;
@@ -128,7 +168,33 @@ namespace MonoDevelop.CSharp.Completion
 			int skipChars = 0;
 			bool runParameterCompletionCommand = false;
 			
-			if (!IsDelegateExpected && Member is IMethod && PropertyService.Get ("AutoInsertMatchingBracket", false)) {
+			if (!IsDelegateExpected && Member is IMethod && PropertyService.Get ("AutoInsertMatchingBracket", false) && !HasNonMethodMembersWithSameName ((IMember)Member)) {
+				int pos;
+				if (SearchBracket (window.CodeCompletionContext.TriggerOffset + partialWord.Length, out pos)) {
+					window.CompletionWidget.SetCompletionText (window.CodeCompletionContext, partialWord, text);
+					ka |= KeyActions.Ignore;
+					int bracketOffset = pos + text.Length - partialWord.Length;
+					
+					// correct white space before method call.
+					char charBeforeBracket = bracketOffset > 1 ? Editor.GetCharAt (bracketOffset - 2) : '\0';
+					if (Policy.BeforeMethodCallParentheses) {
+						if (charBeforeBracket != ' ') {
+							Editor.Insert (bracketOffset - 2, " ");
+							bracketOffset++;
+						}
+					} else { 
+						if (char.IsWhiteSpace (charBeforeBracket)) {
+							while (bracketOffset > 1 && char.IsWhiteSpace (Editor.GetCharAt (bracketOffset - 2))) {
+								Editor.Remove (bracketOffset - 2, 1);
+								bracketOffset--;
+							}
+						}
+					}
+					
+					Editor.Caret.Offset = bracketOffset;
+					return;
+				}
+				
 				IMethod method = (IMethod)Member;
 				var line = Editor.GetLine (Editor.Caret.Line);
 				string textToEnd = Editor.GetTextBetween (window.CodeCompletionContext.TriggerOffset + partialWord.Length, line.Offset + line.EditableLength);
@@ -147,15 +213,7 @@ namespace MonoDevelop.CSharp.Completion
 				if (string.IsNullOrEmpty ((textBefore + textToEnd).Trim ()))
 					insertSemicolon = true;
 				
-				var type = method.DeclaringType;
-				bool anyOverloadWithParameters = false;
-				foreach (var t in type.SourceProjectDom.GetInheritanceTree (type)) {
-					if (t.Methods.Any (m => m.Name == method.Name && m.Parameters.Count > 0)) {
-						anyOverloadWithParameters = true;
-						break;
-					}
-				}
-				if (anyOverloadWithParameters) {
+				if (HasAnyOverloadWithParameters (method)) {
 					if (insertSemicolon) {
 						text += "(|);";
 						skipChars = 2;
