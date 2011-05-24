@@ -780,7 +780,8 @@ namespace MonoDevelop.CSharp.Completion
 			sb.Append (")");
 			sbWithoutTypes.Append (")");
 			completionList.Add ("delegate" + sb, "md-keyword", GettextCatalog.GetString ("Creates anonymous delegate."), "delegate" + sb + " {" + Document.Editor.EolMarker + stateTracker.Engine.ThisLineIndent + TextEditorProperties.IndentString + "|" + delegateEndString);
-			completionList.Add (sbWithoutTypes.ToString (), "md-keyword", GettextCatalog.GetString ("Creates lambda expression."), sbWithoutTypes + " => |" + (addSemicolon ? ";" : ""));
+			if (!completionList.Any (data => data.DisplayText == sbWithoutTypes.ToString ()))
+				completionList.Add (sbWithoutTypes.ToString (), "md-keyword", GettextCatalog.GetString ("Creates lambda expression."), sbWithoutTypes + " => |" + (addSemicolon ? ";" : ""));
 			
 			// It's  needed to temporarly disable inserting auto matching bracket because the anonymous delegates are selectable with '('
 			// otherwise we would end up with () => )
@@ -1075,6 +1076,17 @@ namespace MonoDevelop.CSharp.Completion
 			
 			col.Add (type);
 		}
+
+		bool IsLineEmptyUpToEol ()
+		{
+			var line = Editor.GetLine (Editor.Caret.Line);
+			for (int j = Editor.Caret.Offset; j < line.EndOffset; j++) {
+				char ch = Editor.GetCharAt (j);
+				if (!char.IsWhiteSpace (ch))
+					return false;
+			}
+			return true;
+		}
 		
 		public ICompletionDataList HandleKeywordCompletion (CodeCompletionContext completionContext, ExpressionResult result, int wordStart, string word)
 		{
@@ -1216,13 +1228,13 @@ namespace MonoDevelop.CSharp.Completion
 					} else
 						break;
 				}
-				var line = Editor.GetLineText (Editor.Caret.Line).Trim ();
-				if (line.Length != Editor.Caret.Column - 3)
+				if (!IsLineEmptyUpToEol ())
 					return null;
 				
 				IType overrideCls = NRefactoryResolver.GetTypeAtCursor (Document.CompilationUnit, Document.FileName, new DomLocation (completionContext.TriggerLine, completionContext.TriggerLineOffset));
 				if (overrideCls == null)
 					overrideCls = NRefactoryResolver.GetTypeAtCursor (Document.CompilationUnit, Document.FileName, new DomLocation (completionContext.TriggerLine - 1, 1));
+				Console.WriteLine ("type: " + overrideCls);
 				if (overrideCls != null && (overrideCls.ClassType == ClassType.Class || overrideCls.ClassType == ClassType.Struct)) {
 					string modifiers = textEditorData.GetTextBetween (firstMod, wordStart);
 					return GetOverrideCompletionData (completionContext, overrideCls, modifiers);
@@ -1242,8 +1254,7 @@ namespace MonoDevelop.CSharp.Completion
 					} else
 						break;
 				}
-				line = Editor.GetLineText (Editor.Caret.Line).Trim ();
-				if (line.Length != Editor.Caret.Column - 3)
+				if (!IsLineEmptyUpToEol ())
 					return null;
 				
 				overrideCls = NRefactoryResolver.GetTypeAtCursor (Document.CompilationUnit, Document.FileName, new DomLocation (completionContext.TriggerLine, completionContext.TriggerLineOffset));

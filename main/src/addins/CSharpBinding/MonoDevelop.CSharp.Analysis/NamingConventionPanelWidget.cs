@@ -1,5 +1,5 @@
 // 
-// EmptyExpression.cs
+// NamingConventionPanelWidget.cs
 //  
 // Author:
 //       Mike Krüger <mkrueger@novell.com>
@@ -25,52 +25,15 @@
 // THE SOFTWARE.
 using System;
 
-namespace ICSharpCode.NRefactory.CSharp
+namespace MonoDevelop.CSharp.Analysis
 {
-	/// <summary>
-	/// Type&lt;[EMPTY]&gt;
-	/// </summary>
-	public class EmptyExpression : Expression, IRelocatable
+	[System.ComponentModel.ToolboxItem(true)]
+	public partial class NamingConventionPanelWidget : Gtk.Bin
 	{
-		AstLocation location;
-
-		public override AstLocation StartLocation {
-			get {
-				return location;
-			}
-		}
-		
-		public override AstLocation EndLocation {
-			get {
-				return location;
-			}
-		}
-
-		public EmptyExpression ()
+		public NamingConventionPanelWidget ()
 		{
-		}
-
-		public EmptyExpression (AstLocation location)
-		{
-			this.location = location;
-		}
-		
-		#region IRelocationable implementation
-		void IRelocatable.SetStartLocation (AstLocation startLocation)
-		{
-			this.location = startLocation;
-		}
-		#endregion
-		
-		public override S AcceptVisitor<T, S> (IAstVisitor<T, S> visitor, T data)
-		{
-			return visitor.VisitEmptyExpression (this, data);
-		}
-
-		protected internal override bool DoMatch (AstNode other, PatternMatching.Match match)
-		{
-			var o = other as EmptyExpression;
-			return o != null;
+		//	this.Build ();	
 		}
 	}
 }
+

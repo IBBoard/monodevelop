@@ -1,5 +1,5 @@
 // 
-// EmptyExpression.cs
+// Result.cs
 //  
 // Author:
 //       Mike Krüger <mkrueger@novell.com>
@@ -24,53 +24,63 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 using System;
+using ICSharpCode.NRefactory.CSharp;
 
-namespace ICSharpCode.NRefactory.CSharp
+namespace MonoDevelop.QuickFix
 {
-	/// <summary>
-	/// Type&lt;[EMPTY]&gt;
-	/// </summary>
-	public class EmptyExpression : Expression, IRelocatable
+	public enum QuickFixType 
 	{
-		AstLocation location;
-
-		public override AstLocation StartLocation {
-			get {
-				return location;
-			}
+		Hidden,
+		Error,
+		Warning,
+		Suggestion,
+		Hint
+	}
+	
+	public abstract class QuickFix
+	{
+		public string MenuText {
+			get;
+			set; 
 		}
 		
-		public override AstLocation EndLocation {
-			get {
-				return location;
-			}
-		}
-
-		public EmptyExpression ()
-		{
-		}
-
-		public EmptyExpression (AstLocation location)
-		{
-			this.location = location;
+		public string Description {
+			get;
+			set;
 		}
 		
-		#region IRelocationable implementation
-		void IRelocatable.SetStartLocation (AstLocation startLocation)
+		public abstract void Run ();
+	
+		public abstract bool IsValid (MonoDevelop.Projects.Dom.ParsedDocument doc, MonoDevelop.Projects.Dom.DomLocation loc);
+	}
+	
+	
+	public class ConvertDecToHexQuickFix : QuickFix
+	{
+		public ConvertDecToHexQuickFix ()
 		{
-			this.location = startLocation;
+			MenuText = Description = "Convert hex to dec.";
+			
 		}
-		#endregion
 		
-		public override S AcceptVisitor<T, S> (IAstVisitor<T, S> visitor, T data)
+		public override void Run ()
 		{
-			return visitor.VisitEmptyExpression (this, data);
+			
 		}
-
-		protected internal override bool DoMatch (AstNode other, PatternMatching.Match match)
+	
+		public override bool IsValid (MonoDevelop.Projects.Dom.ParsedDocument doc, MonoDevelop.Projects.Dom.DomLocation loc)
 		{
-			var o = other as EmptyExpression;
-			return o != null;
+			var unit = doc.LanguageAST as CompilationUnit;
+			if (unit == null)
+				return false;
+			var node = unit.GetNodeAt (loc.Line, loc.Column) as PrimitiveExpression;
+			if (node == null)
+				return false;
+			Console.WriteLine (node.Value);
+			Console.WriteLine (node.Value.GetType ());
+			return (node.Value is int);
 		}
 	}
+	
 }
+
