@@ -1,5 +1,5 @@
 // 
-// Result.cs
+// NamingConventions.cs
 //  
 // Author:
 //       Mike Krüger <mkrueger@novell.com>
@@ -23,40 +23,52 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-using MonoDevelop.Projects.Dom;
-using MonoDevelop.Refactoring;
 
-namespace MonoDevelop.QuickFix
+using System;
+using System.Linq;
+using MonoDevelop.AnalysisCore;
+using MonoDevelop.Projects.Dom;
+using System.Collections.Generic;
+using MonoDevelop.AnalysisCore.Fixes;
+using ICSharpCode.NRefactory.CSharp;
+using MonoDevelop.Projects.Policies;
+using MonoDevelop.Core;
+using MonoDevelop.Core.Serialization;
+using System.Text;
+
+namespace MonoDevelop.CSharp.Analysis
 {
-	public enum QuickFixType 
+	public static class CodeAnalysis
 	{
-		Hidden,
-		Error,
-		Warning,
-		Suggestion,
-		Hint
-	}
-	
-	public abstract class QuickFix
-	{
-		public string Description {
-			get;
-			protected set;
-		}
 		
-		public abstract string GetMenuText (MonoDevelop.Ide.Gui.Document document, DomLocation loc);
-		public abstract void Run (MonoDevelop.Ide.Gui.Document document, DomLocation loc);
-		public abstract bool IsValid (MonoDevelop.Ide.Gui.Document document, DomLocation loc);
-		
-		public ICSharpCode.NRefactory.CSharp.AstType ShortenTypeName (MonoDevelop.Ide.Gui.Document doc, string fullyQualifiedTypeName)
+		static CodeAnalysis ()
 		{
-			return doc.ParsedDocument.CompilationUnit.ShortenTypeName (new DomReturnType (fullyQualifiedTypeName), doc.Editor.Caret.Line, doc.Editor.Caret.Column).ConvertToTypeReference ();
+			
 		}
 		
-		public ICSharpCode.NRefactory.CSharp.AstType ShortenTypeName (MonoDevelop.Ide.Gui.Document doc, IReturnType fullyQualifiedTypeName)
+		public static IEnumerable<Result> Check (ParsedDocument input)
 		{
-			return doc.ParsedDocument.CompilationUnit.ShortenTypeName (fullyQualifiedTypeName, doc.Editor.Caret.Line, doc.Editor.Caret.Column).ConvertToTypeReference ();
+			var unit = input != null ? input.LanguageAST as ICSharpCode.NRefactory.CSharp.CompilationUnit : null;
+			if (unit == null)
+				yield break;
+			
+			var visitor = new ObservableAstVisitor ();
+			
+			List<CSharpInspector> inspectors = new List<CSharpInspector> ();
+			inspectors.Add (new NamingInspector (input.CompilationUnit));
+			inspectors.Add (new StringIsNullOrEmptyInspector ());
+			inspectors.Add (new ConditionalToNullCoalescingInspector ());
+			
+			foreach (var inspector in inspectors) {
+				inspector.Attach (visitor);
+			}
+			
+			unit.AcceptVisitor (visitor, null);
+			foreach (var inspector in inspectors) {
+				foreach (var fix in inspector.results)
+					yield return fix;
+			}
+			
 		}
-		
 	}
 }

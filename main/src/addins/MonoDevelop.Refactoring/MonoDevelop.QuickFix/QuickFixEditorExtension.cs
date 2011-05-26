@@ -29,6 +29,9 @@ using MonoDevelop.Projects.Dom;
 using Gtk;
 using Mono.TextEditor;
 using System.Collections.Generic;
+using MonoDevelop.Refactoring;
+using MonoDevelop.Components.Commands;
+using MonoDevelop.AnalysisCore.Gui;
 
 namespace MonoDevelop.QuickFix
 {
@@ -42,15 +45,15 @@ namespace MonoDevelop.QuickFix
 				return;
 			TextEditor editor = Document.Editor.Parent;
 			var container = editor.Parent as TextEditorContainer;
-			if (container == null)
-				return;
-			container.Remove (widget);
+			if (container != null)
+				container.Remove (widget);
 			widget.Destroy ();
 			widget = null;
 		}
 		
 		public override void Dispose ()
 		{
+			document.DocumentParsed -= HandleDocumentDocumentParsed;
 			RemoveWidget ();
 			base.Dispose ();
 		}
@@ -59,25 +62,44 @@ namespace MonoDevelop.QuickFix
 		{
 			RemoveWidget ();
 			
-			QuickFixService.QueueAnalysis (Document.ParsedDocument, new DomLocation (Document.Editor.Caret.Line, Document.Editor.Caret.Column), delegate(List<QuickFix> fixes) {
-				if (fixes.Count == 0)
-					return;
-				Application.Invoke (delegate {
-					TextEditor editor = Document.Editor.Parent;
-					widget = new QuickFixWidget (editor, fixes);
-					var container = editor.Parent as TextEditorContainer;
-					if (container == null)
+			if (Document.ParsedDocument != null) {
+				DomLocation loc = new DomLocation (Document.Editor.Caret.Line, Document.Editor.Caret.Column);
+				RefactoringService.QueueQuickFixAnalysis (Document, loc, delegate(List<QuickFix> fixes) {
+					if (fixes.Count == 0)
 						return;
-					container.AddTopLevelWidget (widget, (int)editor.TextViewMargin.XOffset, (int)editor.LineToY (editor.Caret.Line));
-					widget.Show ();
+					Application.Invoke (delegate {
+						RemoveWidget ();
+						widget = new QuickFixWidget (Document, loc, fixes);
+						var container = Document.Editor.Parent.Parent as TextEditorContainer;
+						if (container == null)
+							return;
+						container.AddTopLevelWidget (widget,
+							2 + (int)Document.Editor.Parent.TextViewMargin.XOffset,
+							-2 + (int)document.Editor.Parent.LineToY (document.Editor.Caret.Line));
+						widget.Show ();
+					});
 				});
-			});
+			}
 			base.CursorPositionChanged ();
 		}
 		
 		public override void Initialize ()
 		{
 			base.Initialize ();
+			document.DocumentParsed += HandleDocumentDocumentParsed;
+		}
+		
+		void HandleDocumentDocumentParsed (object sender, EventArgs e)
+		{
+			CursorPositionChanged ();
+		}
+		
+		[CommandHandler(MonoDevelop.Refactoring.RefactoryCommands.QuickFix)]
+		void OnQuickFixCommand ()
+		{
+			if (widget == null)
+				return;
+			widget.PopupQuickFixMenu ();
 		}
 	}
 }

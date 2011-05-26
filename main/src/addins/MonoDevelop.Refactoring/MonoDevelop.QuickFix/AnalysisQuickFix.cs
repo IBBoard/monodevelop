@@ -1,5 +1,5 @@
 // 
-// QuickFixService.cs
+// AnalysisQuickFix.cs
 //  
 // Author:
 //       Mike Krüger <mkrueger@novell.com>
@@ -24,35 +24,42 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 using System;
-using System.Collections.Generic;
-using MonoDevelop.Projects.Dom;
-using System.Threading;
-using System.Linq;
-using MonoDevelop.Core;
+using MonoDevelop.AnalysisCore;
 
 namespace MonoDevelop.QuickFix
 {
-	public static class QuickFixService
+	public class AnalysisQuickFix : QuickFix
 	{
-		static List<QuickFix> quickFixes = new List<QuickFix> ();
-		
-		
-		static QuickFixService ()
-		{
-			quickFixes.Add (new ConvertDecToHexQuickFix ());
+		public Result Result {
+			get;
+			private set;
 		}
 		
-		//TODO: proper job scheduler and discarding superseded jobs
-		public static void QueueAnalysis (ParsedDocument doc, DomLocation loc, Action<List<QuickFix>> callback)
+		public IAnalysisFixAction Action {
+			get;
+			private set;
+		}
+		
+		public AnalysisQuickFix (Result result, IAnalysisFixAction action)
 		{
-			ThreadPool.QueueUserWorkItem (delegate {
-				try {
-					List<QuickFix > availableFixes = new List<QuickFix> (quickFixes.Where (fix => fix.IsValid (doc, loc)));
-					callback (availableFixes);
-				} catch (Exception ex) {
-					LoggingService.LogError ("Error in analysis service", ex);
-				}
-			});
+			this.Result = result;
+			this.Action = action;
+			this.Description = result.Message;
+		}
+		
+		public override bool IsValid (MonoDevelop.Ide.Gui.Document document, MonoDevelop.Projects.Dom.DomLocation loc)
+		{
+			return true;
+		}
+		
+		public override string GetMenuText (MonoDevelop.Ide.Gui.Document document, MonoDevelop.Projects.Dom.DomLocation loc)
+		{
+			return Action.Label;
+		}
+		
+		public override void Run (MonoDevelop.Ide.Gui.Document document, MonoDevelop.Projects.Dom.DomLocation loc)
+		{
+			Action.Fix ();
 		}
 	}
 }

@@ -63,16 +63,40 @@ namespace ICSharpCode.NRefactory.CSharp
 		}
 		
 		#region StartNode/EndNode
-		void StartNode(AstNode node)
+		public event EventHandler<AstNodeEventArgs> OutputStarted;
+		
+		protected virtual void OnOutputStarted (AstNodeEventArgs e)
+		{
+			EventHandler<AstNodeEventArgs> handler = this.OutputStarted;
+			if (handler != null)
+				handler (this, e);
+		}
+		
+		[Serializable]
+		public sealed class AstNodeEventArgs : EventArgs
+		{
+			public AstNode AstNode {
+				get;
+				private set;
+			}
+			
+			public AstNodeEventArgs (AstNode node)
+			{
+				this.AstNode = node;
+			}
+		}
+		
+		void StartNode (AstNode node)
 		{
 			// Ensure that nodes are visited in the proper nested order.
 			// Jumps to different subtrees are allowed only for the child of a placeholder node.
-			Debug.Assert(containerStack.Count == 0 || node.Parent == containerStack.Peek() || containerStack.Peek().NodeType == NodeType.Pattern);
+			Debug.Assert (containerStack.Count == 0 || node.Parent == containerStack.Peek () || containerStack.Peek ().NodeType == NodeType.Pattern);
 			if (positionStack.Count > 0)
-				WriteSpecialsUpToNode(node);
-			containerStack.Push(node);
-			positionStack.Push(node.FirstChild);
-			formatter.StartNode(node);
+				WriteSpecialsUpToNode (node);
+			containerStack.Push (node);
+			positionStack.Push (node.FirstChild);
+			OnOutputStarted (new AstNodeEventArgs (node));
+			formatter.StartNode (node);
 		}
 		
 		object EndNode(AstNode node)
@@ -420,15 +444,19 @@ namespace ICSharpCode.NRefactory.CSharp
 			}
 		}
 		
-		void WriteEmbeddedStatement(Statement embeddedStatement)
+		void WriteEmbeddedStatement (Statement embeddedStatement)
 		{
 			if (embeddedStatement.IsNull)
 				return;
 			BlockStatement block = embeddedStatement as BlockStatement;
 			if (block != null)
-				VisitBlockStatement(block, null);
-			else
-				embeddedStatement.AcceptVisitor(this, null);
+				VisitBlockStatement (block, null);
+			else {
+				NewLine ();
+				formatter.Indent ();
+				embeddedStatement.AcceptVisitor (this, null);
+				formatter.Unindent ();
+			}
 		}
 		
 		void WriteMethodBody(BlockStatement body)
@@ -1580,37 +1608,52 @@ namespace ICSharpCode.NRefactory.CSharp
 			return EndNode(returnStatement);
 		}
 		
-		public object VisitSwitchStatement(SwitchStatement switchStatement, object data)
+		public object VisitSwitchStatement (SwitchStatement switchStatement, object data)
 		{
-			StartNode(switchStatement);
-			WriteKeyword("switch");
-			Space(policy.SpaceBeforeSwitchParentheses);
-			LPar();
-			Space(policy.SpacesWithinSwitchParentheses);
-			switchStatement.Expression.AcceptVisitor(this, data);
-			Space(policy.SpacesWithinSwitchParentheses);
-			RPar();
-			OpenBrace(policy.StatementBraceStyle);
+			StartNode (switchStatement);
+			WriteKeyword ("switch");
+			Space (policy.SpaceBeforeSwitchParentheses);
+			LPar ();
+			Space (policy.SpacesWithinSwitchParentheses);
+			switchStatement.Expression.AcceptVisitor (this, data);
+			Space (policy.SpacesWithinSwitchParentheses);
+			RPar ();
+			OpenBrace (policy.StatementBraceStyle);
+			if (!policy.IndentSwitchBody)
+				formatter.Unindent ();
+			
 			foreach (var section in switchStatement.SwitchSections)
-				section.AcceptVisitor(this, data);
-			CloseBrace(policy.StatementBraceStyle);
-			NewLine();
-			return EndNode(switchStatement);
+				section.AcceptVisitor (this, data);
+			
+			if (!policy.IndentSwitchBody)
+				formatter.Indent ();
+			CloseBrace (policy.StatementBraceStyle);
+			NewLine ();
+			return EndNode (switchStatement);
 		}
 		
-		public object VisitSwitchSection(SwitchSection switchSection, object data)
+		public object VisitSwitchSection (SwitchSection switchSection, object data)
 		{
-			StartNode(switchSection);
+			StartNode (switchSection);
 			bool first = true;
 			foreach (var label in switchSection.CaseLabels) {
 				if (!first)
-					NewLine();
-				label.AcceptVisitor(this, data);
+					NewLine ();
+				label.AcceptVisitor (this, data);
 				first = false;
 			}
-			foreach (var statement in switchSection.Statements)
-				statement.AcceptVisitor(this, data);
-			return EndNode(switchSection);
+			if (policy.IndentCaseBody)
+				formatter.Indent ();
+			
+			foreach (var statement in switchSection.Statements) {
+				NewLine ();
+				statement.AcceptVisitor (this, data);
+			}
+			
+			if (policy.IndentCaseBody)
+				formatter.Unindent ();
+			
+			return EndNode (switchSection);
 		}
 		
 		public object VisitCaseLabel(CaseLabel caseLabel, object data)
@@ -2216,7 +2259,7 @@ namespace ICSharpCode.NRefactory.CSharp
 			Space();
 			LPar();
 			NewLine();
-			formatter.Indent();
+			formatter.Indent ();
 			foreach (INode alternative in choice) {
 				VisitNodeInPattern(alternative, data);
 				if (alternative != choice.Last())

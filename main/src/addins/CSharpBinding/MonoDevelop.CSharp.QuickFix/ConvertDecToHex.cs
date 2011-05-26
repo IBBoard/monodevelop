@@ -1,5 +1,5 @@
 // 
-// Result.cs
+// ConvertDecToHexQuickFix.cs
 //  
 // Author:
 //       Mike Krüger <mkrueger@novell.com>
@@ -23,40 +23,41 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
+using System;
 using MonoDevelop.Projects.Dom;
-using MonoDevelop.Refactoring;
+using ICSharpCode.NRefactory.CSharp;
 
-namespace MonoDevelop.QuickFix
+namespace MonoDevelop.CSharp.QuickFix
 {
-	public enum QuickFixType 
+	public class ConvertDecToHex : CSharpQuickFix
 	{
-		Hidden,
-		Error,
-		Warning,
-		Suggestion,
-		Hint
+		public ConvertDecToHex ()
+		{
+			Description = "Convert hex to dec.";
+		}
+		
+		public override string GetMenuText (MonoDevelop.Ide.Gui.Document document, DomLocation loc)
+		{
+			return "Convert hex to dec.";
+		}
+		
+		public override void Run (MonoDevelop.Ide.Gui.Document document, DomLocation loc)
+		{
+			
+		}
+		
+		public override bool IsValid (MonoDevelop.Ide.Gui.Document document, MonoDevelop.Projects.Dom.DomLocation loc)
+		{
+			var unit = document.ParsedDocument.LanguageAST as ICSharpCode.NRefactory.CSharp.CompilationUnit;
+			if (unit == null)
+				return false;
+			var pExpr = unit.GetNodeAt (loc.Line, loc.Column) as PrimitiveExpression;
+			if (pExpr == null)
+				return false;
+			return (pExpr.Value is int) || (pExpr.Value is long) || (pExpr.Value is short) || (pExpr.Value is sbyte) ||
+				(pExpr.Value is uint) || (pExpr.Value is ulong) || (pExpr.Value is ushort) || (pExpr.Value is byte);
+		}
 	}
 	
-	public abstract class QuickFix
-	{
-		public string Description {
-			get;
-			protected set;
-		}
-		
-		public abstract string GetMenuText (MonoDevelop.Ide.Gui.Document document, DomLocation loc);
-		public abstract void Run (MonoDevelop.Ide.Gui.Document document, DomLocation loc);
-		public abstract bool IsValid (MonoDevelop.Ide.Gui.Document document, DomLocation loc);
-		
-		public ICSharpCode.NRefactory.CSharp.AstType ShortenTypeName (MonoDevelop.Ide.Gui.Document doc, string fullyQualifiedTypeName)
-		{
-			return doc.ParsedDocument.CompilationUnit.ShortenTypeName (new DomReturnType (fullyQualifiedTypeName), doc.Editor.Caret.Line, doc.Editor.Caret.Column).ConvertToTypeReference ();
-		}
-		
-		public ICSharpCode.NRefactory.CSharp.AstType ShortenTypeName (MonoDevelop.Ide.Gui.Document doc, IReturnType fullyQualifiedTypeName)
-		{
-			return doc.ParsedDocument.CompilationUnit.ShortenTypeName (fullyQualifiedTypeName, doc.Editor.Caret.Line, doc.Editor.Caret.Column).ConvertToTypeReference ();
-		}
-		
-	}
 }
+

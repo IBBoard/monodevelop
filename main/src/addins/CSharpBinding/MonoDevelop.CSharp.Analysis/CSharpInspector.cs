@@ -1,5 +1,5 @@
 // 
-// Result.cs
+// CSharpInspector.cs
 //  
 // Author:
 //       Mike Krüger <mkrueger@novell.com>
@@ -23,40 +23,19 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-using MonoDevelop.Projects.Dom;
-using MonoDevelop.Refactoring;
+using System;
+using ICSharpCode.NRefactory.CSharp;
+using GLib;
+using System.Collections.Generic;
+using MonoDevelop.AnalysisCore;
 
-namespace MonoDevelop.QuickFix
+namespace MonoDevelop.CSharp.Analysis
 {
-	public enum QuickFixType 
+	public abstract class CSharpInspector
 	{
-		Hidden,
-		Error,
-		Warning,
-		Suggestion,
-		Hint
-	}
-	
-	public abstract class QuickFix
-	{
-		public string Description {
-			get;
-			protected set;
-		}
-		
-		public abstract string GetMenuText (MonoDevelop.Ide.Gui.Document document, DomLocation loc);
-		public abstract void Run (MonoDevelop.Ide.Gui.Document document, DomLocation loc);
-		public abstract bool IsValid (MonoDevelop.Ide.Gui.Document document, DomLocation loc);
-		
-		public ICSharpCode.NRefactory.CSharp.AstType ShortenTypeName (MonoDevelop.Ide.Gui.Document doc, string fullyQualifiedTypeName)
-		{
-			return doc.ParsedDocument.CompilationUnit.ShortenTypeName (new DomReturnType (fullyQualifiedTypeName), doc.Editor.Caret.Line, doc.Editor.Caret.Column).ConvertToTypeReference ();
-		}
-		
-		public ICSharpCode.NRefactory.CSharp.AstType ShortenTypeName (MonoDevelop.Ide.Gui.Document doc, IReturnType fullyQualifiedTypeName)
-		{
-			return doc.ParsedDocument.CompilationUnit.ShortenTypeName (fullyQualifiedTypeName, doc.Editor.Caret.Line, doc.Editor.Caret.Column).ConvertToTypeReference ();
-		}
-		
+		public readonly List<FixableResult> results = new List<FixableResult> ();
+
+		public abstract void Attach (ObservableAstVisitor visitior);
 	}
 }
+

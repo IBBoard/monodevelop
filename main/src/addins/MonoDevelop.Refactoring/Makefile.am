@@ -61,9 +61,9 @@ FILES =  \
 	MonoDevelop.CodeGeneration/ReadonlyPropertyGenerator.cs \
 	MonoDevelop.CodeGeneration/ToStringGenerator.cs \
 	MonoDevelop.CodeGeneration/WriteLineGenerator.cs \
+	MonoDevelop.QuickFix/AnalysisQuickFix.cs \
 	MonoDevelop.QuickFix/QuickFix.cs \
 	MonoDevelop.QuickFix/QuickFixEditorExtension.cs \
-	MonoDevelop.QuickFix/QuickFixService.cs \
 	MonoDevelop.QuickFix/QuickFixWidget.cs \
 	MonoDevelop.Refactoring.ConvertPropery/CreateBackingStore.cs \
 	MonoDevelop.Refactoring.ConvertPropery/PropertyVisitor.cs \

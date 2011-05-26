@@ -40,9 +40,16 @@ FILES =  \
 	gtk-gui/MonoDevelop.CSharp.Project.CodeGenerationPanelWidget.cs \
 	gtk-gui/MonoDevelop.CSharp.Project.CompilerOptionsPanelWidget.cs \
 	gtk-gui/MonoDevelop.CSharp.Refactoring.ExtractMethod.ExtractMethodDialog.cs \
+	MonoDevelop.CSharp.Analysis/CodeAnalysis.cs \
+	MonoDevelop.CSharp.Analysis/ConditionalToNullCoalescingInspector.cs \
+	MonoDevelop.CSharp.Analysis/CSharpInspector.cs \
+	MonoDevelop.CSharp.Analysis/CSharpNamingPolicy.cs \
 	MonoDevelop.CSharp.Analysis/NamingConventionPanelWidget.cs \
-	MonoDevelop.CSharp.Analysis/NamingConventions.cs \
 	MonoDevelop.CSharp.Analysis/NamingConventionSettingsDialog.cs \
+	MonoDevelop.CSharp.Analysis/NamingInspector.cs \
+	MonoDevelop.CSharp.Analysis/NamingRule.cs \
+	MonoDevelop.CSharp.Analysis/NamingStyle.cs \
+	MonoDevelop.CSharp.Analysis/StringIsNullOrEmptyInspector.cs \
 	MonoDevelop.CSharp.Completion/CompletionTextLinkMode.cs \
 	MonoDevelop.CSharp.Completion/CSharpTextEditorCompletion.cs \
 	MonoDevelop.CSharp.Completion/EventCreationCompletionData.cs \
@@ -74,6 +81,18 @@ FILES =  \
 	MonoDevelop.CSharp.Project/CSharpCompilerParameters.cs \
 	MonoDevelop.CSharp.Project/CSharpProjectParameters.cs \
 	MonoDevelop.CSharp.Project/CSharpResourceIdBuilder.cs \
+	MonoDevelop.CSharp.QuickFix/AddAnotherAccessor.cs \
+	MonoDevelop.CSharp.QuickFix/CheckIfParameterIsNull.cs \
+	MonoDevelop.CSharp.QuickFix/ConvertDecToHex.cs \
+	MonoDevelop.CSharp.QuickFix/ConvertForeachToFor.cs \
+	MonoDevelop.CSharp.QuickFix/CreateEventInvocator.cs \
+	MonoDevelop.CSharp.QuickFix/CSharpQuickFix.cs \
+	MonoDevelop.CSharp.QuickFix/FlipOperatorArguments.cs \
+	MonoDevelop.CSharp.QuickFix/GenerateSwitchLabels.cs \
+	MonoDevelop.CSharp.QuickFix/ReplaceEmptyString.cs \
+	MonoDevelop.CSharp.QuickFix/StringBuilderOutputFormatter.cs \
+	MonoDevelop.CSharp.QuickFix/UseExplicitType.cs \
+	MonoDevelop.CSharp.QuickFix/UseVarKeyword.cs \
 	MonoDevelop.CSharp.Refactoring/CreateMethod/CreateMethodCodeGenerator.cs \
 	MonoDevelop.CSharp.Refactoring/CreateMethod/CreateMethodHandler.cs \
 	MonoDevelop.CSharp.Refactoring/CSharpCodeGenerator.cs \

@@ -144,6 +144,19 @@
 		<Class class = "MonoDevelop.CSharp.Refactoring.CSharpNRefactoryASTProvider" />
 	</Extension>
 	
+	<Extension path = "/MonoDevelop/Refactoring/QuickFixes">
+		<Class class = "MonoDevelop.CSharp.QuickFix.AddAnotherAccessor" />
+		<Class class = "MonoDevelop.CSharp.QuickFix.CheckIfParameterIsNull" />
+		<Class class = "MonoDevelop.CSharp.QuickFix.ConvertDecToHex" />
+		<Class class = "MonoDevelop.CSharp.QuickFix.ConvertForeachToFor" />
+		<Class class = "MonoDevelop.CSharp.QuickFix.CreateEventInvocator" />
+		<Class class = "MonoDevelop.CSharp.QuickFix.GenerateSwitchLabels" />
+		<Class class = "MonoDevelop.CSharp.QuickFix.FlipOperatorArguments" />
+		<Class class = "MonoDevelop.CSharp.QuickFix.UseVarKeyword" />
+		<Class class = "MonoDevelop.CSharp.QuickFix.UseExplicitType" />
+		<Class class = "MonoDevelop.CSharp.QuickFix.ReplaceEmptyString" />
+	</Extension>
+	
 	<Extension path = "/MonoDevelop/Ide/TextEditorResolver">
 		<Resolver class = "MonoDevelop.CSharp.Resolver.TextEditorResolverProvider" mimeType="text/x-csharp" />
 	</Extension>
@@ -198,9 +211,14 @@
 	</Extension>
 
 	<Extension path = "/MonoDevelop/AnalysisCore/Rules">
-		<Rule _name="C# Naming Conventions" input="ParsedDocument" 
-			func="MonoDevelop.CSharp.Analysis.NamingConventions.CheckNaming" />
-	</Extension>-->
+		<Rule _name="C# Code Analysis" input="ParsedDocument" 
+			func="MonoDevelop.CSharp.Analysis.CodeAnalysis.Check" />
+	</Extension>
+	
+	<Extension path = "/MonoDevelop/AnalysisCore/FixHandlers">
+		<Handler fixName="UseStringIsNullOrEmptyFix" class = "MonoDevelop.CSharp.Analysis.UseStringIsNullOrEmptyFixHandler" />
+		<Handler fixName="ConditionalToNullCoalescingFix" class = "MonoDevelop.CSharp.Analysis.ConditionalToNullCoalescingFixHandler" />
+	</Extension>
 	
 	<Module>
 	    <Runtime>

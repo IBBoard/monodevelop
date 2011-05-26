@@ -1,5 +1,5 @@
 // 
-// Result.cs
+// NamingConventions.cs
 //  
 // Author:
 //       Mike Krüger <mkrueger@novell.com>
@@ -23,40 +23,24 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
+using System;
+using System.Linq;
+using MonoDevelop.AnalysisCore;
 using MonoDevelop.Projects.Dom;
-using MonoDevelop.Refactoring;
-
-namespace MonoDevelop.QuickFix
-{
-	public enum QuickFixType 
-	{
-		Hidden,
-		Error,
-		Warning,
-		Suggestion,
-		Hint
-	}
-	
-	public abstract class QuickFix
-	{
-		public string Description {
-			get;
-			protected set;
-		}
-		
-		public abstract string GetMenuText (MonoDevelop.Ide.Gui.Document document, DomLocation loc);
-		public abstract void Run (MonoDevelop.Ide.Gui.Document document, DomLocation loc);
-		public abstract bool IsValid (MonoDevelop.Ide.Gui.Document document, DomLocation loc);
-		
-		public ICSharpCode.NRefactory.CSharp.AstType ShortenTypeName (MonoDevelop.Ide.Gui.Document doc, string fullyQualifiedTypeName)
-		{
-			return doc.ParsedDocument.CompilationUnit.ShortenTypeName (new DomReturnType (fullyQualifiedTypeName), doc.Editor.Caret.Line, doc.Editor.Caret.Column).ConvertToTypeReference ();
-		}
-		
-		public ICSharpCode.NRefactory.CSharp.AstType ShortenTypeName (MonoDevelop.Ide.Gui.Document doc, IReturnType fullyQualifiedTypeName)
-		{
-			return doc.ParsedDocument.CompilationUnit.ShortenTypeName (fullyQualifiedTypeName, doc.Editor.Caret.Line, doc.Editor.Caret.Column).ConvertToTypeReference ();
-		}
-		
+using System.Collections.Generic;
+using MonoDevelop.AnalysisCore.Fixes;
+using ICSharpCode.NRefactory.CSharp;
+using MonoDevelop.Projects.Policies;
+using MonoDevelop.Core;
+using MonoDevelop.Core.Serialization;
+using System.Text;
+namespace MonoDevelop.CSharp.Analysis {
+	public enum NamingStyle {
+		None,
+		PascalCase,
+		CamelCase,
+		AllUpper,
+		AllLower,
+		FirstUpper
 	}
 }
