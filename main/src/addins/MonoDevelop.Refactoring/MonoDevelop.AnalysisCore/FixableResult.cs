@@ -39,7 +39,7 @@ namespace MonoDevelop.AnalysisCore
 			this.Fixes = fixes;
 		}
 		
-		public IAnalysisFix[] Fixes { get; private set; }
+		public IAnalysisFix[] Fixes { get; protected set; }
 	}
 	
 	//FIXME: should this really use MonoDevelop.Ide.Gui.Document? Fixes could be more generic.

@@ -33,13 +33,14 @@ namespace MonoDevelop.AnalysisCore
 	public class Result
 	{
 		public Result (DomRegion region, string message, ResultLevel level,
-			ResultCertainty certainty, ResultImportance importance)
+			ResultCertainty certainty, ResultImportance importance, bool isVisible = true)
 		{
 			this.Region = region;
 			this.Message = message;
 			this.Level = level;
 			this.Certainty = certainty;
 			this.Importance = importance;
+			this.IsVisible = isVisible;
 		}
 		
 		public string Message { get; private set; }
@@ -48,6 +49,8 @@ namespace MonoDevelop.AnalysisCore
 		public ResultImportance Importance { get; private set; }
 		public DomRegion Region { get; private set; }
 		
+		public bool IsVisible { get; private set; }
+		
 		internal AnalysisRuleAddinNode Source { get; set; }
 	}
 	
@@ -55,7 +58,8 @@ namespace MonoDevelop.AnalysisCore
 	{
 		Error,
 		Warning,
-		Suggestion
+		Suggestion,
+		Todo // not shown with text marker
 	}
 	
 	public enum ResultCertainty

@@ -35,22 +35,26 @@ using MonoDevelop.Projects.Policies;
 using MonoDevelop.Core;
 using MonoDevelop.Core.Serialization;
 using System.Text;
+using MonoDevelop.Ide.Gui;
+using MonoDevelop.CSharp.QuickFix;
 
 namespace MonoDevelop.CSharp.Analysis
 {
 	public static class CodeAnalysis
 	{
-		
 		static CodeAnalysis ()
 		{
-			
 		}
 		
-		public static IEnumerable<Result> Check (ParsedDocument input)
+		public static IEnumerable<Result> Check (Document input)
 		{
-			var unit = input != null ? input.LanguageAST as ICSharpCode.NRefactory.CSharp.CompilationUnit : null;
+			var unit = input != null ? input.ParsedDocument.LanguageAST as ICSharpCode.NRefactory.CSharp.CompilationUnit : null;
 			if (unit == null)
 				yield break;
+			
+			var cg = new CallGraph ();
+			cg.Inpect (input, CSharpQuickFix.GetResolver (input), unit);
+			
 			
 			var visitor = new ObservableAstVisitor ();
 			
@@ -58,7 +62,10 @@ namespace MonoDevelop.CSharp.Analysis
 			inspectors.Add (new NamingInspector (input.CompilationUnit));
 			inspectors.Add (new StringIsNullOrEmptyInspector ());
 			inspectors.Add (new ConditionalToNullCoalescingInspector ());
-			
+			inspectors.Add (new NotImplementedExceptionInspector (input));
+			inspectors.Add (new UnusedUsingInpector (input, cg));
+			inspectors.Add (new UseVarKeywordInspector ());
+	
 			foreach (var inspector in inspectors) {
 				inspector.Attach (visitor);
 			}

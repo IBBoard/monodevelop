@@ -34,10 +34,11 @@ using System.IO;
 using Mono.TextEditor;
 using System.Linq;
 using MonoDevelop.Components.Commands;
+using MonoDevelop.SourceEditor;
 
 namespace MonoDevelop.AnalysisCore.Gui
 {
-	public class ResultsEditorExtension : TextEditorExtension
+	public class ResultsEditorExtension : TextEditorExtension, IQuickTaskProvider
 	{
 		bool disposed;
 		
@@ -97,8 +98,8 @@ namespace MonoDevelop.AnalysisCore.Gui
 			var doc = Document.ParsedDocument;
 			if (doc == null)
 				return;
-			var treeType = new RuleTreeType ("ParsedDocument", Path.GetExtension (doc.FileName));
-			AnalysisService.QueueAnalysis (doc, treeType, UpdateResults);
+			var treeType = new RuleTreeType ("Document", Path.GetExtension (doc.FileName));
+			AnalysisService.QueueAnalysis (Document, treeType, UpdateResults);
 		}
 		
 		void UpdateResults (IList<Result> results)
@@ -147,12 +148,15 @@ namespace MonoDevelop.AnalysisCore.Gui
 				if (currentResults.Count == updateIndex && oldMarkers == 0) {
 					currentResults = null;
 					updaterRunning = false;
+					UpdateQuickTasks ();
 					return false;
 				}
 			}
 			
-			if (Editor == null || Editor.Document == null)
+			if (Editor == null || Editor.Document == null) {
+				UpdateQuickTasks ();
 				return true;
+			}
 			
 			//clear the old results out at the same rate we add in the new ones
 			for (int i = 0; oldMarkers > 0 && i < UPDATE_COUNT; i++) {
@@ -164,30 +168,83 @@ namespace MonoDevelop.AnalysisCore.Gui
 			int targetIndex = updateIndex + UPDATE_COUNT;
 			for (; updateIndex < targetIndex && updateIndex < currentResults.Count; updateIndex++) {
 				var marker = new ResultMarker (currentResults [updateIndex]);
+				marker.IsVisible = currentResults [updateIndex].IsVisible;
 				Editor.Document.AddMarker (marker.Line, marker);
 				markers.Enqueue (marker);
 			}
-			
+			UpdateQuickTasks ();
 			return true;
 		}
 		
-		//FIXME; use a less naive lookup 
-		//this would be faster if the currentResults were sorted by line in the analysis thread,
-		//so we could binary search.
 		public IList<Result> GetResultsAtOffset (int offset)
 		{
 			var location = Editor.Document.OffsetToLocation (offset);
+			var line = Editor.GetLineByOffset (offset);
 			
 			var list = new List<Result> ();
-			foreach (var marker in markers) {
-				if (marker.Line != location.Line)
+			foreach (var marker in line.Markers) {
+				var resultMarker = marker as ResultMarker;
+				if (resultMarker == null || resultMarker.Line != location.Line)
 					continue;
-				int cs = marker.ColStart, ce = marker.ColEnd;
+				int cs = resultMarker.ColStart, ce = resultMarker.ColEnd;
 				if ((cs >= 0 && cs > location.Column) || (ce >= 0 && ce < location.Column))
 					continue;
-				list.Add (marker.Result);
+				list.Add (resultMarker.Result);
 			}
 			return list;
 		}
+		
+		public IEnumerable<Result> GetResults ()
+		{
+			return markers.Select (m => m.Result);
+		}
+
+		#region IQuickTaskProvider implementation
+		List<QuickTask> tasks = new List<QuickTask> ();
+
+		public event EventHandler TasksUpdated;
+
+		protected virtual void OnTasksUpdated (EventArgs e)
+		{
+			EventHandler handler = this.TasksUpdated;
+			if (handler != null)
+				handler (this, e);
+		}
+		
+		public IEnumerable<QuickTask> QuickTasks {
+			get {
+				return tasks;
+			}
+		}
+		
+		void UpdateQuickTasks ()
+		{
+			tasks.Clear ();
+			foreach (var result in GetResults ()) {
+				QuickTaskSeverity severity;
+				switch (result.Level) {
+				case MonoDevelop.AnalysisCore.ResultLevel.Error:
+					severity = QuickTaskSeverity.Error;
+					break;
+				case MonoDevelop.AnalysisCore.ResultLevel.Warning:
+					severity = QuickTaskSeverity.Warning;
+					break;
+				case MonoDevelop.AnalysisCore.ResultLevel.Suggestion:
+					severity = QuickTaskSeverity.Suggestion;
+					break;
+				case MonoDevelop.AnalysisCore.ResultLevel.Todo:
+					severity = QuickTaskSeverity.Todo;
+					break;
+				default:
+					throw new ArgumentOutOfRangeException ();
+				}
+				QuickTask newTask = new QuickTask (result.Message, result.Region.Start, severity);
+				tasks.Add (newTask);
+			}
+			
+			OnTasksUpdated (EventArgs.Empty);
+		}
+		
+		#endregion
 	}
 }

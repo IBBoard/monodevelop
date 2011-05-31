@@ -52,12 +52,10 @@ namespace MonoDevelop.CSharp.QuickFix
 			var unit = doc.LanguageAST as ICSharpCode.NRefactory.CSharp.CompilationUnit;
 			if (unit == null)
 				return null;
-			AstNode astNode = unit.GetNodeAt (loc.Line, loc.Column);
-			
-			var result = (astNode as SwitchStatement) ?? astNode.Parent as SwitchStatement;
-			if (result == null && astNode.Parent != null)
-				result = astNode.Parent.Parent as SwitchStatement;
-			return result;
+			var switchStatment = unit.GetNodeAt<SwitchStatement> (loc.Line, loc.Column);
+			if (switchStatment != null && switchStatment.SwitchSections.Count == 0)
+				return switchStatment;
+			return null;
 		}
 		
 		public override bool IsValid (MonoDevelop.Ide.Gui.Document document, DomLocation loc)
@@ -77,6 +75,10 @@ namespace MonoDevelop.CSharp.QuickFix
 		public override void Run (MonoDevelop.Ide.Gui.Document document, DomLocation loc)
 		{
 			var switchStatement = GetSwitchStatement (document.ParsedDocument, loc);
+			
+			if (switchStatement == null)
+				return;
+			
 			var resolver = GetResolver (document);
 			
 			var result = resolver.Resolve (switchStatement.Expression.ToString (), new DomLocation (switchStatement.StartLocation.Line, switchStatement.StartLocation.Column));
@@ -84,7 +86,7 @@ namespace MonoDevelop.CSharp.QuickFix
 			
 			var target = new TypeReferenceExpression (ShortenTypeName (document, result.ResolvedType));
 			foreach (var field in type.Fields) {
-				if (field.IsSpecialName)
+				if (!(field.IsLiteral || field.IsConst))
 					continue;
 				switchStatement.SwitchSections.Add (new SwitchSection () {
 					CaseLabels = {
@@ -109,7 +111,7 @@ namespace MonoDevelop.CSharp.QuickFix
 			var offset = editor.LocationToOffset (switchStatement.StartLocation.Line, switchStatement.StartLocation.Column);
 			var endOffset = editor.LocationToOffset (switchStatement.RBraceToken.EndLocation.Line, switchStatement.RBraceToken.EndLocation.Column + 1);
 			
-			string text = OutputNode (document.Dom, switchStatement, editor.GetLineIndent (switchStatement.Parent.StartLocation.Line));
+			string text = OutputNode (document, switchStatement, editor.GetLineIndent (switchStatement.Parent.StartLocation.Line));
 			editor.Replace (offset, endOffset - offset + 1, text.Trim () + editor.EolMarker);
 		}
 	}

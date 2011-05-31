@@ -40,6 +40,7 @@ FILES =  \
 	gtk-gui/MonoDevelop.CSharp.Project.CodeGenerationPanelWidget.cs \
 	gtk-gui/MonoDevelop.CSharp.Project.CompilerOptionsPanelWidget.cs \
 	gtk-gui/MonoDevelop.CSharp.Refactoring.ExtractMethod.ExtractMethodDialog.cs \
+	MonoDevelop.CSharp.Analysis/CallGraph.cs \
 	MonoDevelop.CSharp.Analysis/CodeAnalysis.cs \
 	MonoDevelop.CSharp.Analysis/ConditionalToNullCoalescingInspector.cs \
 	MonoDevelop.CSharp.Analysis/CSharpInspector.cs \
@@ -49,7 +50,10 @@ FILES =  \
 	MonoDevelop.CSharp.Analysis/NamingInspector.cs \
 	MonoDevelop.CSharp.Analysis/NamingRule.cs \
 	MonoDevelop.CSharp.Analysis/NamingStyle.cs \
+	MonoDevelop.CSharp.Analysis/NotImplementedExceptionInspector.cs \
 	MonoDevelop.CSharp.Analysis/StringIsNullOrEmptyInspector.cs \
+	MonoDevelop.CSharp.Analysis/UnusedUsingInpector.cs \
+	MonoDevelop.CSharp.Analysis/UseVarKeywordInspector.cs \
 	MonoDevelop.CSharp.Completion/CompletionTextLinkMode.cs \
 	MonoDevelop.CSharp.Completion/CSharpTextEditorCompletion.cs \
 	MonoDevelop.CSharp.Completion/EventCreationCompletionData.cs \
@@ -83,12 +87,15 @@ FILES =  \
 	MonoDevelop.CSharp.Project/CSharpResourceIdBuilder.cs \
 	MonoDevelop.CSharp.QuickFix/AddAnotherAccessor.cs \
 	MonoDevelop.CSharp.QuickFix/CheckIfParameterIsNull.cs \
+	MonoDevelop.CSharp.QuickFix/ContextActionExtensions.cs \
 	MonoDevelop.CSharp.QuickFix/ConvertDecToHex.cs \
 	MonoDevelop.CSharp.QuickFix/ConvertForeachToFor.cs \
+	MonoDevelop.CSharp.QuickFix/ConvertHexToDec.cs \
 	MonoDevelop.CSharp.QuickFix/CreateEventInvocator.cs \
 	MonoDevelop.CSharp.QuickFix/CSharpQuickFix.cs \
 	MonoDevelop.CSharp.QuickFix/FlipOperatorArguments.cs \
 	MonoDevelop.CSharp.QuickFix/GenerateSwitchLabels.cs \
+	MonoDevelop.CSharp.QuickFix/InvertIf.cs \
 	MonoDevelop.CSharp.QuickFix/ReplaceEmptyString.cs \
 	MonoDevelop.CSharp.QuickFix/StringBuilderOutputFormatter.cs \
 	MonoDevelop.CSharp.QuickFix/UseExplicitType.cs \

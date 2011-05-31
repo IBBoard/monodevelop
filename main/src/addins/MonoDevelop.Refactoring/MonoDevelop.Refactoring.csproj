@@ -143,11 +143,11 @@
     <Compile Include="MonoDevelop.QuickFix\QuickFix.cs" />
     <Compile Include="MonoDevelop.QuickFix\QuickFixWidget.cs" />
     <Compile Include="MonoDevelop.QuickFix\AnalysisQuickFix.cs" />
+    <Compile Include="MonoDevelop.AnalysisCore\Fixes\GenericFix.cs" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="MonoDevelop.Refactoring\" />
     <Folder Include="MonoDevelop.Refactoring.Rename\" />
-    <Folder Include="MonoDevelop.Refactoring.DeclareLocal\" />
     <Folder Include="MonoDevelop.Refactoring.IntroduceConstant\" />
     <Folder Include="MonoDevelop.Refactoring.CreateClass\" />
     <Folder Include="MonoDevelop.Refactoring.MoveTypeToFile\" />

@@ -192,8 +192,8 @@ namespace Mono.TextEditor
 			}
 		}
 		
-		Mono.TextEditor.Highlighting.Style colorStyle;
-		public Mono.TextEditor.Highlighting.Style ColorStyle {
+		Mono.TextEditor.Highlighting.ColorSheme colorStyle;
+		public Mono.TextEditor.Highlighting.ColorSheme ColorStyle {
 			get {
 				return colorStyle;
 			}
@@ -1140,6 +1140,12 @@ namespace Mono.TextEditor
 		public double LineHeight {
 			get;
 			internal set;
+		}
+		
+		public int VisibleLineCount {
+			get {
+				return heightTree.VisibleLineCount;
+			}
 		}
 		
 		internal HeightTree heightTree;

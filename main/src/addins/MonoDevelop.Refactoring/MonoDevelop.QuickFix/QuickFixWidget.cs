@@ -34,13 +34,15 @@ namespace MonoDevelop.QuickFix
 {
 	public class QuickFixWidget : Gtk.EventBox
 	{
+		QuickFixEditorExtension ext;
 		MonoDevelop.Ide.Gui.Document document;
 		List<QuickFix> fixes;
 		DomLocation loc;
 		Gdk.Pixbuf icon;
 		
-		public QuickFixWidget (MonoDevelop.Ide.Gui.Document document, DomLocation loc, List<QuickFix> fixes)
+		public QuickFixWidget (QuickFixEditorExtension ext, MonoDevelop.Ide.Gui.Document document, DomLocation loc, List<QuickFix> fixes)
 		{
+			this.ext = ext;
 			this.document = document;
 			this.loc = loc;
 			this.fixes = fixes;
@@ -54,7 +56,7 @@ namespace MonoDevelop.QuickFix
 
 		void HandleDocumentEditorParentEditorOptionsChanged (object sender, EventArgs e)
 		{
-			var container = this.Parent as TextEditorContainer;
+//			var container = this.Parent as TextEditorContainer;
 			HeightRequest = (int)document.Editor.LineHeight;
 		//	container.MoveTopLevelWidget (this, (int)document.Editor.Parent.TextViewMargin.XOffset + 4, (int)document.Editor.Parent.LineToY (loc.Line));
 		}
@@ -68,12 +70,19 @@ namespace MonoDevelop.QuickFix
 		public void PopupQuickFixMenu ()
 		{
 			Gtk.Menu menu = new Gtk.Menu ();
-				
+			
 			Dictionary<Gtk.MenuItem, QuickFix> fixTable = new Dictionary<Gtk.MenuItem, QuickFix> ();
+			int mnemonic = 1;
 			foreach (QuickFix fix in fixes) {
-				Gtk.MenuItem menuItem = new Gtk.MenuItem (fix.GetMenuText (document, loc));
+				var label = (mnemonic <= 10)
+						? "_" + (mnemonic++ % 10).ToString () + " " + fix.GetMenuText (document, loc)
+						: "  " + fix.GetMenuText (document, loc);
+				
+				Gtk.MenuItem menuItem = new Gtk.MenuItem (label);
 				fixTable [menuItem] = fix;
 				menuItem.Activated += delegate(object sender, EventArgs e) {
+					// ensure that the Ast is recent.
+					document.UpdateParseDocument ();
 					var runFix = fixTable [(Gtk.MenuItem)sender];
 					runFix.Run (document, loc);
 					
@@ -92,8 +101,14 @@ namespace MonoDevelop.QuickFix
 				x = dx; 
 				y = dy + Allocation.Height; 
 				pushIn = false;
+				menuPushed = true;
+				QueueDraw ();
 			}, 0, Gtk.Global.CurrentEventTime);
 			menu.SelectFirst (true);
+			menu.Destroyed += delegate {
+				menuPushed = false;
+				QueueDraw ();
+			};
 		}
 		
 		protected override bool OnButtonPressEvent (Gdk.EventButton evnt)
@@ -103,11 +118,28 @@ namespace MonoDevelop.QuickFix
 			return base.OnButtonPressEvent (evnt);
 		}
 		
+		bool isMouseInside, menuPushed;
+		
+		protected override bool OnEnterNotifyEvent (Gdk.EventCrossing evnt)
+		{
+			isMouseInside = true;
+			QueueDraw ();
+			return base.OnEnterNotifyEvent (evnt);
+		}
+		
+		protected override bool OnLeaveNotifyEvent (Gdk.EventCrossing evnt)
+		{
+			isMouseInside = false;
+			QueueDraw ();
+			return base.OnLeaveNotifyEvent (evnt);
+		}
+		
+		
 		protected override bool OnExposeEvent (Gdk.EventExpose evnt)
 		{
-			var alloc = Allocation;
+//			var alloc = Allocation;
 			double border = 1.0;
-			var halfBorder = border / 2.0;
+//			var halfBorder = border / 2.0;
 			
 			using (var cr = Gdk.CairoHelper.Create (evnt.Window)) {
 				cr.LineWidth = border;
@@ -119,7 +151,7 @@ namespace MonoDevelop.QuickFix
 					true, true,
 					0, 0, Allocation.Width / 2, 
 					Allocation.Width, Allocation.Height);
-				cr.Color = document.Editor.ColorStyle.FoldLine.CairoColor;
+				cr.Color = isMouseInside || menuPushed ? document.Editor.ColorStyle.Default.CairoColor : document.Editor.ColorStyle.FoldLine.CairoColor;
 				cr.Stroke ();
 				
 				evnt.Window.DrawPixbuf (Style.BaseGC (State), icon, 

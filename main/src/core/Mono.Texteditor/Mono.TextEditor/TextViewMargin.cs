@@ -109,7 +109,7 @@ namespace Mono.TextEditor
 			get { return textEditor.Caret; }
 		}
 
-		public Mono.TextEditor.Highlighting.Style ColorStyle {
+		public Mono.TextEditor.Highlighting.ColorSheme ColorStyle {
 			get { return this.textEditor.ColorStyle; }
 		}
 
@@ -592,7 +592,7 @@ namespace Mono.TextEditor
 		bool UpdateCaret ()
 		{
 			caretBlink = !caretBlink;
-			int multiplier = caretBlink ? cursorOnMultiplier : cursorOffMultiplier;
+//			int multiplier = caretBlink ? cursorOnMultiplier : cursorOffMultiplier;
 			if (Caret.IsVisible)
 				DrawCaret (textEditor.GdkWindow);
 			return true;
@@ -824,7 +824,7 @@ namespace Mono.TextEditor
 		}
 
 		Dictionary<LineSegment, ChunkDescriptor> chunkDict = new Dictionary<LineSegment, ChunkDescriptor> ();
-		Chunk GetCachedChunks (SyntaxMode mode, Document doc, Mono.TextEditor.Highlighting.Style style, LineSegment line, int offset, int length)
+		Chunk GetCachedChunks (SyntaxMode mode, Document doc, Mono.TextEditor.Highlighting.ColorSheme style, LineSegment line, int offset, int length)
 		{
 			ChunkDescriptor descriptor;
 			if (chunkDict.TryGetValue (line, out descriptor)) {
@@ -1407,7 +1407,7 @@ namespace Mono.TextEditor
 				}
 			}
 
-			foreach (TextMarker marker in line.Markers) {
+			foreach (TextMarker marker in line.Markers.Where (m => m.IsVisible)) {
 				marker.Draw (textEditor, cr, layout.Layout, false, /*selected*/offset, offset + length, y, xPos, xPos + width);
 			}
 
@@ -1728,7 +1728,7 @@ namespace Mono.TextEditor
 		public Func<MarginMouseEventArgs, string> GetLink;
 //		= new delegate (MarginMouseEventArgs args) {
 //			LineSegment line = args.LineSegment;
-//			Mono.TextEditor.Highlighting.Style style = ColorStyle;
+//			Mono.TextEditor.Highlighting.ColorSheme style = ColorStyle;
 //			Document doc = Document;
 //			if (doc == null)
 //				return null;

@@ -249,6 +249,13 @@
     <Compile Include="MonoDevelop.CSharp.QuickFix\UseVarKeyword.cs" />
     <Compile Include="MonoDevelop.CSharp.QuickFix\UseExplicitType.cs" />
     <Compile Include="MonoDevelop.CSharp.QuickFix\ReplaceEmptyString.cs" />
+    <Compile Include="MonoDevelop.CSharp.Analysis\NotImplementedExceptionInspector.cs" />
+    <Compile Include="MonoDevelop.CSharp.Analysis\CallGraph.cs" />
+    <Compile Include="MonoDevelop.CSharp.Analysis\UnusedUsingInpector.cs" />
+    <Compile Include="MonoDevelop.CSharp.Analysis\UseVarKeywordInspector.cs" />
+    <Compile Include="MonoDevelop.CSharp.QuickFix\InvertIf.cs" />
+    <Compile Include="MonoDevelop.CSharp.QuickFix\ContextActionExtensions.cs" />
+    <Compile Include="MonoDevelop.CSharp.QuickFix\ConvertHexToDec.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="ChangeLog" />

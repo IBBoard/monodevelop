@@ -58,12 +58,18 @@ namespace MonoDevelop.CSharp.QuickFix
 			var pDecl = GetPropertyDeclaration (document.ParsedDocument, loc);
 			if (pDecl == null)
 				return false;
+			var type = pDecl.Parent as TypeDeclaration;
+			if (type != null && type.ClassType == ICSharpCode.NRefactory.TypeSystem.ClassType.Interface)
+				return false;
+			
 			return pDecl.Setter.IsNull || pDecl.Getter.IsNull;
 		}
 		
 		public override void Run (MonoDevelop.Ide.Gui.Document document, DomLocation loc)
 		{
 			var pDecl = GetPropertyDeclaration (document.ParsedDocument, loc);
+			if (pDecl == null)
+				return;
 			
 			Accessor accessor = new Accessor () {
 				Body = new BlockStatement {
@@ -74,7 +80,7 @@ namespace MonoDevelop.CSharp.QuickFix
 			
 			var editor = document.Editor;
 			var offset = editor.LocationToOffset (pDecl.RBraceToken.StartLocation.Line, pDecl.RBraceToken.StartLocation.Column - 1);
-			string text = OutputNode (document.Dom, accessor, editor.GetLineIndent (pDecl.StartLocation.Line)) + editor.EolMarker;
+			string text = OutputNode (document, accessor, editor.GetLineIndent (pDecl.StartLocation.Line)) + editor.EolMarker;
 			
 			editor.Insert (offset, text);
 			int i1 = text.IndexOf ("throw");

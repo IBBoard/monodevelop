@@ -33,10 +33,16 @@ using System.Globalization;
 
 namespace Mono.TextEditor.Highlighting
 {
-	public class Style
+	public class ColorSheme
 	{
 		Dictionary<string, ChunkStyle> styleLookupTable = new Dictionary<string, ChunkStyle> (); 
 		Dictionary<string, string> customPalette = new Dictionary<string, string> (); 
+		
+		public IEnumerable<string> ColorNames {
+			get {
+				return styleLookupTable.Keys;
+			}
+		}
 		
 		public Cairo.Color GetColorFromDefinition (string colorName)
 		{
@@ -49,13 +55,6 @@ namespace Mono.TextEditor.Highlighting
 		public virtual ChunkStyle Default {
 			get {
 				return GetChunkStyle (DefaultString);
-			}
-		}
-		
-		public const string CaretString = "caret";
-		public virtual ChunkStyle Caret {
-			get {
-				return GetChunkStyle (CaretString);
 			}
 		}
 
@@ -349,6 +348,13 @@ namespace Mono.TextEditor.Highlighting
 			}
 		}
 		
+		public const string SuggestionUnderlineString = "marker.underline.suggestion";
+		public Cairo.Color SuggestionUnderline {
+			get {
+				return GetColorFromDefinition (SuggestionUnderlineString);
+			}
+		}
+		
 		public const string PrimaryTemplateColorString = "marker.template.primary_template";
 		public virtual ChunkStyle PrimaryTemplate {
 			get {
@@ -410,53 +416,51 @@ namespace Mono.TextEditor.Highlighting
 			                        alpha);
 		}
 		
-		protected Style ()
+		protected ColorSheme ()
 		{
 			SetStyle (DefaultString, 0, 0, 0, 255, 255, 255);
 			SetStyle (ReadOnlyTextBgString, 0xFA, 0xFA, 0xF8);
 			
 			GetChunkStyle (DefaultString).ChunkProperties |= ChunkProperties.TransparentBackground;
-			
-			SetStyle (CaretString, DefaultString);
 
 			SetStyle (LineNumberString, 172, 168, 153, 255, 255, 255);
 			SetStyle (LineNumberFgHighlightedString, 122, 118, 103);
 			
-			SetStyle (IconBarBgString,        255, 255, 255);
+			SetStyle (IconBarBgString, 255, 255, 255);
 			SetStyle (IconBarSeperatorString, 172, 168, 153);
 			
 			SetStyle (FoldLineString, LineNumberString);
 			SetStyle (FoldLineHighlightedString, IconBarSeperatorString);
 			SetStyle (FoldToggleMarkerString, DefaultString);
 			
-			SetStyle (LineDirtyBgString,   255, 238, 98);
+			SetStyle (LineDirtyBgString, 255, 238, 98);
 			SetStyle (LineChangedBgString, 108, 226, 108);
 			
-			SetStyle (SelectionString,     255, 255, 255, 96, 87, 210);
-			SetStyle (InactiveSelectionString,     255, 255, 255, 196, 196, 196);
+			SetStyle (SelectionString, 255, 255, 255, 96, 87, 210);
+			SetStyle (InactiveSelectionString, 255, 255, 255, 196, 196, 196);
 			
-			SetStyle (LineMarkerString,    200, 255, 255);
-			SetStyle (RulerString,         187, 187, 187);
+			SetStyle (LineMarkerString, 200, 255, 255);
+			SetStyle (RulerString, 187, 187, 187);
 			SetStyle (WhitespaceMarkerString, RulerString);
 			
-			SetStyle (InvalidLineMarkerString,     210,   0,   0);
+			SetStyle (InvalidLineMarkerString, 210, 0, 0);
 			
-			SetStyle (BreakpointString,            255, 255, 255, 125, 0, 0);
+			SetStyle (BreakpointString, 255, 255, 255, 125, 0, 0);
 			
 			SetStyle (BreakpointMarkerColor1String, 255, 255, 255);
 			SetStyle (BreakpointMarkerColor2String, 125, 0, 0);
 
-			SetStyle (DisabledBreakpointBgString,   237, 220, 220);
+			SetStyle (DisabledBreakpointBgString, 237, 220, 220);
 			
-			SetStyle (CurrentDebugLineString,               0,   0,   0, 255, 255, 0);
-			SetStyle (CurrentDebugLineMarkerColor1String, 255, 255,   0);
+			SetStyle (CurrentDebugLineString, 0, 0, 0, 255, 255, 0);
+			SetStyle (CurrentDebugLineMarkerColor1String, 255, 255, 0);
 			SetStyle (CurrentDebugLineMarkerColor2String, 255, 255, 204);
-			SetStyle (CurrentDebugLineMarkerBorderString, 102, 102,   0);
+			SetStyle (CurrentDebugLineMarkerBorderString, 102, 102, 0);
 			
-			SetStyle (DebugStackLineString,               0,   0,   0, 128, 255, 128);
+			SetStyle (DebugStackLineString, 0, 0, 0, 128, 255, 128);
 			SetStyle (DebugStackLineMarkerColor1String, 128, 255, 128);
 			SetStyle (DebugStackLineMarkerColor2String, 204, 255, 204);
-			SetStyle (DebugStackLineMarkerBorderString,  51, 102,  51); 
+			SetStyle (DebugStackLineMarkerBorderString, 51, 102, 51); 
 			
 			SetStyle (InvalidBreakpointBgString, 237, 220, 220);
 			SetStyle (InvalidBreakpointMarkerColor1String, 237, 220, 220);
@@ -470,58 +474,33 @@ namespace Mono.TextEditor.Highlighting
 			SetStyle (BookmarkColor2String, 105, 156, 235);
 			
 			SetStyle (ErrorUnderlineString, 255, 0, 0);
-			SetStyle (WarningUnderlineString, 30, 30, 255);
+			SetStyle (WarningUnderlineString, 255, 165, 0);
+			SetStyle (SuggestionUnderlineString, 143, 198, 143);
 			
-			SetStyle ("diff.line-added",          0, 0x8B, 0x8B, ChunkProperties.None);
-			SetStyle ("diff.line-removed",     0x6A, 0x5A, 0xCD, ChunkProperties.None);
-			SetStyle ("diff.line-changed",     "text.preprocessor");
-			SetStyle ("diff.header",              0, 128,     0, BOLD);
-			SetStyle ("diff.header-seperator",    0,   0,   255);
-			SetStyle ("diff.header-oldfile",   "diff.header");
-			SetStyle ("diff.header-newfile",   "diff.header");
-			SetStyle ("diff.location",         "keyword.misc");
+			SetStyle ("diff.line-added", 0, 0x8B, 0x8B, ChunkProperties.None);
+			SetStyle ("diff.line-removed", 0x6A, 0x5A, 0xCD, ChunkProperties.None);
+			SetStyle ("diff.line-changed", "text.preprocessor");
+			SetStyle ("diff.header", 0, 128, 0, BOLD);
+			SetStyle ("diff.header-seperator", 0, 0, 255);
+			SetStyle ("diff.header-oldfile", "diff.header");
+			SetStyle ("diff.header-newfile", "diff.header");
+			SetStyle ("diff.location", "keyword.misc");
 			
 			SetStyle (PrimaryTemplateColorString, 0xB4, 0xE4, 0xB4, 0xB4, 0xE4, 0xB4);
 			SetStyle (PrimaryTemplateHighlightedColorString, 0, 0, 0, 0xB4, 0xE4, 0xB4);
 			 
-			SetStyle (SecondaryTemplateColorString,            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF);
+			SetStyle (SecondaryTemplateColorString, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF);
 			SetStyle (SecondaryTemplateHighlightedColorString, 0x7F, 0x7F, 0x7F, 0xFF, 0xFF, 0xFF);
 			
-			SetStyle ("bubble.error.text",             0,    0,   0);
 			
-			SetStyleFromWeb ("bubble.warning.light.color1", "#fbf7eb");
-			SetStyleFromWeb ("bubble.warning.light.color2", "#f4eeda");
-			SetStyleFromWeb ("bubble.warning.dark.color1", "#f5eed8");
-			SetStyleFromWeb ("bubble.warning.dark.color2", "#eadebb");
-			SetStyleFromWeb ("bubble.warning.line.top", "#e5e3dd");
-			SetStyleFromWeb ("bubble.warning.line.bottom", "#d3cdba");
-			SetStyleFromWeb ("bubble.warning.text", "black");
-			
-			SetStyleFromWeb ("bubble.inactive.warning.light.color1", "#fbfbfb");
-			SetStyleFromWeb ("bubble.inactive.warning.light.color2", "#f5f3ed");
-			SetStyleFromWeb ("bubble.inactive.warning.dark.color1", "#f7f7f7");
-			SetStyleFromWeb ("bubble.inactive.warning.dark.color2", "#ece7dd");
-			SetStyleFromWeb ("bubble.inactive.warning.line.top", "#f2f2f2");
-			SetStyleFromWeb ("bubble.inactive.warning.line.bottom", "#eceae6");
-			
-			SetStyleFromWeb ("bubble.error.light.color1", "#faf2f0");
-			SetStyleFromWeb ("bubble.error.light.color2", "#f5eae7");
-			SetStyleFromWeb ("bubble.error.dark.color1", "#f6e6e2");
-			SetStyleFromWeb ("bubble.error.dark.color2", "#ead7d2");
-			SetStyleFromWeb ("bubble.error.line.top", "#e5e0e0");
-			SetStyleFromWeb ("bubble.error.line.bottom", "#cfc6c4");
-			SetStyleFromWeb ("bubble.error.text", "black");
-			
-			SetStyleFromWeb ("bubble.inactive.error.light.color1", "#fcfcfc");
-			SetStyleFromWeb ("bubble.inactive.error.light.color2", "#f5f4f3");
-			SetStyleFromWeb ("bubble.inactive.error.dark.color1", "#f9f9f9");
-			SetStyleFromWeb ("bubble.inactive.error.dark.color2", "#ebe8e6");
-			SetStyleFromWeb ("bubble.inactive.error.line.top", "#f2f2f2");
-			SetStyleFromWeb ("bubble.inactive.error.line.bottom", "#eceaea");
+			SetStyleFromWeb ("bubble.warning", "black", "#f4eeda");
+			SetStyle ("bubble.warning.text", 0, 0, 0);
+			SetStyleFromWeb ("bubble.error", "black", "#f5eae7");
+			SetStyle ("bubble.error.text", 0, 0, 0);
 			
 			//regions in ASP.NET, T4, etc.
-			SetStyle ("template",           "text");
-			SetStyle ("template.tag",       "constant.language");
+			SetStyle ("template", "text");
+			SetStyle ("template.tag", "constant.language");
 			SetStyle ("template.directive", "constant.language");
 			
 		}
@@ -560,7 +539,6 @@ namespace Mono.TextEditor.Highlighting
 			SetStyle ("keyword.semantic.type", 0, 0x8A , 0x8C);
 			
 			SetStyle ("keyword", 0, 0, 0, BOLD);
-			
 			SetStyle ("keyword.access",      165,  42,  42, BOLD);
 			SetStyle ("keyword.operator",    165,  42,  42, BOLD);
 			SetStyle ("keyword.operator.declaration", 165,  42,  42, BOLD);
@@ -602,10 +580,21 @@ namespace Mono.TextEditor.Highlighting
 		
 		void SetStyleFromWeb (string name, string colorString)
 		{
-			Gdk.Color color = new Color ();
+			var color = new Color ();
 			if (!Gdk.Color.Parse (colorString, ref color)) 
 				throw new Exception ("Can't parse color: " + colorString);
 			SetStyle (name, new ChunkStyle (color));
+		}
+
+		void SetStyleFromWeb (string name, string colorString, string bgColorString)
+		{
+			var color = new Color ();
+			if (!Gdk.Color.Parse (colorString, ref color)) 
+				throw new Exception ("Can't parse color: " + colorString);
+			var bgColor = new Color ();
+			if (!Gdk.Color.Parse (bgColorString, ref bgColor)) 
+				throw new Exception ("Can't parse color: " + bgColorString);
+			SetStyle (name, new ChunkStyle (color, bgColor));
 		}
 		
 		void SetStyle (string name, byte r, byte g, byte b, byte bg_r, byte bg_g, byte bg_b)
@@ -659,9 +648,9 @@ namespace Mono.TextEditor.Highlighting
 		
 		public void SetChunkStyle (string name, string weight, string foreColor, string backColor)
 		{
-			Cairo.Color color   = !string.IsNullOrEmpty (foreColor) ? this.GetColorFromString (foreColor) : new Cairo.Color (0, 0, 0);
-			Cairo.Color bgColor = !string.IsNullOrEmpty (backColor) ? this.GetColorFromString (backColor) : new Cairo.Color (0, 0, 0);
-			ChunkProperties properties = ChunkProperties.None;
+			var color = !string.IsNullOrEmpty (foreColor) ? this.GetColorFromString (foreColor) : new Cairo.Color (0, 0, 0);
+			var bgColor = !string.IsNullOrEmpty (backColor) ? this.GetColorFromString (backColor) : new Cairo.Color (0, 0, 0);
+			var properties = ChunkProperties.None;
 			if (weight != null) {
 				if (weight.ToUpper ().IndexOf ("BOLD") >= 0)
 					properties |= ChunkProperties.Bold;
@@ -670,7 +659,12 @@ namespace Mono.TextEditor.Highlighting
 				if (weight.ToUpper ().IndexOf ("UNDERLINE") >= 0)
 					properties |= ChunkProperties.Underline;
 			}
-			SetStyle (name,  !string.IsNullOrEmpty (backColor) ? new ChunkStyle (color, bgColor, properties) : new ChunkStyle (color, properties));
+			SetStyle (name, !string.IsNullOrEmpty (backColor) ? new ChunkStyle (color, bgColor, properties) : new ChunkStyle (color, properties));
+		}
+		
+		public void SetChunkStyle (string name, ChunkStyle style)
+		{
+			SetStyle (name, style);
 		}
 		
 		static int GetNumber (string str, int offset)
@@ -697,7 +691,7 @@ namespace Mono.TextEditor.Highlighting
 				}
 				throw new ArgumentException ("colorString", "colorString must either be #RRGGBB (length 7) or #AARRGGBB (length 9) your string " + colorString + " is invalid because it has a length of " + colorString.Length);
 			} 
-			Gdk.Color color = new Gdk.Color ();
+			var color = new Gdk.Color ();
 			if (Gdk.Color.Parse (colorString, ref color))
 				return (Cairo.Color)((HslColor)color);
 			throw new Exception ("Failed to parse color or find named color '" + colorString + "'");
@@ -705,7 +699,7 @@ namespace Mono.TextEditor.Highlighting
 		
 		public const string NameAttribute = "name";
 		
-		static void ReadStyleTree (XmlReader reader, Style result, string curName, string curWeight, string curColor, string curBgColor)
+		static void ReadStyleTree (XmlReader reader, ColorSheme result, string curName, string curWeight, string curColor, string curBgColor)
 		{
 			string name    = reader.GetAttribute ("name"); 
 			string weight  = reader.GetAttribute ("weight") ?? curWeight;
@@ -730,17 +724,17 @@ namespace Mono.TextEditor.Highlighting
 			});
 		}
 		
-		public static Style LoadFrom (XmlReader reader)
+		public static ColorSheme LoadFrom (XmlReader reader)
 		{
-			Style result = new Style ();
+			var result = new ColorSheme ();
 			XmlReadHelper.ReadList (reader, "EditorStyle", delegate () {
 				switch (reader.LocalName) {
 				case "EditorStyle":
-					result.Name        = reader.GetAttribute (NameAttribute);
+					result.Name = reader.GetAttribute (NameAttribute);
 					result.Description = reader.GetAttribute ("_description");
 					return true;
 				case "Color":
-					result.customPalette[reader.GetAttribute ("name")] = reader.GetAttribute ("value");
+					result.customPalette [reader.GetAttribute ("name")] = reader.GetAttribute ("value");
 					return true;
 				case "Style":
 					ReadStyleTree (reader, result, null, null, null, null);
@@ -750,6 +744,54 @@ namespace Mono.TextEditor.Highlighting
 			});
 			result.GetChunkStyle (DefaultString).ChunkProperties |= ChunkProperties.TransparentBackground;
 			return result;
+		}
+		
+		static string GetColorString (double c)
+		{
+			int conv = (int)(c * 255.0);
+			return string.Format ("{0:X2}", conv);
+		}
+		
+		static string GetColorString (Cairo.Color cairoColor)
+		{
+			var result = new System.Text.StringBuilder ();
+			result.Append ("#");
+			if (cairoColor.A != 1.0)
+				result.Append (GetColorString (cairoColor.A));
+			result.Append (GetColorString (cairoColor.R));
+			result.Append (GetColorString (cairoColor.G));
+			result.Append (GetColorString (cairoColor.B));
+			
+			return result.ToString ();
+		}
+		
+		public void Save (string fileName)
+		{
+			var writer = new XmlTextWriter (fileName, System.Text.UTF8Encoding.UTF8);
+			writer.Formatting = Formatting.Indented;
+			
+			writer.WriteStartElement ("EditorStyle");
+			writer.WriteAttributeString (NameAttribute, Name);
+			writer.WriteAttributeString ("_description", Description);
+			
+			foreach (var style in new Dictionary<string, ChunkStyle> (this.styleLookupTable)) {
+				writer.WriteStartElement ("Style");
+				writer.WriteAttributeString ("name", style.Key);
+				writer.WriteAttributeString ("color", GetColorString (style.Value.CairoColor));
+				if (style.Value.GotBackgroundColorAssigned)
+					writer.WriteAttributeString ("bgColor", GetColorString (style.Value.CairoBackgroundColor));
+				if ((style.Value.ChunkProperties & (ChunkProperties.Bold | ChunkProperties.Italic)) != 0)
+					writer.WriteAttributeString ("weight", style.Value.ChunkProperties.ToString ());
+				writer.WriteEndElement ();
+			}
+			
+			writer.WriteEndElement ();
+			writer.Close ();
+		}
+		
+		public ColorSheme Clone ()
+		{
+			return (ColorSheme)MemberwiseClone ();
 		}
 		
 		public virtual void UpdateFromGtkStyle (Gtk.Style style)

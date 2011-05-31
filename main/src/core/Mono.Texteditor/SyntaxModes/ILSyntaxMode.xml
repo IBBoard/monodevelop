@@ -291,9 +291,11 @@
 	
 	<Keywords color = "keyword.type">
 		<Word>void</Word>
+		<Word>object</Word>
 		<Word>bool</Word>
 		<Word>char</Word>
 		<Word>wchar</Word>
+		<Word>string</Word>
 		<Word>int</Word>
 		<Word>int8</Word>
 		<Word>int16</Word>
@@ -318,8 +320,6 @@
 		<Word>virtual</Word>
 		<Word>refany</Word>
 		<Word>typedref</Word>
-		<Word>object</Word>
-		<Word>string</Word>
 		<Word>native</Word>
 		<Word>unsigned</Word>
 		<Word>value</Word>
@@ -327,7 +327,6 @@
 		<Word>class</Word>
 		<Word>const</Word>
 		<Word>vararg</Word>
-		<Word>default</Word>
 		<Word>stdcall</Word>
 		<Word>thiscall</Word>
 		<Word>fastcall</Word>
@@ -386,9 +385,6 @@
 		<Word>lasterr</Word>
 		<Word>winapi</Word>
 		<Word>cdecl</Word>
-		<Word>stdcall</Word>
-		<Word>thiscall</Word>
-		<Word>fastcall</Word>
 		<Word>as</Word>
 		<Word>pinned</Word>
 		<Word>modreq</Word>
@@ -396,6 +392,12 @@
 		<Word>serializable</Word>
 		<Word>at</Word>
 		<Word>tls</Word>
+		<Word>retargetable</Word>
+		<Word>x86</Word>
+		<Word>amd64</Word>
+		<Word>ia64</Word>
+		<Word>legacy</Word>
+		<Word>library</Word>
 	</Keywords>
 	
 	<Keywords color = "constant.language">
@@ -475,9 +477,6 @@
 		<Word>.hash</Word>
 		<Word>.assembly</Word>
 		<Word>implicitcom</Word>
-		<Word>noappdomain</Word>
-		<Word>noprocess</Word>
-		<Word>nomachine</Word>
 		<Word>.publickey</Word>
 		<Word>.publickeytoken</Word>
 		<Word>algorithm</Word>
@@ -560,6 +559,7 @@
 		<Word>.corflags</Word>
 		<Word>alignment</Word>
 		<Word>.imagebase</Word>
+		<Word>.stackreserve</Word>
 	</Keywords>
 
 
