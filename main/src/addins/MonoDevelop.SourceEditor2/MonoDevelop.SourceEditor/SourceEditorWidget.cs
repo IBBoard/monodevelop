@@ -935,13 +935,13 @@ namespace MonoDevelop.SourceEditor
 			MonoDevelop.SourceEditor.MessageBubbleTextMarker marker = null;
 			if (curLine != null && curLine.Markers.Any (m => m is MonoDevelop.SourceEditor.MessageBubbleTextMarker)) {
 				marker = (MonoDevelop.SourceEditor.MessageBubbleTextMarker)curLine.Markers.First (m => m is MonoDevelop.SourceEditor.MessageBubbleTextMarker);
-				marker.CollapseExtendedErrors = false;
+//				marker.CollapseExtendedErrors = false;
 				if (oldExpandedMarker == null)
 					Document.CommitLineToEndUpdate (Document.OffsetToLineNumber (curLine.Offset));
 			}
 			
 			if (oldExpandedMarker != null && oldExpandedMarker != marker) {
-				oldExpandedMarker.CollapseExtendedErrors = true;
+//				oldExpandedMarker.CollapseExtendedErrors = true;
 				int markerOffset = marker != null && marker.LineSegment != null ? marker.LineSegment.Offset : Int32.MaxValue;
 				int oldMarkerOffset = oldExpandedMarker.LineSegment != null ? oldExpandedMarker.LineSegment.Offset : Int32.MaxValue;
 				Document.CommitLineToEndUpdate (Document.OffsetToLineNumber (Math.Min (markerOffset, oldMarkerOffset)));
@@ -1551,7 +1551,7 @@ namespace MonoDevelop.SourceEditor
 			tasks.Clear ();
 			
 			foreach (var cmt in doc.TagComments) {
-				QuickTask newTask = new QuickTask (cmt.Text, cmt.Region.Start, QuickTaskSeverity.Todo);
+				QuickTask newTask = new QuickTask (cmt.Text, cmt.Region.Start, QuickTaskSeverity.Hint);
 				tasks.Add (newTask);
 			}
 			

@@ -153,10 +153,8 @@ namespace MonoDevelop.AnalysisCore.Gui
 				}
 			}
 			
-			if (Editor == null || Editor.Document == null) {
-				UpdateQuickTasks ();
-				return true;
-			}
+			if (Editor == null || Editor.Document == null) 
+				return false; // prevents endless idle loop
 			
 			//clear the old results out at the same rate we add in the new ones
 			for (int i = 0; oldMarkers > 0 && i < UPDATE_COUNT; i++) {
@@ -168,11 +166,10 @@ namespace MonoDevelop.AnalysisCore.Gui
 			int targetIndex = updateIndex + UPDATE_COUNT;
 			for (; updateIndex < targetIndex && updateIndex < currentResults.Count; updateIndex++) {
 				var marker = new ResultMarker (currentResults [updateIndex]);
-				marker.IsVisible = currentResults [updateIndex].IsVisible;
+				marker.IsVisible = currentResults [updateIndex].Underline;
 				Editor.Document.AddMarker (marker.Line, marker);
 				markers.Enqueue (marker);
 			}
-			UpdateQuickTasks ();
 			return true;
 		}
 		
@@ -221,24 +218,7 @@ namespace MonoDevelop.AnalysisCore.Gui
 		{
 			tasks.Clear ();
 			foreach (var result in GetResults ()) {
-				QuickTaskSeverity severity;
-				switch (result.Level) {
-				case MonoDevelop.AnalysisCore.ResultLevel.Error:
-					severity = QuickTaskSeverity.Error;
-					break;
-				case MonoDevelop.AnalysisCore.ResultLevel.Warning:
-					severity = QuickTaskSeverity.Warning;
-					break;
-				case MonoDevelop.AnalysisCore.ResultLevel.Suggestion:
-					severity = QuickTaskSeverity.Suggestion;
-					break;
-				case MonoDevelop.AnalysisCore.ResultLevel.Todo:
-					severity = QuickTaskSeverity.Todo;
-					break;
-				default:
-					throw new ArgumentOutOfRangeException ();
-				}
-				QuickTask newTask = new QuickTask (result.Message, result.Region.Start, severity);
+				var newTask = new QuickTask (result.Message, result.Region.Start, result.Level);
 				tasks.Add (newTask);
 			}
 			

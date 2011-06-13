@@ -32,6 +32,7 @@ using MonoDevelop.Ide.Gui;
 using System.Collections.Generic;
 using Gtk;
 using MonoDevelop.AnalysisCore.Gui;
+using MonoDevelop.SourceEditor;
 
 namespace MonoDevelop.AnalysisCore
 {
@@ -135,14 +136,15 @@ namespace MonoDevelop.AnalysisCore
 				foreach (var action in GetActions (doc, result)) {
 					if (firstAction) {
 						//FIXME: make this header item insensitive but not greyed out
-						infos.Add (new CommandInfo (result.Message, false, false) {
+						infos.Add (new CommandInfo (result.Message.Replace ("_", "__"), false, false) {
 							Icon = GetIcon (result.Level)
 						}, null);
 						firstAction = false;
 					}
+					var escapedLabel = action.Label.Replace ("_", "__");
 					var label = (mnemonic <= 10)
-						? "_" + (mnemonic++ % 10).ToString () + " " + action.Label
-						: "  " + action.Label;
+						? "_" + (mnemonic++ % 10).ToString () + " " + escapedLabel
+						: "  " + escapedLabel;
 					infos.Add (label, action);
 				}
 			}
@@ -156,14 +158,14 @@ namespace MonoDevelop.AnalysisCore
 						yield return action;
 		}
 		
-		static string GetIcon (ResultLevel severity)
+		static string GetIcon (QuickTaskSeverity severity)
 		{
 			switch (severity) {
-			case ResultLevel.Error:
+			case QuickTaskSeverity.Error:
 				return Gtk.Stock.DialogError;
-			case ResultLevel.Warning:
+			case QuickTaskSeverity.Warning:
 				return Gtk.Stock.DialogWarning;
-			case ResultLevel.Suggestion:
+			case QuickTaskSeverity.Hint:
 				return Gtk.Stock.Info;
 			default:
 				return null;

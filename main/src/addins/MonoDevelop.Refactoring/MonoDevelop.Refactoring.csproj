@@ -77,12 +77,9 @@
     <Compile Include="MonoDevelop.Refactoring.CreateClass\CreateClassCodeGenerator.cs" />
     <Compile Include="MonoDevelop.Refactoring.CreateClass\CreateStructCodeGenerator.cs" />
     <Compile Include="MonoDevelop.Refactoring.Rename\RenameHandler.cs" />
-    <Compile Include="MonoDevelop.Refactoring.MoveTypeToFile\MoveTypeToFileRefactoring.cs" />
-    <Compile Include="MonoDevelop.Refactoring.MoveTypeToFile\TypeFilterTransformer.cs" />
     <Compile Include="MonoDevelop.Refactoring\GotoDeclarationHandler.cs" />
     <Compile Include="MonoDevelop.Refactoring\FindReferencesHandler.cs" />
     <Compile Include="MonoDevelop.Refactoring\HelperMethods.cs" />
-    <Compile Include="MonoDevelop.Refactoring.IntroduceFormatItem\IntroduceFormatItemRefactoring.cs" />
     <Compile Include="MonoDevelop.CodeGeneration\GenerateCodeWindow.cs" />
     <Compile Include="gtk-gui\MonoDevelop.CodeGeneration.GenerateCodeWindow.cs" />
     <Compile Include="MonoDevelop.CodeGeneration\CodeGenerationCommands.cs" />
@@ -104,11 +101,7 @@
     <Compile Include="MonoDevelop.Refactoring.ImplementInterface\ImplementImplicit.cs" />
     <Compile Include="MonoDevelop.Refactoring.ImplementInterface\ImplementExplicit.cs" />
     <Compile Include="MonoDevelop.CodeGeneration\RaiseEventMethodGenerator.cs" />
-    <Compile Include="MonoDevelop.Refactoring.ConvertPropery\CreateBackingStore.cs" />
-    <Compile Include="MonoDevelop.Refactoring.ConvertPropery\RemoveBackingStore.cs" />
-    <Compile Include="MonoDevelop.Refactoring.ConvertPropery\PropertyVisitor.cs" />
     <Compile Include="MonoDevelop.CodeGeneration\NullCheckGenerator.cs" />
-    <Compile Include="MonoDevelop.Refactoring.MoveTypeToFile\TypeSearchVisitor.cs" />
     <Compile Include="MonoDevelop.Refactoring.ImplementInterface\ImplementAbstractMembers.cs" />
     <Compile Include="MonoDevelop.Refactoring\FindDerivedClassesHandler.cs" />
     <Compile Include="MonoDevelop.Refactoring.IntroduceConstant\IntroduceConstantHandler.cs" />
@@ -135,29 +128,32 @@
     <Compile Include="MonoDevelop.AnalysisCore\AnalysisService.cs" />
     <Compile Include="MonoDevelop.AnalysisCore\FixableResult.cs" />
     <Compile Include="MonoDevelop.AnalysisCore\Rules\Adaptors.cs" />
-    <Compile Include="MonoDevelop.AnalysisCore\Rules\NamingConventions.cs" />
     <Compile Include="MonoDevelop.AnalysisCore\Result.cs" />
     <Compile Include="MonoDevelop.AnalysisCore\RuleTree.cs" />
     <Compile Include="MonoDevelop.AnalysisCore\RuleTreeType.cs" />
-    <Compile Include="MonoDevelop.QuickFix\QuickFixEditorExtension.cs" />
-    <Compile Include="MonoDevelop.QuickFix\QuickFix.cs" />
-    <Compile Include="MonoDevelop.QuickFix\QuickFixWidget.cs" />
-    <Compile Include="MonoDevelop.QuickFix\AnalysisQuickFix.cs" />
     <Compile Include="MonoDevelop.AnalysisCore\Fixes\GenericFix.cs" />
+    <Compile Include="MonoDevelop.ContextAction\AnalysisContextAction.cs" />
+    <Compile Include="MonoDevelop.ContextAction\ContextAction.cs" />
+    <Compile Include="MonoDevelop.ContextAction\ContextActionEditorExtension.cs" />
+    <Compile Include="MonoDevelop.ContextAction\ContextActionWidget.cs" />
+    <Compile Include="MonoDevelop.ContextAction\ContextActionPanelWidget.cs" />
+    <Compile Include="gtk-gui\MonoDevelop.ContextAction.ContextActionPanelWidget.cs" />
+    <Compile Include="MonoDevelop.ContextAction\ContextActionAddinNode.cs" />
+    <Compile Include="MonoDevelop.Inspection\InspectorAddinNode.cs" />
+    <Compile Include="MonoDevelop.Inspection\InspectionPanelWidget.cs" />
+    <Compile Include="gtk-gui\MonoDevelop.Inspection.InspectionPanelWidget.cs" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="MonoDevelop.Refactoring\" />
     <Folder Include="MonoDevelop.Refactoring.Rename\" />
     <Folder Include="MonoDevelop.Refactoring.IntroduceConstant\" />
     <Folder Include="MonoDevelop.Refactoring.CreateClass\" />
-    <Folder Include="MonoDevelop.Refactoring.MoveTypeToFile\" />
-    <Folder Include="MonoDevelop.Refactoring.IntroduceFormatItem\" />
     <Folder Include="MonoDevelop.CodeGeneration\" />
     <Folder Include="MonoDevelop.Refactoring.RefactorImports\" />
     <Folder Include="MonoDevelop.Refactoring.ImplementInterface\" />
-    <Folder Include="MonoDevelop.Refactoring.ConvertPropery\" />
     <Folder Include="MonoDevelop.AnalysisCore\" />
-    <Folder Include="MonoDevelop.QuickFix\" />
+    <Folder Include="MonoDevelop.ContextAction\" />
+    <Folder Include="MonoDevelop.Inspection\" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="MonoDevelop.Refactoring.addin.xml">

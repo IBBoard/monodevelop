@@ -84,10 +84,10 @@ namespace MonoDevelop.CSharp.Completion
 			dom = Document.Dom;
 			textEditorData = Document.Editor;
 			
-			InitTracker ();
 			IEnumerable<string > types = MonoDevelop.Ide.DesktopService.GetMimeTypeInheritanceChain (CSharpFormatter.MimeType);
 			if (dom != null && dom.Project != null)
 				policy = dom.Project.Policies.Get<CSharpFormattingPolicy> (types);
+			InitTracker ();
 			UpdatePath (null, null);
 			textEditorData.Caret.PositionChanged += UpdatePath;
 			Document.DocumentParsed += HandleDocumentDocumentParsed;
@@ -922,7 +922,10 @@ namespace MonoDevelop.CSharp.Completion
 // Start calculating the parameter offset from the beginning of the
 // current member, instead of the beginning of the file. 
 			cpos = textEditorData.Caret.Offset - 1;
-			IMember mem = Document.ParsedDocument.CompilationUnit.GetMemberAt (textEditorData.Caret.Line, textEditorData.Caret.Column);
+			ParsedDocument parsedDocument = Document.ParsedDocument;
+			if (parsedDocument == null || parsedDocument.CompilationUnit == null)
+				return false;
+			IMember mem = parsedDocument.CompilationUnit.GetMemberAt (textEditorData.Caret.Line, textEditorData.Caret.Column);
 			if (mem == null || (mem is IType))
 				return false;
 			int startPos = GetMemberStartPosition (mem);
@@ -965,10 +968,9 @@ namespace MonoDevelop.CSharp.Completion
 		{
 			if (dom == null || (completionChar != '(' && completionChar != '<' && completionChar != '['))
 				return null;
-
+			stateTracker.UpdateEngine (completionContext.TriggerOffset);
 			if (stateTracker.Engine.IsInsideDocLineComment || stateTracker.Engine.IsInsideOrdinaryCommentOrString)
 				return null;
-
 			ExpressionResult result = FindExpression (dom, completionContext, -1);
 			if (result == null)
 				return null;
@@ -976,7 +978,6 @@ namespace MonoDevelop.CSharp.Completion
 
 			//DomLocation location = new DomLocation (completionContext.TriggerLine, completionContext.TriggerLineOffset - 2);
 			NRefactoryResolver resolver = CreateResolver ();
-
 			if (result.ExpressionContext is ExpressionContext.TypeExpressionContext)
 				result.ExpressionContext = new NewCSharpExpressionFinder (dom).FindExactContextForNewCompletion (textEditorData, Document.CompilationUnit, Document.FileName, resolver.CallingType) ?? result.ExpressionContext;
 			

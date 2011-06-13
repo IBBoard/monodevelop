@@ -1559,9 +1559,11 @@ namespace ICSharpCode.NRefactory.CSharp.Resolver
 			for (ITypeDefinition t = this.CurrentTypeDefinition; t != null; t = t.DeclaringTypeDefinition) {
 				if (k == 0) {
 					// look for type parameter with that name
-					foreach (ITypeParameter tp in t.TypeParameters) {
-						if (tp.Name == identifier)
-							return new TypeResolveResult(tp);
+					var typeParameters = t.TypeParameters;
+					// only look at type parameters defined directly on this type, not at those copied from outer classes
+					for (int i = (t.DeclaringTypeDefinition != null ? t.DeclaringTypeDefinition.TypeParameterCount : 0); i < typeParameters.Count; i++) {
+						if (typeParameters[i].Name == identifier)
+							return new TypeResolveResult(typeParameters[i]);
 					}
 				}
 				
@@ -1622,13 +1624,15 @@ namespace ICSharpCode.NRefactory.CSharp.Resolver
 						NamespaceResolveResult ns = u.ResolveNamespace(context);
 						if (ns != null) {
 							def = context.GetClass(ns.NamespaceName, identifier, k, StringComparer.Ordinal);
-							if (firstResult == null) {
-								if (k == 0)
-									firstResult = def;
-								else
-									firstResult = new ParameterizedType(def, typeArguments);
-							} else {
-								return new AmbiguousTypeResolveResult(firstResult);
+							if (def != null) {
+								if (firstResult == null) {
+									if (k == 0)
+										firstResult = def;
+									else
+										firstResult = new ParameterizedType(def, typeArguments);
+								} else {
+									return new AmbiguousTypeResolveResult(firstResult);
+								}
 							}
 						}
 					}
@@ -1637,10 +1641,14 @@ namespace ICSharpCode.NRefactory.CSharp.Resolver
 				}
 				// if we didn't find anything: repeat lookup with parent namespace
 			}
-			if (typeArguments.Count == 0)
-				return new UnknownIdentifierResolveResult(identifier);
-			else
+			if (typeArguments.Count == 0) {
+				if (identifier == "dynamic")
+					return new TypeResolveResult(SharedTypes.Dynamic);
+				else
+					return new UnknownIdentifierResolveResult(identifier);
+			} else {
 				return ErrorResult;
+			}
 		}
 		
 		/// <summary>
@@ -1761,9 +1769,9 @@ namespace ICSharpCode.NRefactory.CSharp.Resolver
 		{
 			return
 				from c in context.GetClasses(namespaceName, StringComparer.Ordinal)
-				where c.IsStatic
+				where c.IsStatic && c.HasExtensionMethods
 				from m in c.Methods
-				where (m.IsExtensionMethod)
+				where m.IsExtensionMethod
 				select m;
 		}
 		#endregion

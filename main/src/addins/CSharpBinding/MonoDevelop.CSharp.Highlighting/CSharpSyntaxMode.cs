@@ -41,6 +41,8 @@ using MonoDevelop.Ide.Gui;
 using MonoDevelop.Ide;
 using MonoDevelop.Ide.Tasks;
 using ICSharpCode.NRefactory.CSharp;
+using MonoDevelop.CSharp.ContextAction;
+using MonoDevelop.CSharp.Resolver;
 
 namespace MonoDevelop.CSharp.Highlighting
 {
@@ -79,7 +81,7 @@ namespace MonoDevelop.CSharp.Highlighting
 		
 		static void OnDisableConditionalCompilation (object s, MonoDevelop.Ide.Gui.DocumentEventArgs e)
 		{
-			CSharpSyntaxMode mode = e.Document.Editor.Document.SyntaxMode as CSharpSyntaxMode;
+			var mode = e.Document.Editor.Document.SyntaxMode as CSharpSyntaxMode;
 			if (mode == null)
 				return;
 			mode.DisableConditionalHighlighting = true;
@@ -88,7 +90,7 @@ namespace MonoDevelop.CSharp.Highlighting
 		
 		public CSharpSyntaxMode ()
 		{
-			ResourceXmlProvider provider = new ResourceXmlProvider (typeof(IXmlProvider).Assembly, typeof(IXmlProvider).Assembly.GetManifestResourceNames ().First (s => s.Contains ("CSharpSyntaxMode")));
+			var provider = new ResourceXmlProvider (typeof(IXmlProvider).Assembly, typeof(IXmlProvider).Assembly.GetManifestResourceNames ().First (s => s.Contains ("CSharpSyntaxMode")));
 			using (XmlReader reader = provider.Open ()) {
 				SyntaxMode baseMode = SyntaxMode.Read (reader);
 				this.rules = new List<Rule> (baseMode.Rules);
@@ -105,7 +107,6 @@ namespace MonoDevelop.CSharp.Highlighting
 			AddSemanticRule ("Comment", new HighlightUrlSemanticRule ("comment"));
 			AddSemanticRule ("XmlDocumentation", new HighlightUrlSemanticRule ("comment"));
 			AddSemanticRule ("String", new HighlightUrlSemanticRule ("string"));
-			AddSemanticRule (new HighlightCSharpSemanticRule ());
 		}
 		
 		public override SpanParser CreateSpanParser (Mono.TextEditor.Document doc, SyntaxMode mode, LineSegment line, CloneableStack<Span> spanStack)
@@ -194,8 +195,10 @@ namespace MonoDevelop.CSharp.Highlighting
 		protected class CSharpChunkParser : ChunkParser
 		{
 			HashSet<string> tags = new HashSet<string> ();
-			ParsedDocument parsedDocument;
+			MonoDevelop.Ide.Gui.Document document;
 			static HashSet<string> contextualKeywords = new HashSet<string> ();
+			NRefactoryResolver resolver;
+
 			
 			static CSharpChunkParser ()
 			{
@@ -215,53 +218,148 @@ namespace MonoDevelop.CSharp.Highlighting
 			
 			public CSharpChunkParser (SpanParser spanParser, Mono.TextEditor.Document doc, ColorSheme style, SyntaxMode mode, LineSegment line) : base (spanParser, doc, style, mode, line)
 			{
-				ProjectDom dom = ProjectDomService.GetProjectDom (IdeApp.ProjectOperations.CurrentSelectedProject);
-				parsedDocument = ProjectDomService.GetParsedDocument (dom, doc.FileName);
+				document = IdeApp.Workbench.GetDocument (doc.FileName);
 				
 				foreach (var tag in ProjectDomService.SpecialCommentTags) {
 					tags.Add (tag.Tag);
 				}
+				
+				ICSharpCode.OldNRefactory.Ast.CompilationUnit unit = null;
+				if (document != null && document.ParsedDocument != null && MonoDevelop.Core.PropertyService.Get ("EnableSemanticHighlighting", false)) {
+					resolver = document.GetResolver ();
+					if (!document.ParsedDocument.TryGetTag (out unit)) {
+						try {
+							using (ICSharpCode.OldNRefactory.IParser parser = ICSharpCode.OldNRefactory.ParserFactory.CreateParser (ICSharpCode.OldNRefactory.SupportedLanguage.CSharp, document.Editor.Document.OpenTextReader ())) {
+								parser.Parse ();
+								unit = parser.CompilationUnit;
+								document.ParsedDocument.SetTag (unit);
+							}
+						} catch (Exception) {
+							resolver = null;
+							return;
+						}
+					}
+					resolver.SetupParsedCompilationUnit (unit);
+				}
+			}
+			
+			string GetSemanticStyle (ParsedDocument parsedDocument, Chunk chunk, ref int endOffset)
+			{
+				var unit = parsedDocument.LanguageAST as ICSharpCode.NRefactory.CSharp.CompilationUnit;
+				if (unit == null)
+					return null;
+				
+				var loc = doc.OffsetToLocation (chunk.Offset);
+				if (contextualKeywords.Contains (wordbuilder.ToString ())) {
+					var node = unit.GetNodeAt (loc.Line, loc.Column);
+					if (node is Identifier) {
+						switch (((Identifier)node).Name) {
+						case "value":
+							// highlight 'value' in property setters and event add/remove
+							var n = node.Parent;
+							while (n != null) {
+								if (n is Accessor && n.Role != PropertyDeclaration.GetterRole)
+									return null;
+								n = n.Parent;
+							}
+							break;
+						case "var": 
+							if (node.Parent != null) {
+								var vds = node.Parent.Parent as VariableDeclarationStatement;
+								if (node.Parent.Parent is ForeachStatement && ((ForeachStatement)node.Parent.Parent).VariableType.StartLocation == node.StartLocation ||
+									vds != null && node.StartLocation == vds.Type.StartLocation)
+									return null;
+							}
+							break;
+						}
+					}
+					if (node is CSharpTokenNode) 
+						return null;
+					endOffset = doc.LocationToOffset (node.EndLocation.Line, node.EndLocation.Column);
+					return spanParser.CurSpan != null ? spanParser.CurSpan.Color : "text";
+				} else {
+					var type = unit.GetNodeAt<AstType> (loc.Line, loc.Column);
+					if (type is SimpleType) {
+						var st = (SimpleType)type;
+						if (st.IdentifierToken.Contains (loc.Line, loc.Column) && unit.GetNodeAt<UsingDeclaration> (loc.Line, loc.Column) == null) {
+							endOffset = doc.LocationToOffset (st.IdentifierToken.EndLocation.Line, st.IdentifierToken.EndLocation.Column);
+							return "keyword.semantic.type";
+						}
+						return null;
+					}
+					if (type is ICSharpCode.NRefactory.CSharp.MemberType) {
+						var mt = (ICSharpCode.NRefactory.CSharp.MemberType)type;
+						if (mt.MemberNameToken.Contains (loc.Line, loc.Column) && unit.GetNodeAt<UsingDeclaration> (loc.Line, loc.Column) == null) {
+							endOffset = doc.LocationToOffset (mt.MemberNameToken.EndLocation.Line, mt.MemberNameToken.EndLocation.Column);
+							return "keyword.semantic.type";
+						}
+						return null;
+					}
+					
+					var node = unit.GetNodeAt (loc.Line, loc.Column);
+					if (node is Identifier) {
+						if (node.Parent is TypeDeclaration && node.Role == TypeDeclaration.Roles.Identifier) {
+							endOffset = doc.LocationToOffset (node.EndLocation.Line, node.EndLocation.Column);
+							return "keyword.semantic.type";
+						}
+						
+						if (node.Parent is VariableInitializer && node.Parent.Parent is FieldDeclaration || node.Parent is FixedVariableInitializer || node.Parent is EnumMemberDeclaration) {
+							endOffset = doc.LocationToOffset (node.EndLocation.Line, node.EndLocation.Column);
+							return "keyword.semantic.field";
+						}
+					}
+					var identifierExpression = unit.GetNodeAt<IdentifierExpression> (loc.Line, loc.Column);
+					if (identifierExpression != null) {
+						var result = identifierExpression.ResolveExpression (document, resolver, loc);
+						if (result is MemberResolveResult) {
+							var member = ((MemberResolveResult)result).ResolvedMember;
+							if (member is IField) {
+								endOffset = doc.LocationToOffset (identifierExpression.EndLocation.Line, identifierExpression.EndLocation.Column);
+								return "keyword.semantic.field";
+							}
+							if (member == null && result.ResolvedType != null && !string.IsNullOrEmpty (result.ResolvedType.FullName)) {
+								endOffset = doc.LocationToOffset (identifierExpression.EndLocation.Line, identifierExpression.EndLocation.Column);
+								return "keyword.semantic.type";
+							}
+						}
+					}
+					
+					var memberReferenceExpression = unit.GetNodeAt<MemberReferenceExpression> (loc.Line, loc.Column);
+					if (memberReferenceExpression != null) {
+						if (!memberReferenceExpression.MemberNameToken.Contains (loc.Line, loc.Column)) 
+							return null;
+						
+						var result = memberReferenceExpression.ResolveExpression (document, resolver, loc);
+						if (result is MemberResolveResult) {
+							var member = ((MemberResolveResult)result).ResolvedMember;
+							if (member is IField) {
+								endOffset = doc.LocationToOffset (memberReferenceExpression.MemberNameToken.EndLocation.Line, memberReferenceExpression.MemberNameToken.EndLocation.Column);
+								return "keyword.semantic.field";
+							}
+							if (member == null && result.ResolvedType != null && !string.IsNullOrEmpty (result.ResolvedType.FullName)) {
+								endOffset = doc.LocationToOffset (memberReferenceExpression.MemberNameToken.EndLocation.Line, memberReferenceExpression.MemberNameToken.EndLocation.Column);
+								return "keyword.semantic.type";
+							}
+						}
+					}
+				}
+				return null;
 			}
 			
 			protected override void AddRealChunk (Chunk chunk)
 			{
-				if (contextualKeywords.Contains (wordbuilder.ToString ())) {
-					if (parsedDocument != null && parsedDocument.LanguageAST != null) {
-						var unit = parsedDocument.LanguageAST as ICSharpCode.NRefactory.CSharp.CompilationUnit;
-						var loc = doc.OffsetToLocation (chunk.Offset);
-						var node = unit.GetNodeAt (loc.Line, loc.Column);
-						if (node is Identifier) {
-							switch (((Identifier)node).Name) {
-							case "value":
-								// highlight 'value' in property setters and event add/remove
-								var n = node.Parent;
-								while (n != null) {
-									if (n is Accessor && n.Role != PropertyDeclaration.GetterRole) {
-										base.AddRealChunk (chunk);
-										return;
-									}
-									n = n.Parent;
-								}
-								break;
-							case "var": 
-								if (node.Parent != null) {
-									var vds = node.Parent.Parent as VariableDeclarationStatement;
-									if (node.Parent.Parent is ForeachStatement && ((ForeachStatement)node.Parent.Parent).VariableType.StartLocation == node.StartLocation ||
-										vds != null && node.StartLocation == vds.Type.StartLocation) {
-										base.AddRealChunk (chunk);
-										return;
-									}
-								}
-								break;
-							}
-						}
-						if (node is CSharpTokenNode) {
-							base.AddRealChunk (chunk);
+				var parsedDocument = document != null ? document.ParsedDocument : null;
+				if (parsedDocument != null && MonoDevelop.Core.PropertyService.Get ("EnableSemanticHighlighting", false)) {
+					int endLoc = -1;
+					string semanticStyle = GetSemanticStyle (parsedDocument, chunk, ref endLoc);
+					if (semanticStyle != null) {
+						if (endLoc < chunk.EndOffset) {
+							base.AddRealChunk (new Chunk (chunk.Offset, endLoc - chunk.Offset, semanticStyle));
+							AddRealChunk (new Chunk (endLoc, chunk.EndOffset - endLoc, chunk.Style));
 							return;
 						}
+						chunk.Style = semanticStyle;
 					}
-				
-					chunk.Style = spanParser.CurSpan != null ? spanParser.CurSpan.Color : "text";
 				}
 				
 				base.AddRealChunk (chunk);
@@ -292,9 +390,9 @@ namespace MonoDevelop.CSharp.Highlighting
 				{
 					var project = IdeApp.ProjectOperations.CurrentSelectedProject;
 					if (project != null) {
-						DotNetProjectConfiguration configuration = project.GetConfiguration (IdeApp.Workspace.ActiveConfiguration) as DotNetProjectConfiguration;
+						var configuration = project.GetConfiguration (IdeApp.Workspace.ActiveConfiguration) as DotNetProjectConfiguration;
 						if (configuration != null) {
-							CSharpCompilerParameters cparams = configuration.CompilationParameters as CSharpCompilerParameters;
+							var cparams = configuration.CompilationParameters as CSharpCompilerParameters;
 							if (cparams != null) {
 								string[] syms = cparams.DefineSymbols.Split (';', ',', ' ', '\t');
 								foreach (string s in syms) {
@@ -308,8 +406,8 @@ namespace MonoDevelop.CSharp.Highlighting
 						}
 					}
 					
-					ProjectDom dom = ProjectDomService.GetProjectDom (project);
-					ParsedDocument parsedDocument = ProjectDomService.GetParsedDocument (dom, doc.FileName);
+					var dom = ProjectDomService.GetProjectDom (project);
+					var parsedDocument = ProjectDomService.GetParsedDocument (dom, doc.FileName);
 /*					if (parsedDocument == null)
 						parsedDocument = ProjectDomService.ParseFile (dom, doc.FileName ?? "a.cs", delegate { return doc.Text; });*/
 					if (parsedDocument != null) {
@@ -385,8 +483,8 @@ namespace MonoDevelop.CSharp.Highlighting
 						spanStack.Pop ();
 					}
 					IfBlockSpan ifBlock = CurSpan as IfBlockSpan;
-					ElseIfBlockSpan elseIfBlock = CurSpan as ElseIfBlockSpan;
-					ElseBlockSpan elseBlockSpan = new ElseBlockSpan (!previousResult);
+					var elseIfBlock = CurSpan as ElseIfBlockSpan;
+					var elseBlockSpan = new ElseBlockSpan (!previousResult);
 					if (ifBlock != null) {
 						elseBlockSpan.Disabled = ifBlock.Disabled;
 					} else if (elseIfBlock != null) {
@@ -415,7 +513,7 @@ namespace MonoDevelop.CSharp.Highlighting
 					
 					foreach (Span span in spanStack) {
 						if (span is AbstractBlockSpan) {
-							AbstractBlockSpan parentBlock = (AbstractBlockSpan)span;
+							var parentBlock = (AbstractBlockSpan)span;
 							ifBlockSpan.Disabled = parentBlock.Disabled || !parentBlock.IsValid;
 							break;
 						}
@@ -459,13 +557,13 @@ namespace MonoDevelop.CSharp.Highlighting
 					FoundSpanBegin (elseIfBlockSpan, i, 0);
 					
 					// put pre processor eol span on stack, so that '#elif' gets the correct highlight
-					Span preprocessorSpan = CreatePreprocessorSpan ();
+					var preprocessorSpan = CreatePreprocessorSpan ();
 					FoundSpanBegin (preprocessorSpan, i, 0);
 					//i += length - 1;
 					return;
 				}
 				if (CurRule.Name == "<root>" &&  CurText[textOffset] == '#') {
-					Span preprocessorSpan = CreatePreprocessorSpan ();
+					var preprocessorSpan = CreatePreprocessorSpan ();
 					FoundSpanBegin (preprocessorSpan, i, 1);
 				}
 				base.ScanSpan (ref i);
@@ -473,7 +571,7 @@ namespace MonoDevelop.CSharp.Highlighting
 			
 			public static Span CreatePreprocessorSpan ()
 			{
-				Span result = new Span ();
+				var result = new Span ();
 				result.TagColor = "text.preprocessor";
 				result.Color = "text.preprocessor";
 				result.Rule = "String";

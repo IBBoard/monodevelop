@@ -24,6 +24,8 @@ FILES =  \
 	AssemblyInfo.cs \
 	gtk-gui/generated.cs \
 	gtk-gui/MonoDevelop.CodeGeneration.GenerateCodeWindow.cs \
+	gtk-gui/MonoDevelop.ContextAction.ContextActionPanelWidget.cs \
+	gtk-gui/MonoDevelop.Inspection.InspectionPanelWidget.cs \
 	gtk-gui/MonoDevelop.Refactoring.EncapsulateFieldDialog.cs \
 	gtk-gui/MonoDevelop.Refactoring.IntroduceConstant.IntroduceConstantDialog.cs \
 	gtk-gui/MonoDevelop.Refactoring.OverridesImplementsDialog.cs \
@@ -45,7 +47,6 @@ FILES =  \
 	MonoDevelop.AnalysisCore/Gui/ResultTooltipProvider.cs \
 	MonoDevelop.AnalysisCore/Result.cs \
 	MonoDevelop.AnalysisCore/Rules/Adaptors.cs \
-	MonoDevelop.AnalysisCore/Rules/NamingConventions.cs \
 	MonoDevelop.AnalysisCore/RuleTree.cs \
 	MonoDevelop.AnalysisCore/RuleTreeType.cs \
 	MonoDevelop.CodeGeneration/AbstractGenerateAction.cs \
@@ -62,13 +63,14 @@ FILES =  \
 	MonoDevelop.CodeGeneration/ReadonlyPropertyGenerator.cs \
 	MonoDevelop.CodeGeneration/ToStringGenerator.cs \
 	MonoDevelop.CodeGeneration/WriteLineGenerator.cs \
-	MonoDevelop.QuickFix/AnalysisQuickFix.cs \
-	MonoDevelop.QuickFix/QuickFix.cs \
-	MonoDevelop.QuickFix/QuickFixEditorExtension.cs \
-	MonoDevelop.QuickFix/QuickFixWidget.cs \
-	MonoDevelop.Refactoring.ConvertPropery/CreateBackingStore.cs \
-	MonoDevelop.Refactoring.ConvertPropery/PropertyVisitor.cs \
-	MonoDevelop.Refactoring.ConvertPropery/RemoveBackingStore.cs \
+	MonoDevelop.ContextAction/AnalysisContextAction.cs \
+	MonoDevelop.ContextAction/ContextAction.cs \
+	MonoDevelop.ContextAction/ContextActionAddinNode.cs \
+	MonoDevelop.ContextAction/ContextActionEditorExtension.cs \
+	MonoDevelop.ContextAction/ContextActionPanelWidget.cs \
+	MonoDevelop.ContextAction/ContextActionWidget.cs \
+	MonoDevelop.Inspection/InspectionPanelWidget.cs \
+	MonoDevelop.Inspection/InspectorAddinNode.cs \
 	MonoDevelop.Refactoring.CreateClass/CreateClassCodeGenerator.cs \
 	MonoDevelop.Refactoring.CreateClass/CreateStructCodeGenerator.cs \
 	MonoDevelop.Refactoring.ImplementInterface/ImplementAbstractMembers.cs \
@@ -79,10 +81,6 @@ FILES =  \
 	MonoDevelop.Refactoring.IntroduceConstant/IntroduceConstantDialog.cs \
 	MonoDevelop.Refactoring.IntroduceConstant/IntroduceConstantHandler.cs \
 	MonoDevelop.Refactoring.IntroduceConstant/IntroduceConstantRefactoring.cs \
-	MonoDevelop.Refactoring.IntroduceFormatItem/IntroduceFormatItemRefactoring.cs \
-	MonoDevelop.Refactoring.MoveTypeToFile/MoveTypeToFileRefactoring.cs \
-	MonoDevelop.Refactoring.MoveTypeToFile/TypeFilterTransformer.cs \
-	MonoDevelop.Refactoring.MoveTypeToFile/TypeSearchVisitor.cs \
 	MonoDevelop.Refactoring.RefactorImports/FindTypeReferencesVisitor.cs \
 	MonoDevelop.Refactoring.RefactorImports/RefactorImportsHandler.cs \
 	MonoDevelop.Refactoring.RefactorImports/RemoveUnusedImportsRefactoring.cs \

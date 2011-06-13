@@ -141,6 +141,7 @@ namespace MonoDevelop.SourceEditor.OptionPanels
 			new ColorMetaData ("marker.underline.error", GettextCatalog.GetString ("Error underline"), ColorsAvailable.Fg),
 			new ColorMetaData ("marker.underline.warning", GettextCatalog.GetString ("Warning underline"), ColorsAvailable.Fg),
 			new ColorMetaData ("marker.underline.suggestion", GettextCatalog.GetString ("Suggestion underline"), ColorsAvailable.Fg),
+			new ColorMetaData ("marker.underline.hint", GettextCatalog.GetString ("Hint underline"), ColorsAvailable.Fg),
 			
 			new ColorMetaData ("marker.template.primary_template", GettextCatalog.GetString ("Primary link (text link mode)"), ColorsAvailable.FgBg),
 			new ColorMetaData ("marker.template.secondary_template", GettextCatalog.GetString ("Secondary link (text link mode)"), ColorsAvailable.FgBg),
@@ -197,6 +198,7 @@ namespace MonoDevelop.SourceEditor.OptionPanels
 			new ColorMetaData ("string.other", GettextCatalog.GetString ("Other strings"), ColorsAvailable.Text),
 			
 			new ColorMetaData ("keyword.semantic.type", GettextCatalog.GetString ("Types (semantic)"), ColorsAvailable.Text),
+			new ColorMetaData ("keyword.semantic.field", GettextCatalog.GetString ("Field (semantic)"), ColorsAvailable.Text),
 			
 			new ColorMetaData ("keyword", GettextCatalog.GetString ("Keywords"), ColorsAvailable.Text),
 			new ColorMetaData ("keyword.access", GettextCatalog.GetString ("Access keywords"), ColorsAvailable.Text),

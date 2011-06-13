@@ -25,6 +25,7 @@
 // THE SOFTWARE.
 
 using Mono.TextEditor;
+using MonoDevelop.SourceEditor;
 
 namespace MonoDevelop.AnalysisCore.Gui
 {
@@ -56,14 +57,14 @@ namespace MonoDevelop.AnalysisCore.Gui
 		static string GetColor (Result result)
 		{
 			switch (result.Level) {
-			case ResultLevel.Error:
+			case QuickTaskSeverity.Error:
 				return Mono.TextEditor.Highlighting.ColorSheme.ErrorUnderlineString;
-			case ResultLevel.Warning:
+			case QuickTaskSeverity.Warning:
 				return Mono.TextEditor.Highlighting.ColorSheme.WarningUnderlineString;
-			case ResultLevel.Suggestion:
+			case QuickTaskSeverity.Suggestion:
 				return Mono.TextEditor.Highlighting.ColorSheme.SuggestionUnderlineString;
-			case ResultLevel.Todo:
-				return Mono.TextEditor.Highlighting.ColorSheme.DefaultString;
+			case QuickTaskSeverity.Hint:
+				return Mono.TextEditor.Highlighting.ColorSheme.HintUnderlineString;
 			default:
 				throw new System.ArgumentOutOfRangeException ();
 			}
@@ -74,44 +75,58 @@ namespace MonoDevelop.AnalysisCore.Gui
 			int markerStart = LineSegment.Offset + System.Math.Max (StartCol - 1, 0);
 			int markerEnd = LineSegment.Offset + (EndCol < 1 ? LineSegment.EditableLength : EndCol - 1);
 			if (markerEnd < startOffset || markerStart > endOffset) 
-				return; 
-	
-			double @from;
-			double to;
+				return;
+			
+			bool drawOverlay = result.Level == QuickTaskSeverity.Warning && result.Importance == ResultImportance.Low;
+			
+			if (drawOverlay && editor.IsSomethingSelected) {
+				var selectionRange = editor.SelectionRange;
+				if (selectionRange.Contains (markerStart) && selectionRange.Contains (markerEnd))
+					return;
+				if (selectionRange.Contains (markerEnd))
+					markerEnd = selectionRange.Offset;
+				if (selectionRange.Contains (markerStart))
+					markerStart = selectionRange.EndOffset;
+				if (markerEnd <= markerStart)
+					return;
+			}
+			
+			double drawFrom;
+			double drawTo;
 				
 			if (markerStart < startOffset && endOffset < markerEnd) {
-					@from = startXPos;
-				to = endXPos;
+				drawFrom = startXPos;
+				drawTo = endXPos;
 			} else {
 				int start = startOffset < markerStart ? markerStart : startOffset;
 				int end = endOffset < markerEnd ? endOffset : markerEnd;
 				int /*lineNr,*/ x_pos;
 				
 				x_pos = layout.IndexToPos (start - startOffset).X;
-					@from = startXPos + (int)(x_pos / Pango.Scale.PangoScale);
-	
+				drawFrom = startXPos + (int)(x_pos / Pango.Scale.PangoScale);
 				x_pos = layout.IndexToPos (end - startOffset).X;
 	
-				to = startXPos + (int)(x_pos / Pango.Scale.PangoScale);
+				drawTo = startXPos + (int)(x_pos / Pango.Scale.PangoScale);
 			}
-				@from = System.Math.Max (@from, editor.TextViewMargin.XOffset);
-			to = System.Math.Max (to, editor.TextViewMargin.XOffset);
-			if (@from >= to) {
+			
+			drawFrom = System.Math.Max (drawFrom, editor.TextViewMargin.XOffset);
+			drawTo = System.Math.Max (drawTo, editor.TextViewMargin.XOffset);
+			if (drawFrom >= drawTo)
 				return;
-			}
+			
 			double height = editor.LineHeight / 5;
 			cr.Color = ColorName == null ? Color : editor.ColorStyle.GetColorFromDefinition (ColorName);
-			if (result.Level == ResultLevel.Warning && result.Importance == ResultImportance.Low) {
-				cr.Rectangle (@from, y, to - from, editor.LineHeight);
+			if (drawOverlay) {
+				cr.Rectangle (drawFrom, y, drawTo - drawFrom, editor.LineHeight);
 				var color = editor.ColorStyle.Default.CairoBackgroundColor;
 				color.A = 0.6;
 				cr.Color = color;
 				cr.Fill ();
 			} else if (Wave) {	
-				Pango.CairoHelper.ShowErrorUnderline (cr, @from, y + editor.LineHeight - height, to - @from, height);
+				Pango.CairoHelper.ShowErrorUnderline (cr, drawFrom, y + editor.LineHeight - height, drawTo - drawFrom, height);
 			} else {
-				cr.MoveTo (@from, y + editor.LineHeight - 1);
-				cr.LineTo (to, y + editor.LineHeight - 1);
+				cr.MoveTo (drawFrom, y + editor.LineHeight - 1);
+				cr.LineTo (drawTo, y + editor.LineHeight - 1);
 				cr.Stroke ();
 			}
 		}

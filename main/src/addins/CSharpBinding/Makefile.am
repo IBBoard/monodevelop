@@ -32,28 +32,14 @@ REFS =  \
 FILES =  \
 	AssemblyInfo.cs \
 	gtk-gui/generated.cs \
-	gtk-gui/MonoDevelop.CSharp.Analysis.NamingConventionPanelWidget.cs \
-	gtk-gui/MonoDevelop.CSharp.Analysis.NamingConventionSettingsDialog.cs \
 	gtk-gui/MonoDevelop.CSharp.Formatting.CSharpFormattingPolicyPanelWidget.cs \
 	gtk-gui/MonoDevelop.CSharp.Formatting.CSharpFormattingProfileDialog.cs \
 	gtk-gui/MonoDevelop.CSharp.Formatting.NewFormattingProfileDialog.cs \
+	gtk-gui/MonoDevelop.CSharp.Inspection.NamingConventionPanelWidget.cs \
+	gtk-gui/MonoDevelop.CSharp.Inspection.NamingConventionSettingsDialog.cs \
 	gtk-gui/MonoDevelop.CSharp.Project.CodeGenerationPanelWidget.cs \
 	gtk-gui/MonoDevelop.CSharp.Project.CompilerOptionsPanelWidget.cs \
 	gtk-gui/MonoDevelop.CSharp.Refactoring.ExtractMethod.ExtractMethodDialog.cs \
-	MonoDevelop.CSharp.Analysis/CallGraph.cs \
-	MonoDevelop.CSharp.Analysis/CodeAnalysis.cs \
-	MonoDevelop.CSharp.Analysis/ConditionalToNullCoalescingInspector.cs \
-	MonoDevelop.CSharp.Analysis/CSharpInspector.cs \
-	MonoDevelop.CSharp.Analysis/CSharpNamingPolicy.cs \
-	MonoDevelop.CSharp.Analysis/NamingConventionPanelWidget.cs \
-	MonoDevelop.CSharp.Analysis/NamingConventionSettingsDialog.cs \
-	MonoDevelop.CSharp.Analysis/NamingInspector.cs \
-	MonoDevelop.CSharp.Analysis/NamingRule.cs \
-	MonoDevelop.CSharp.Analysis/NamingStyle.cs \
-	MonoDevelop.CSharp.Analysis/NotImplementedExceptionInspector.cs \
-	MonoDevelop.CSharp.Analysis/StringIsNullOrEmptyInspector.cs \
-	MonoDevelop.CSharp.Analysis/UnusedUsingInpector.cs \
-	MonoDevelop.CSharp.Analysis/UseVarKeywordInspector.cs \
 	MonoDevelop.CSharp.Completion/CompletionTextLinkMode.cs \
 	MonoDevelop.CSharp.Completion/CSharpTextEditorCompletion.cs \
 	MonoDevelop.CSharp.Completion/EventCreationCompletionData.cs \
@@ -62,6 +48,11 @@ FILES =  \
 	MonoDevelop.CSharp.Completion/NRefactoryIndexerParameterDataProvider.cs \
 	MonoDevelop.CSharp.Completion/NRefactoryParameterDataProvider.cs \
 	MonoDevelop.CSharp.Completion/NRefactoryTemplateParameterDataProvider.cs \
+	MonoDevelop.CSharp.ContextAction/Actions/MoveTypeToFile.cs \
+	MonoDevelop.CSharp.ContextAction/ContextActionExtensions.cs \
+	MonoDevelop.CSharp.ContextAction/ContextActionWrappers.cs \
+	MonoDevelop.CSharp.ContextAction/MDRefactoringContext.cs \
+	MonoDevelop.CSharp.ContextAction/MDRefactoringContextAction.cs \
 	MonoDevelop.CSharp.Formatting/CSharpFormatter.cs \
 	MonoDevelop.CSharp.Formatting/CSharpFormattingPolicy.cs \
 	MonoDevelop.CSharp.Formatting/CSharpFormattingPolicyPanel.cs \
@@ -76,30 +67,28 @@ FILES =  \
 	MonoDevelop.CSharp.Formatting/OnTheFlyFormatter.cs \
 	MonoDevelop.CSharp.Formatting/TextEditorDataAdapter.cs \
 	MonoDevelop.CSharp.Highlighting/CSharpSyntaxMode.cs \
-	MonoDevelop.CSharp.Highlighting/HighlightCSharpSemanticRule.cs \
 	MonoDevelop.CSharp.Highlighting/HighlightUsagesExtension.cs \
 	MonoDevelop.CSharp.Highlighting/MoveToUsagesHandler.cs \
+	MonoDevelop.CSharp.Inspection/CallGraph.cs \
+	MonoDevelop.CSharp.Inspection/CodeAnalysis.cs \
+	MonoDevelop.CSharp.Inspection/CSharpInspector.cs \
+	MonoDevelop.CSharp.Inspection/Inspectors/ConditionalToNullCoalescingInspector.cs \
+	MonoDevelop.CSharp.Inspection/Inspectors/NotImplementedExceptionInspector.cs \
+	MonoDevelop.CSharp.Inspection/Inspectors/StringIsNullOrEmptyInspector.cs \
+	MonoDevelop.CSharp.Inspection/Inspectors/UnusedUsingInspector.cs \
+	MonoDevelop.CSharp.Inspection/Inspectors/UseVarKeywordInspector.cs \
+	MonoDevelop.CSharp.Inspection/NamingInspection/CSharpNamingPolicy.cs \
+	MonoDevelop.CSharp.Inspection/NamingInspection/NamingConventionPanelWidget.cs \
+	MonoDevelop.CSharp.Inspection/NamingInspection/NamingConventionSettingsDialog.cs \
+	MonoDevelop.CSharp.Inspection/NamingInspection/NamingInspector.cs \
+	MonoDevelop.CSharp.Inspection/NamingInspection/NamingRule.cs \
+	MonoDevelop.CSharp.Inspection/NamingInspection/NamingStyle.cs \
 	MonoDevelop.CSharp.Parser/McsParser.cs \
 	MonoDevelop.CSharp.Project/CodeGenerationPanel.cs \
 	MonoDevelop.CSharp.Project/CompilerOptionsPanelWidget.cs \
 	MonoDevelop.CSharp.Project/CSharpCompilerParameters.cs \
 	MonoDevelop.CSharp.Project/CSharpProjectParameters.cs \
 	MonoDevelop.CSharp.Project/CSharpResourceIdBuilder.cs \
-	MonoDevelop.CSharp.QuickFix/AddAnotherAccessor.cs \
-	MonoDevelop.CSharp.QuickFix/CheckIfParameterIsNull.cs \
-	MonoDevelop.CSharp.QuickFix/ContextActionExtensions.cs \
-	MonoDevelop.CSharp.QuickFix/ConvertDecToHex.cs \
-	MonoDevelop.CSharp.QuickFix/ConvertForeachToFor.cs \
-	MonoDevelop.CSharp.QuickFix/ConvertHexToDec.cs \
-	MonoDevelop.CSharp.QuickFix/CreateEventInvocator.cs \
-	MonoDevelop.CSharp.QuickFix/CSharpQuickFix.cs \
-	MonoDevelop.CSharp.QuickFix/FlipOperatorArguments.cs \
-	MonoDevelop.CSharp.QuickFix/GenerateSwitchLabels.cs \
-	MonoDevelop.CSharp.QuickFix/InvertIf.cs \
-	MonoDevelop.CSharp.QuickFix/ReplaceEmptyString.cs \
-	MonoDevelop.CSharp.QuickFix/StringBuilderOutputFormatter.cs \
-	MonoDevelop.CSharp.QuickFix/UseExplicitType.cs \
-	MonoDevelop.CSharp.QuickFix/UseVarKeyword.cs \
 	MonoDevelop.CSharp.Refactoring/CreateMethod/CreateMethodCodeGenerator.cs \
 	MonoDevelop.CSharp.Refactoring/CreateMethod/CreateMethodHandler.cs \
 	MonoDevelop.CSharp.Refactoring/CSharpCodeGenerator.cs \

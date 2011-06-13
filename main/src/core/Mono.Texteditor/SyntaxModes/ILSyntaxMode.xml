@@ -287,6 +287,7 @@
 		<Word>ldelem.u8</Word>
 		<Word>ldc.i4.M1</Word>
 		<Word>endfault</Word>
+		<Word>mdtoken</Word>
 	</Keywords>
 	
 	<Keywords color = "keyword.type">
@@ -294,13 +295,16 @@
 		<Word>object</Word>
 		<Word>bool</Word>
 		<Word>char</Word>
-		<Word>wchar</Word>
 		<Word>string</Word>
 		<Word>int</Word>
 		<Word>int8</Word>
 		<Word>int16</Word>
 		<Word>int32</Word>
 		<Word>int64</Word>
+		<Word>uint8</Word>
+		<Word>uint16</Word>
+		<Word>uint32</Word>
+		<Word>uint64</Word>
 		<Word>float</Word>
 		<Word>float32</Word>
 		<Word>float64</Word>
@@ -331,6 +335,7 @@
 		<Word>thiscall</Word>
 		<Word>fastcall</Word>
 		<Word>unmanaged</Word>
+		<Word>callconv</Word>
 		<Word>not_in_gc_heap</Word>
 		<Word>beforefieldinit</Word>
 		<Word>instance</Word>
@@ -384,6 +389,7 @@
 		<Word>nomangle</Word>
 		<Word>lasterr</Word>
 		<Word>winapi</Word>
+		<Word>platformapi</Word>
 		<Word>cdecl</Word>
 		<Word>as</Word>
 		<Word>pinned</Word>
@@ -398,6 +404,7 @@
 		<Word>ia64</Word>
 		<Word>legacy</Word>
 		<Word>library</Word>
+		<Word>flags</Word>
 	</Keywords>
 	
 	<Keywords color = "constant.language">
@@ -416,7 +423,6 @@
 		<Word>.locals</Word>
 		<Word>.entrypoint</Word>
 		<Word>.zeroinit</Word>
-		<Word>.pdirect</Word>
 		<Word>.data</Word>
 
 		<Word>.event</Word>
@@ -435,6 +441,11 @@
 
 		<Word>.permission</Word>
 		<Word>.permissionset</Word>
+		<Word>.this</Word>
+		<Word>.base</Word>
+		<Word>.nester</Word>
+		<Word>.typelist</Word>
+		<Word>.mscorlib</Word>
 	</Keywords>
 	<Keywords color = "keyword.context">
 		<Word>request</Word>
@@ -476,17 +487,15 @@
 		<Word>nometadata</Word>
 		<Word>.hash</Word>
 		<Word>.assembly</Word>
-		<Word>implicitcom</Word>
 		<Word>.publickey</Word>
 		<Word>.publickeytoken</Word>
 		<Word>algorithm</Word>
 		<Word>.ver</Word>
 		<Word>.locale</Word>
+		<Word>.culture</Word>
 		<Word>extern</Word>
 		<Word>.export</Word>
-		<Word>.manifestres</Word>
 		<Word>.mresource</Word>
-		<Word>.localized</Word>
 		<Word>.module</Word>
 		
 		<!-- Field marshaling keywords -->

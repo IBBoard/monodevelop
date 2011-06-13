@@ -25,7 +25,16 @@
 	    <Addin id="Ide" version="2.6"/>
 	    <Addin id="Core" version="2.6"/>
 	    <Addin id="MacPlatform" version="2.6"/>
+	    <Addin id="DesignerSupport" version="2.6"/>
 	</Dependencies>
+	
+	<ExtensionPoint path = "/MonoDevelop/MacDev/ContextMenu/ProjectPad/NativeReferenceFolder">
+		<ExtensionNodeSet id="MonoDevelop.Components.Commands.ItemSet"/>
+	</ExtensionPoint>
+	
+	<ExtensionPoint path = "/MonoDevelop/MacDev/ContextMenu/ProjectPad/NativeReference">
+		<ExtensionNodeSet id="MonoDevelop.Components.Commands.ItemSet"/>
+	</ExtensionPoint>
 	
 	<Extension path = "/MonoDevelop/Core/MimeTypes">
 		<MimeType id="application/vnd.apple-plist" _description="Mac Property List" isText="false">
@@ -69,4 +78,42 @@
 			insertafter ="DefaultDisplayBinding"
 			class = "MonoDevelop.MacDev.XcodeInterfaceBuilderDisplayBinding" />
 	</Extension>
+	
+	<Extension path = "/MonoDevelop/Ide/Pads/ProjectPad">
+		<!--<NodeBuilder class = "MonoDevelop.MacDev.NativeReferences.ProjectFolderNodeBuilderExtension"/>-->
+		<NodeBuilder class = "MonoDevelop.MacDev.NativeReferences.ProjectNodeBuilder"/>
+		<NodeBuilder class = "MonoDevelop.MacDev.NativeReferences.NativeReferenceFolderNodeBuilder"/>
+		<NodeBuilder class = "MonoDevelop.MacDev.NativeReferences.NativeReferenceNodeBuilder"/>
+	</Extension>
+	
+	<Extension path = "/MonoDevelop/DesignerSupport/PropertyProviders" extension-nodes="Class">
+		<Class class = "MonoDevelop.MacDev.NativeReferences.NativeReferencePropertyProvider"/>
+	</Extension>
+	
+	<Extension path = "/MonoDevelop/ProjectModel/SerializableClasses">
+		<DataType class = "MonoDevelop.MacDev.NativeReferences.NativeReference" />
+	</Extension>
+	
+	<Extension path = "/MonoDevelop/Ide/Commands">
+		<Category _name = "Native Reference" id = "NativeReferences">
+		<Command id = "MonoDevelop.MacDev.NativeReferences.NativeReferenceCommands.Add"
+			_label = "Add Native Reference" />
+		</Category>
+	</Extension>
+		
+	<Extension path = "/MonoDevelop/Ide/ContextMenu/ProjectPad/Add">
+		<Condition id="ItemType" value="DotNetProject">
+			<SeparatorItem insertafter = "MonoDevelop.Ide.Commands.ProjectCommands.AddFiles" />
+			<CommandItem id = "MonoDevelop.MacDev.NativeReferences.NativeReferenceCommands.Add"/>
+		</Condition>
+	</Extension>
+	
+	<Extension path = "/MonoDevelop/MacDev/ContextMenu/ProjectPad/NativeReferenceFolder">
+		<CommandItem id = "MonoDevelop.MacDev.NativeReferences.NativeReferenceCommands.Add" />
+	</Extension>
+	
+	<Extension path = "/MonoDevelop/MacDev/ContextMenu/ProjectPad/NativeReference">
+		<CommandItem id = "MonoDevelop.Ide.Commands.EditCommands.Delete" />
+	</Extension>
+	
 </Addin>

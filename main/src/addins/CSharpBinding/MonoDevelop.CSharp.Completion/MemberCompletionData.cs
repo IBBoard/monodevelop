@@ -140,7 +140,6 @@ namespace MonoDevelop.CSharp.Completion
 		static bool HasNonMethodMembersWithSameName (MonoDevelop.Projects.Dom.IMember member)
 		{
 			var type = member.DeclaringType;
-			bool anyOverloadWithParameters = false;
 			foreach (var t in type.SourceProjectDom.GetInheritanceTree (type)) {
 				if (t.SearchMember (member.Name, true).Any (m => m.MemberType != MonoDevelop.Projects.Dom.MemberType.Method)) {
 					return true;
@@ -155,7 +154,7 @@ namespace MonoDevelop.CSharp.Completion
 			List<IType > accessibleExtTypes = DomType.GetAccessibleExtensionTypes (editorCompletion.Dom, editorCompletion.GetDocument ().CompilationUnit);
 			
 			foreach (var t in type.SourceProjectDom.GetInheritanceTree (type)) {
-				if (t.Methods.Concat (t.GetExtensionMethods (accessibleExtTypes)).Any (m => m.Name == method.Name && m.Parameters.Count > 0))
+				if (t.Methods.Concat (t.GetExtensionMethods (accessibleExtTypes, method.Name)).Any (m => m.Parameters.Count > 0))
 					return true;
 			}
 			return false;
@@ -168,7 +167,7 @@ namespace MonoDevelop.CSharp.Completion
 			int skipChars = 0;
 			bool runParameterCompletionCommand = false;
 			
-			if (!IsDelegateExpected && Member is IMethod /* && PropertyService.Get ("AutoInsertMatchingBracket", false) */&& !HasNonMethodMembersWithSameName ((IMember)Member)) {
+			if (keyChar == '(' && !IsDelegateExpected && Member is IMethod  && !HasNonMethodMembersWithSameName ((IMember)Member)) {
 				int pos;
 				if (SearchBracket (window.CodeCompletionContext.TriggerOffset + partialWord.Length, out pos)) {
 					window.CompletionWidget.SetCompletionText (window.CodeCompletionContext, partialWord, text);

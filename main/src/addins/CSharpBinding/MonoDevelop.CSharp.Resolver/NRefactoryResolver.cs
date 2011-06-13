@@ -93,7 +93,7 @@ namespace MonoDevelop.CSharp.Resolver
 				return unit;
 			}
 		}
-
+		
 		public static IType GetTypeAtCursor (IType outerType, string fileName, DomLocation position)
 		{
 			foreach (IType type in outerType.InnerTypes) {
@@ -189,9 +189,10 @@ namespace MonoDevelop.CSharp.Resolver
 					callingMember = GetMemberAt (callingType, fileName, posAbove);
 				}
 			}
-			if (memberCompilationUnit != null)
+			if (memberCompilationUnit != null) {
 				return;
-			if (callingMember != null && !setupLookupTableVisitor ) {
+			}
+			if (callingMember != null && !setupLookupTableVisitor) {
 				string wrapper = CreateWrapperClassForMember (callingMember, fileName, editor);
 				using (ICSharpCode.OldNRefactory.IParser parser = ICSharpCode.OldNRefactory.ParserFactory.CreateParser (lang, new StringReader (wrapper))) {
 					parser.Parse ();
@@ -473,8 +474,7 @@ namespace MonoDevelop.CSharp.Resolver
 			this.SetupResolver (resolvePosition);
 			ResolveVisitor visitor = new ResolveVisitor (this);
 			ResolveResult result;
-//			System.Console.WriteLine("expressionResult:" + expressionResult);
-
+			
 			if (unit != null && expressionResult.ExpressionContext == ExpressionContext.AttributeArguments) {
 				string attributeName = NewCSharpExpressionFinder.FindAttributeName (editor, unit, unit.FileName);
 				if (attributeName != null) {
@@ -811,18 +811,20 @@ namespace MonoDevelop.CSharp.Resolver
 						
 						QueryExpressionGroupClause grouBy = query.SelectOrGroupClause as QueryExpressionGroupClause;
 						DomLocation old = resolvePosition;
-						try {
-							resolvePosition = new DomLocation (lookupVariableLine + grouBy.Projection.StartLocation.Line, 
-							                                   grouBy.Projection.StartLocation.Column);
-							ResolveResult initializerResolve = visitor.Resolve (grouBy.Projection);
-							ResolveResult groupByResolve = visitor.Resolve (grouBy.GroupBy);
-							DomReturnType resolved = new DomReturnType (dom.GetType ("System.Linq.IGrouping", new IReturnType [] { 
-								DomType.GetComponentType (dom, initializerResolve.ResolvedType), groupByResolve.ResolvedType}));
-							varTypeUnresolved = varType = resolved;
-						} finally {
-							resolvePosition = old;
-						}
 						
+						if (grouBy != null && grouBy.Projection != null) {
+							try {
+								resolvePosition = new DomLocation (lookupVariableLine + grouBy.Projection.StartLocation.Line, 
+								                                   grouBy.Projection.StartLocation.Column);
+								ResolveResult initializerResolve = visitor.Resolve (grouBy.Projection);
+								ResolveResult groupByResolve = visitor.Resolve (grouBy.GroupBy);
+								DomReturnType resolved = new DomReturnType (dom.GetType ("System.Linq.IGrouping", new IReturnType [] { 
+									DomType.GetComponentType (dom, initializerResolve.ResolvedType), groupByResolve.ResolvedType}));
+								varTypeUnresolved = varType = resolved;
+							} finally {
+								resolvePosition = old;
+							}
+						}
 					} else if ((var.TypeRef == null || var.TypeRef.Type == "var" || var.TypeRef.IsNull)) {
 						if (var.ParentLambdaExpression != null) {
 							ResolveResult lambdaResolve = ResolveLambda (visitor, var.ParentLambdaExpression);
@@ -908,7 +910,7 @@ namespace MonoDevelop.CSharp.Resolver
 				foreach (IType type in dom.GetInheritanceTree (callingType)) {
 					members.AddRange (type.SearchMember (identifier, true));
 				}
-				bool includeProtected = true;
+//				bool includeProtected = true;
 				// filter members
 // be more gentle when resolving non accessible members - see: Bug 693949 - Create method uses the wrong type for param
 //				if (this.CallingMember != null) {

@@ -575,11 +575,10 @@ namespace MonoDevelop.CSharp.Resolver
 			List<IMember> member = new List<IMember> ();
 			List<IType> accessibleExtTypes = DomType.GetAccessibleExtensionTypes (resolver.Dom, resolver.Unit);
 			// Inheritance of extension methods is handled in DomType
-			foreach (IMethod method in type.GetExtensionMethods (accessibleExtTypes)) {
-				if (method.Name == memberReferenceExpression.MemberName) {
-					member.Add (method);
-				}
+			foreach (IMethod method in type.GetExtensionMethods (accessibleExtTypes, memberReferenceExpression.MemberName)) {
+				member.Add (method);
 			}
+			
 			bool includeProtected = true;
 			foreach (IType curType in resolver.Dom.GetInheritanceTree (type)) {
 				if (curType.ClassType == MonoDevelop.Projects.Dom.ClassType.Interface && type.ClassType != MonoDevelop.Projects.Dom.ClassType.Interface)
