@@ -139,8 +139,10 @@ namespace MonoDevelop.IPhone
 				args.Add (isSim? "-sim" : "-dev");
 				args.AddQuoted (conf.AppDirectory);
 				
-				foreach (string asm in assemblyRefs)
-					args.AddQuotedFormat ("-r={0}", asm);
+				foreach (string asm in assemblyRefs) {
+					args.Add ("-r");
+					args.AddQuoted (asm);
+				}
 				
 				IPhoneSdkVersion osVersion = IPhoneSdkVersion.V3_0;
 				try {
@@ -357,11 +359,15 @@ namespace MonoDevelop.IPhone
 				args.AddQuotedFormat ("-i18n={0}", conf.MtouchI18n);
 			}
 			
-			if (!sdkVersion.Equals (IPhoneSdkVersion.V3_0))
-				args.AddQuotedFormat ("-sdk={0}", sdkVersion);
+			if (!sdkVersion.Equals (IPhoneSdkVersion.V3_0)) {
+				args.Add ("-sdk");
+				args.AddQuoted (sdkVersion.ToString ());
+			}
 			
-			if (conf.MtouchMinimumOSVersion != "3.0")
-				args.AddQuotedFormat ("-targetver={0}", conf.MtouchMinimumOSVersion);
+			if (conf.MtouchMinimumOSVersion != "3.0") {
+				args.Add ("-targetver");
+				args.AddQuoted (conf.MtouchMinimumOSVersion);
+			}
 			
 			if (IPhoneSdks.MonoTouch.Version >= new IPhoneSdkVersion (3, 99)) {
 				if (conf.MtouchUseSGen)
@@ -383,24 +389,27 @@ namespace MonoDevelop.IPhone
 			
 			string mtouchExtraArgs = conf.MtouchExtraArgs;
 			var cb = new ProcessArgumentBuilder ();
-			if (BuildNativeReferenceFlags (cb, proj)) {
-				args.Add ("-gcc_flags");
+			bool hasCxx;
+			if (BuildNativeReferenceFlags (cb, proj, out hasCxx)) {
+				args.Add ("--gcc_flags");
 				if (!string.IsNullOrEmpty (mtouchExtraArgs)) {
 					string gccFlags = ExtractGccFlags (ref mtouchExtraArgs);
 					if (gccFlags != null)
 						cb.Add (gccFlags);
 				}
 				args.AddQuoted (cb.ToString ());
+				if (hasCxx)
+					args.Add ("--cxx");
 			}
 			
 			AddExtraArgs (args, conf.MtouchExtraArgs, proj, conf);
 		}
 		
-		static bool BuildNativeReferenceFlags (ProcessArgumentBuilder cb, IPhoneProject proj)
+		static bool BuildNativeReferenceFlags (ProcessArgumentBuilder cb, IPhoneProject proj, out bool hasCxx)
 		{
+			hasCxx = false;
 			bool hasNativeReferences = false;
 			var nativeRefs = proj.Items.GetAll<MonoDevelop.MacDev.NativeReferences.NativeReference> ();
-			//TODO: warn about bad native references
 			foreach (var item in nativeRefs) {
 				hasNativeReferences = true;
 				if (item.Kind == MonoDevelop.MacDev.NativeReferences.NativeReferenceKind.Static) {
@@ -409,9 +418,13 @@ namespace MonoDevelop.IPhone
 					cb.AddQuoted ("-l" + item.Path.FileNameWithoutExtension);
 					cb.Add ("-force_load");
 					cb.AddQuoted (item.Path);
+					if (item.IsCxx)
+						hasCxx = true;
 				} else if (item.Kind == MonoDevelop.MacDev.NativeReferences.NativeReferenceKind.Framework) {
 					cb.Add ("-framework");
 					cb.AddQuoted (item.Path.FileNameWithoutExtension);
+				} else {
+					//TODO: warn about bad native references
 				}
 			}
 			return hasNativeReferences;

@@ -81,10 +81,13 @@ namespace MonoDevelop.IPhone
 			} catch (IOException) {}
 			
 			var cb = new ProcessArgumentBuilder ();
-			cb.AddQuotedFormat ("-launchsim={0}", cmd.AppPath);
+			cb.Add ("-launchsim");
+			cb.AddQuoted (cmd.AppPath);
 			if (logSimOutput) {
-				cb.AddQuotedFormat ("-stderr={0}", errLog);
-				cb.AddQuotedFormat ("-stdout={0}", outLog);
+				cb.Add ("-stderr");
+				cb.AddQuoted (errLog);
+				cb.Add ("-stdout");
+				cb.AddQuoted (outLog);
 			}
 			
 			if (forceTarget != null) {
@@ -97,7 +100,8 @@ namespace MonoDevelop.IPhone
 				}
 				
 				if (!version.IsUseDefault)
-					cb.AddQuotedFormat ("-sdk={0}", forceTarget.Version);
+					cb.Add ("-sdk");
+					cb.AddQuoted (forceTarget.Version.ToString ());
 				
 				if (forceTarget.Device == TargetDevice.IPad)
 					cb.Add ("-device=2");
@@ -111,7 +115,7 @@ namespace MonoDevelop.IPhone
 			return psi;
 		}
 		
-		const string DoNotShowAgainKey = "DoNotShowAgain";
+		const string DO_NOT_SHOW_AGAIN_KEY = "DoNotShowAgain";
 
 		void TellUserToStartApplication ()
 		{
@@ -124,16 +128,16 @@ namespace MonoDevelop.IPhone
 				DefaultButton = 0,
 			};
 			
-			message.AddOption (DoNotShowAgainKey, GettextCatalog.GetString ("Do not show this message again"),
+			message.AddOption (DO_NOT_SHOW_AGAIN_KEY, GettextCatalog.GetString ("Do not show this message again"),
 			                   !IPhoneSettings.ShowStartOnDeviceMessage);
 			message.Buttons.Add (AlertButton.Ok);
 			MessageService.GenericAlert (message);
-			IPhoneSettings.ShowStartOnDeviceMessage = !message.GetOptionValue (DoNotShowAgainKey);
+			IPhoneSettings.ShowStartOnDeviceMessage = !message.GetOptionValue (DO_NOT_SHOW_AGAIN_KEY);
 		}
 		
 		public IProcessAsyncOperation Execute (ExecutionCommand command, IConsole console)
 		{
-			IPhoneExecutionCommand cmd = (IPhoneExecutionCommand) command;
+			var cmd = (IPhoneExecutionCommand) command;
 			if (!cmd.Simulator) {
 				if (IPhoneSettings.ShowStartOnDeviceMessage) {
 					Gtk.Application.Invoke (delegate {
@@ -203,7 +207,7 @@ namespace MonoDevelop.IPhone
 			FileStream fs = null;
 			try {
 				fs = File.Open (file, FileMode.OpenOrCreate, FileAccess.Read, FileShare.ReadWrite);
-				byte[] buffer = new byte [1024];
+				var buffer = new byte [1024];
 				var encoding = System.Text.Encoding.UTF8;
 				while (!finish) {
 					Thread.Sleep (500);
