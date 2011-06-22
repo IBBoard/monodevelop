@@ -528,13 +528,13 @@ namespace MonoDevelop.Projects.Formats.MSBuild
 						else if (asm == "system")
 							asm = "System";
 						pref = new ProjectReference (ReferenceType.Gac, asm);
+						pref.LocalCopy = false;
 					}
 					pref.Condition = buildItem.Condition;
 					string specificVersion = buildItem.GetMetadata ("SpecificVersion");
-					if (string.IsNullOrWhiteSpace(specificVersion)) {
+					if (string.IsNullOrWhiteSpace (specificVersion)) {
 						// If the SpecificVersion element isn't present, check if the Assembly Reference specifies a Version
-						int commaPos = buildItem.Include.IndexOf(",");
-						pref.SpecificVersion = (commaPos != -1) && buildItem.Include.Substring(commaPos).Contains("Version");
+						pref.SpecificVersion = ReferenceStringHasVersion (buildItem.Include);
 					}
 					else {
 						bool value;
@@ -570,6 +570,12 @@ namespace MonoDevelop.Projects.Formats.MSBuild
 			ReadBuildItemMetadata (ser, buildItem, uitem, typeof(UnknownProjectItem));
 			
 			return uitem;
+		}
+		
+		bool ReferenceStringHasVersion (string asmName)
+		{
+			int commaPos = asmName.IndexOf (',');
+			return commaPos >= 0 && asmName.IndexOf ("Version", commaPos) >= 0;
 		}
 
 		bool IsValidFile (string path)
@@ -1082,7 +1088,7 @@ namespace MonoDevelop.Projects.Formats.MSBuild
 						include = include.Substring (0, i).Trim ();
 				}
 				buildItem = AddOrGetBuildItem (msproject, oldItems, "Reference", include);
-				if (!pref.SpecificVersion)
+				if (!pref.SpecificVersion && ReferenceStringHasVersion (include))
 					buildItem.SetMetadata ("SpecificVersion", "False");
 				else
 					buildItem.UnsetMetadata ("SpecificVersion");
