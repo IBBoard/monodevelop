@@ -244,7 +244,7 @@ namespace Mono.TextEditor
 						i++;
 					goto case '\n';
 				case '\n':
-					sb.Append (Options.DefaultEolMarker);
+					sb.Append (EolMarker);
 					loc.Line++;
 					loc.Column = 0;
 					break;
