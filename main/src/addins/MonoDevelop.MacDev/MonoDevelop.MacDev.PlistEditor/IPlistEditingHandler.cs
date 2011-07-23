@@ -1,10 +1,10 @@
 // 
-// MsNetTargetRuntimeFactory.cs
+// IPlistEditingHandler.cs
 //  
 // Author:
-//       Lluis Sanchez Gual <lluis@novell.com>
+//       Michael Hutchinson <mhutch@xamarin.com>
 // 
-// Copyright (c) 2009 Novell, Inc (http://www.novell.com)
+// Copyright (c) 2011 Xamarin Inc. (http://xamarin.com)
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,24 +25,28 @@
 // THE SOFTWARE.
 
 using System;
-using System.IO;
-using MonoDevelop.Core.AddIns;
+using System.Collections.Generic;
+using MonoDevelop.Projects;
 
-namespace MonoDevelop.Core.Assemblies
+namespace MonoDevelop.MacDev.PlistEditor
 {
-	public class MsNetTargetRuntimeFactory: ITargetRuntimeFactory
+	public interface IPlistEditingHandler
 	{
-		public System.Collections.Generic.IEnumerable<TargetRuntime> CreateRuntimes ()
+		bool CanHandle (Project project, string projectVirtualPath);
+		IEnumerable<PlistEditingSection> GetSections (Project project, PDictionary dictionary);
+	}
+	
+	public class PlistEditingSection
+	{
+		public PlistEditingSection (string name, Gtk.Widget widget)
 		{
-			if (!Platform.IsWindows)
-				yield break;
-			if (Type.GetType ("Mono.Runtime") == null) {
-				yield return new MsNetTargetRuntime (true);
-			} else {
-				string msnetDir = Environment.SystemDirectory + "\\..\\Microsoft.NET\\Framework";
-				if (Directory.Exists (msnetDir))
-					yield return new MsNetTargetRuntime (false);
-			}
+			this.Name = name;
+			this.Widget = widget;
 		}
+		
+		public string Name { get; private set; }
+		public Gtk.Widget Widget { get; private set; }
+		public bool IsAdvanced { get; set; }
+		public Func<PDictionary,bool> CheckVisible { get; set; }
 	}
 }

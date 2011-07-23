@@ -1,10 +1,10 @@
 // 
-// PlainPListEditorViewContent.cs
+// Platform.cs
 //  
 // Author:
-//       Mike Krüger <mkrueger@xamarin.com>
+//       Michael Hutchinson <mhutch@xamarin.com>
 // 
-// Copyright (c) 2011 Xamarin <http://xamarin.com>
+// Copyright (c) 2011 Xamarin Inc. (http://xamarin.com)
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -23,49 +23,46 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-using System;
-using MonoDevelop.Ide.Gui;
-using MonoDevelop.Core;
-using MonoDevelop.Projects;
-using MonoDevelop.Ide;
-using MonoMac.Foundation;
 
-namespace MonoDevelop.MacDev.PlistEditor
+using System;
+using System.Runtime.InteropServices;
+using System.IO;
+using System.Text;
+
+namespace MonoDevelop.Core
 {
-	public class PlainPListEditorViewContent : AbstractViewContent
+	public static class Platform
 	{
-		CustomPropertiesWidget widget;
+		public readonly static bool IsWindows;
+		public readonly static bool IsMac;
 		
-		public override Gtk.Widget Control {
-			get {
-				return widget;
-			}
+		static Platform ()
+		{
+			IsWindows = Path.DirectorySeparatorChar == '\\';
+			IsMac = !IsWindows && IsRunningOnMac ();
 		}
 		
-		public PlainPListEditorViewContent ()
+		//From Managed.Windows.Forms/XplatUI
+		static bool IsRunningOnMac ()
 		{
-			widget = new CustomPropertiesWidget ();
-		}
-		
-		public override void Load (string fileName)
-		{
-			ContentName = fileName;
-			this.IsDirty = false;
-			
-			widget.NSDictionary = PDictionary.Load (fileName);
-			widget.NSDictionary.Changed += (sender, e) => IsDirty = true;
-		}
-		
-		public override void Save (string fileName)
-		{
-			this.IsDirty = false;
-			ContentName = fileName;
+			IntPtr buf = IntPtr.Zero;
 			try {
-				widget.NSDictionary.Save (fileName);
-			} catch (Exception e) {
-				MessageService.ShowException (e, GettextCatalog.GetString ("Error while writing plist"));
+				buf = Marshal.AllocHGlobal (8192);
+				// This is a hacktastic way of getting sysname from uname ()
+				if (uname (buf) == 0) {
+					string os = System.Runtime.InteropServices.Marshal.PtrToStringAnsi (buf);
+					if (os == "Darwin")
+						return true;
+				}
+			} catch {
+			} finally {
+				if (buf != IntPtr.Zero)
+					System.Runtime.InteropServices.Marshal.FreeHGlobal (buf);
 			}
+			return false;
 		}
+		
+		[DllImport ("libc")]
+		static extern int uname (IntPtr buf);
 	}
 }
-

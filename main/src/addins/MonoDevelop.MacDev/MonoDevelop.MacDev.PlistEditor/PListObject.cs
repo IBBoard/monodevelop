@@ -55,7 +55,18 @@ namespace MonoDevelop.MacDev.PlistEditor
 		
 		public void Replace (PObject newObject)
 		{
-			// TODO
+			var p = Parent;
+			if (p is PDictionary) {
+				var dict = (PDictionary)p;
+				var key = dict.GetKey (this);
+				if (key == null)
+					return;
+				Remove ();
+				dict[key] = newObject;
+			} else if (p is PArray) {
+				var arr = (PArray)p;
+				arr.Replace (this, newObject);
+			}
 		}
 		
 		public string Key {
@@ -121,6 +132,9 @@ namespace MonoDevelop.MacDev.PlistEditor
 		
 		protected virtual void OnChanged (EventArgs e)
 		{
+			if (SuppressChangeEvents)
+				return;
+			
 			EventHandler handler = this.Changed;
 			if (handler != null)
 				handler (this, e);
@@ -128,6 +142,8 @@ namespace MonoDevelop.MacDev.PlistEditor
 			if (Parent != null)
 				Parent.OnChanged (e);
 		}
+		
+		internal bool SuppressChangeEvents;
 		
 		public event EventHandler Changed;
 	}
@@ -169,6 +185,7 @@ namespace MonoDevelop.MacDev.PlistEditor
 	public class PDictionary : PObject, IEnumerable<KeyValuePair<string, PObject>>
 	{
 		Dictionary<string, PObject> dict;
+		List<string> order;
 		
 		public override string TypeString {
 			get {
@@ -182,28 +199,44 @@ namespace MonoDevelop.MacDev.PlistEditor
 			}
 			set {
 				value.Parent = this;
+				if (!dict.ContainsKey (key))
+					order.Add (key);
 				dict[key] = value;
 				QueueRebuild ();
 			}
 		}
-
+		
+		public void Add (string key, PObject value)
+		{
+			dict.Add (key, value);
+			order.Add (key);
+		}
+		
+		public int Count {
+			get {
+				return dict.Count;
+			}
+		}
+		
 		#region IEnumerable[KeyValuePair[System.String,PObject]] implementation
 		public IEnumerator<KeyValuePair<string, PObject>> GetEnumerator ()
 		{
-			return dict.GetEnumerator ();
+			foreach (var key in order)
+				yield return new KeyValuePair<string, PObject> (key, dict[key]);
 		}
 		#endregion
 
 		#region IEnumerable implementation
 		System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator ()
 		{
-			return ((System.Collections.IEnumerable)dict).GetEnumerator ();
+			return GetEnumerator ();
 		}
 		#endregion
 		
 		public PDictionary ()
 		{
 			dict = new Dictionary<string, PObject> ();
+			order = new List<string> ();
 		}
 
 		public bool ContainsKey (string name)
@@ -213,7 +246,31 @@ namespace MonoDevelop.MacDev.PlistEditor
 
 		public bool Remove (string key)
 		{
-			return dict.Remove (key);
+			if (dict.Remove (key)) {
+				order.Remove (key);
+				return true;
+			}
+			return false;
+		}
+
+		public bool ChangeKey (PObject obj, string newKey)
+		{
+			var oldkey = GetKey (obj);
+			if (oldkey == null || dict.ContainsKey (newKey))
+				return false;
+			dict.Remove (oldkey);
+			dict.Add (newKey, obj);
+			order[order.IndexOf (oldkey)] = newKey;
+			return true;
+		}
+
+		public string GetKey (PObject obj)
+		{
+			foreach (var pair in dict) {
+				if (pair.Value == obj)
+					return pair.Key;
+			}
+			return null;
 		}
 		
 		public T Get<T> (string key) where T : PObject
@@ -222,6 +279,24 @@ namespace MonoDevelop.MacDev.PlistEditor
 			if (!dict.TryGetValue (key, out obj))
 				return default(T);
 			return (T)obj;
+		}
+		
+		
+		public bool TryGetValue<T> (string key, out T value) where T : PObject
+		{
+			PObject obj = null;
+			if (!dict.TryGetValue (key, out obj)) {
+				value = default(T);
+				return false;
+			}
+			
+			if (!(obj is T)) {
+				value = default(T);
+				return false;
+			}
+			
+			value = (T)obj;
+			return true;
 		}
 		
 		
@@ -241,29 +316,54 @@ namespace MonoDevelop.MacDev.PlistEditor
 			List<NSObject> objs = new List<NSObject> ();
 			List<NSObject> keys = new List<NSObject> ();
 			
-			foreach (var pair in dict) {
-				var val = pair.Value.Convert ();
+			foreach (var key in order) {
+				var val = dict[key].Convert ();
 				objs.Add (val);
-				keys.Add (new NSString (pair.Key));
+				keys.Add (new NSString (key));
 			}
 			return NSDictionary.FromObjectsAndKeys (objs.ToArray (), keys.ToArray ());
 		}
 		
 		public void Save (string fileName)
 		{
-			var dict = (NSDictionary)Convert ();
-			dict.WriteToFile (fileName, false);
+			using (new NSAutoreleasePool ()) {
+				var dict = (NSDictionary)Convert ();
+				dict.WriteToFile (fileName, false);
+			}
 		}
 		
 		public static PDictionary Load (string fileName)
 		{
-			var dict = NSDictionary.FromFile (fileName);
-			return (PDictionary)Conv (dict);
+			using (new NSAutoreleasePool ()) {
+				var dict = NSDictionary.FromFile (fileName);
+				return (PDictionary)Conv (dict);
+			}
+		}
+		
+		public void Reload (string fileName)
+		{
+			var pool = new NSAutoreleasePool ();
+			SuppressChangeEvents = true;
+			try {
+				dict.Clear ();
+				order.Clear ();
+				var nsd = NSDictionary.FromFile (fileName);
+				foreach (var pair in nsd) {
+					string k = pair.Key.ToString ();
+					this[k] = Conv (pair.Value);
+				}
+			} finally {
+				SuppressChangeEvents = false;
+				pool.Dispose ();
+			}
+			OnChanged (EventArgs.Empty);
 		}
 		
 		static IntPtr selObjCType = MonoMac.ObjCRuntime.Selector.GetHandle ("objCType");
 		static PObject Conv (NSObject val)
 		{
+			if (val == null)
+				return null;
 			if (val is NSDictionary) {
 				var result = new PDictionary ();
 				foreach (var pair in (NSDictionary)val) {
@@ -381,6 +481,18 @@ namespace MonoDevelop.MacDev.PlistEditor
 		{
 			obj.Parent = this;
 			list.Add (obj);
+		}
+
+		public void Replace (PObject oldObj, PObject newObject)
+		{
+			for (int i = 0; i < Count; i++) {
+				if (list[i] == oldObj) {
+					newObject.Parent = this;
+					list[i] = newObject;
+					QueueRebuild ();
+					break;
+				}
+			}
 		}
 		
 		public void Remove (PObject obj)
@@ -511,6 +623,12 @@ namespace MonoDevelop.MacDev.PlistEditor
 		{
 			throw new NotSupportedException ();
 		}
+		
+		public override void RenderValue (CustomPropertiesWidget widget, CellRendererCombo renderer)
+		{
+			renderer.Sensitive = false;
+			renderer.Text = string.Format ("byte[{0}]", Value != null ? Value.Length : 0);
+		}
 	}
 	
 	public class PDate : PValueObject<DateTime>
@@ -574,10 +692,14 @@ namespace MonoDevelop.MacDev.PlistEditor
 		
 		public PString (string value) : base(value)
 		{
+			if (value == null)
+				throw new ArgumentNullException ("value");
 		}
 		
 		public override void SetValue (string text)
 		{
+			if (text == null)
+				throw new ArgumentNullException ("text");
 			Value = text;
 		}
 		
@@ -589,10 +711,10 @@ namespace MonoDevelop.MacDev.PlistEditor
 		public override void RenderValue (CustomPropertiesWidget widget, CellRendererCombo renderer)
 		{
 			renderer.Sensitive = true;
-			var key = Parent != null ? widget.Scheme.GetKey (Parent.Key) : null;
+			var key = Parent != null? widget.Scheme.GetKey (Parent.Key) : null;
 			if (key != null) {
 				var val = key.Values.FirstOrDefault (v => v.Identifier == Value);
-				if (val != null) {
+				if (val != null && widget.ShowDescriptions) {
 					renderer.Text = GettextCatalog.GetString (val.Description);
 					return;
 				}
