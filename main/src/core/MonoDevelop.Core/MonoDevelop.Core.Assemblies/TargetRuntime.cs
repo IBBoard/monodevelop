@@ -51,7 +51,8 @@ namespace MonoDevelop.Core.Assemblies
 		object initLock = new object ();
 		object initEventLock = new object ();
 		bool initialized;
-		TargetFrameworkBackend[] frameworkBackends;
+		Dictionary<TargetFrameworkMoniker,TargetFrameworkBackend> frameworkBackends
+			= new Dictionary<TargetFrameworkMoniker, TargetFrameworkBackend> ();
 		
 		RuntimeAssemblyContext assemblyContext;
 		ComposedAssemblyContext composedAssemblyContext;
@@ -71,6 +72,10 @@ namespace MonoDevelop.Core.Assemblies
 			Runtime.ShuttingDown += delegate {
 				ShuttingDown = true;
 			};
+		}
+		
+		public bool IsInitialized {
+			get { return initialized; }
 		}
 		
 		internal void StartInitialization ()
@@ -275,13 +280,10 @@ namespace MonoDevelop.Core.Assemblies
 		
 		protected TargetFrameworkBackend GetBackend (TargetFramework fx)
 		{
-			if (frameworkBackends == null)
-				frameworkBackends = new TargetFrameworkBackend [TargetFramework.FrameworkCount];
-			else if (fx.Index >= frameworkBackends.Length)
-				Array.Resize (ref frameworkBackends, TargetFramework.FrameworkCount);
-			
-			TargetFrameworkBackend backend = frameworkBackends [fx.Index];
-			if (backend == null) {
+			lock (frameworkBackends) {
+				TargetFrameworkBackend backend;
+				if (frameworkBackends.TryGetValue (fx.Id, out backend))
+					return backend;
 				backend = fx.CreateBackendForRuntime (this);
 				if (backend == null) {
 					backend = CreateBackend (fx);
@@ -289,9 +291,9 @@ namespace MonoDevelop.Core.Assemblies
 						backend = new NotSupportedFrameworkBackend ();
 				}
 				backend.Initialize (this, fx);
-				frameworkBackends [fx.Index] = backend;
+				frameworkBackends[fx.Id] = backend;
+				return backend;
 			}
-			return backend;
 		}
 		
 		protected virtual TargetFrameworkBackend CreateBackend (TargetFramework fx)
@@ -501,26 +503,6 @@ namespace MonoDevelop.Core.Assemblies
 
 		void CreateFrameworks ()
 		{
-			if ((SystemAssemblyService.UpdateExpandedFrameworksFile || !SystemAssemblyService.UseExpandedFrameworksFile)) {
-				// Read the assembly versions
-				foreach (TargetFramework fx in Runtime.SystemAssemblyService.GetTargetFrameworks ()) {
-					if (IsInstalled (fx)) {
-						IEnumerable<string> dirs = GetFrameworkFolders (fx);
-						foreach (AssemblyInfo assembly in fx.Assemblies) {
-							foreach (string dir in dirs) {
-								string file = Path.Combine (dir, assembly.Name) + ".dll";
-								if (File.Exists (file)) {
-									if ((assembly.Version == null || SystemAssemblyService.UpdateExpandedFrameworksFile) && IsRunning) {
-										System.Reflection.AssemblyName aname = SystemAssemblyService.GetAssemblyNameObj (file);
-										assembly.Update (aname);
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-			
 			var frameworks = new HashSet<TargetFrameworkMoniker> ();
 			
 			foreach (TargetFramework fx in Runtime.SystemAssemblyService.GetCoreFrameworks ()) {
@@ -537,10 +519,6 @@ namespace MonoDevelop.Core.Assemblies
 					timer.Trace ("Registering assemblies for framework " + fx.Id);
 					RegisterSystemAssemblies (fx);
 				}
-			}
-			
-			if (SystemAssemblyService.UpdateExpandedFrameworksFile && IsRunning) {
-				Runtime.SystemAssemblyService.SaveGeneratedFrameworkInfo ();
 			}
 		}
 		
@@ -560,7 +538,7 @@ namespace MonoDevelop.Core.Assemblies
 				foreach (string dir in dirs) {
 					string file = Path.Combine (dir, assembly.Name) + ".dll";
 					if (File.Exists (file)) {
-						if ((assembly.Version == null || SystemAssemblyService.UpdateExpandedFrameworksFile) && IsRunning) {
+						if (assembly.Version == null && IsRunning) {
 							try {
 								System.Reflection.AssemblyName aname = SystemAssemblyService.GetAssemblyNameObj (file);
 								assembly.Update (aname);
