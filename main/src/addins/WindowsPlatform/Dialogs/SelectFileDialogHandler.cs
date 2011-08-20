@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Text;
 using MonoDevelop.Components.Extensions;
@@ -58,15 +59,39 @@ namespace MonoDevelop.Platform
 			
 			dialog.AddExtension = true;
 			dialog.Filter = GetFilterFromData (data.Filters);
-			dialog.FilterIndex = data.DefaultFilter == null ? 1 : data.Filters.IndexOf (data.DefaultFilter) + 1;
+			dialog.FilterIndex = data.DefaultFilter == null ? 1 : GetDefaultFilterIndex (data);
 			
 			dialog.InitialDirectory = data.CurrentFolder;
-            if (!string.IsNullOrEmpty (data.InitialFileName))
-                dialog.FileName = data.InitialFileName;
+
+			// FileDialog.FileName expects anything but a directory name.
+			if (!Directory.Exists (data.InitialFileName))
+				dialog.FileName = data.InitialFileName;
 			
 			OpenFileDialog openDialog = dialog as OpenFileDialog;
 			if (openDialog != null)
 				openDialog.Multiselect = data.SelectMultiple;
+		}
+
+		static int GetDefaultFilterIndex (SelectFileDialogData data)
+		{
+			var defFilter = data.DefaultFilter;
+			int idx = data.Filters.IndexOf (defFilter) + 1;
+
+			// FileDialog doesn't show the file extension when saving a file,
+			// so we try to look fo the precise filter if none was specified.
+			if (data.Action == Gtk.FileChooserAction.Save && defFilter.Patterns.Contains ("*")) {
+				string ext = Path.GetExtension (data.InitialFileName);
+
+				if (!String.IsNullOrEmpty (ext))
+					for (int i = 0; i < data.Filters.Count; i++) {
+						var filter = data.Filters [i];
+						foreach (string pattern in filter.Patterns)
+							if (pattern.EndsWith (ext))
+								return i + 1;
+					}
+			}
+
+			return idx;
 		}
 				
 		static void SetFolderBrowserProperties (SelectFileDialogData data, FolderBrowserDialog dialog)
