@@ -1,10 +1,10 @@
 // 
-// ILAsmCompilerParameters.cs
+// XCodeObjectComparer.cs
 //  
 // Author:
-//       Mike Krüger <mkrueger@novell.com>
+//       Alan McGovern <alan@xamarin.com>
 // 
-// Copyright (c) 2009 Novell, Inc (http://www.novell.com)
+// Copyright (c) 2011 Xamarin 2011
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,18 +25,35 @@
 // THE SOFTWARE.
 
 using System;
+using System.Collections.Generic;
 
-namespace ILAsmBinding
-{
-	public class ILAsmCompilerParameters : MonoDevelop.Projects.ConfigurationParameters
-	{
-		public override void AddDefineSymbol (string symbol)
+namespace MonoDevelop.MacDev.XcodeIntegration {
+	
+	public class XcodeObjectComparer : IComparer<XcodeObject> {
+		
+		public int Compare (XcodeObject x, XcodeObject y)
 		{
-			// ILAsm has no symbols to define
-		}
-		public override void RemoveDefineSymbol (string symbol)
-		{
-			// ILAsm has no symbols to define
+			if (x == null)
+				return y == null ? 0 : -1;
+			if (y == null)
+				return 1;
+			if (x.GetType () != y.GetType ())
+				return x.GetType ().Name.CompareTo (y.GetType ().Name);
+			
+			if (x is PBXFileReference) {
+				var left = (PBXFileReference) x;
+				var right = (PBXFileReference) y;
+				return left.Path.CompareTo (right.Path);
+			}
+			
+			if (x is PBXGroup) {
+				var left = (PBXGroup) x;
+				var right = (PBXGroup) y;
+				return left.Name.CompareTo (right.Name);
+			}
+			
+			return 0;
 		}
 	}
 }
+

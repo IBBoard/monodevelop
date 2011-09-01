@@ -116,14 +116,28 @@ namespace MonoDevelop.MacDev.XcodeSyncing
 			if (!syncing)
 				return;
 			
-			bool isOpen = xcode != null && xcode.IsProjectOpen ();
-			
-			if (isOpen) {
-				XC4Debug.Log ("Project open, ensuring files are saved");
-				xcode.SaveProject ();
+			bool isOpen = false;
+			using (var monitor = GetStatusMonitor (GettextCatalog.GetString ("Synchronizing changes from Xcode"))) {
+				try {
+					isOpen = xcode != null && xcode.IsProjectOpen ();
+					if (isOpen) {
+						monitor.BeginTask (GettextCatalog.GetString ("Saving Xcode project"), 0);
+						xcode.SaveProject ();
+					}
+				} catch (Exception ex) {
+					MonoDevelop.Ide.MessageService.ShowError (
+						GettextCatalog.GetString ("MonoDevelop could not communicate with XCode"),
+						GettextCatalog.GetString (
+							"If XCode is still running, please ensure that all changes have been saved and " +
+							"XCode has been exited before continuing, otherwise any new changes may be lost."));
+					monitor.Log.WriteLine ("XCode could not be made save pending changes: {0}", ex);
+				}
+				if (isOpen) {
+					monitor.EndTask ();
+				}
+				
+				SyncXcodeChanges (monitor);
 			}
-			
-			DetectXcodeChanges ();
 			
 			if (!isOpen) {
 				XC4Debug.Log ("Project closed, disabling syncing");
@@ -131,19 +145,34 @@ namespace MonoDevelop.MacDev.XcodeSyncing
 			}
 		}
 		
-		void OpenXcodeProject ()
+		bool OpenXcodeProject ()
 		{
-			//FIXME: show a UI and progress while we do the initial sync
-			XC4Debug.Log ("Syncing to Xcode");
-			EnableSyncing ();
-			UpdateTypes (true);
-			UpdateXcodeProject ();
-			xcode.OpenProject ();
+			bool succeeded = false;
+			using (var monitor = GetStatusMonitor (GettextCatalog.GetString ("Syncing to Xcode..."))) {
+				try {
+					EnableSyncing ();
+					if (!UpdateTypes (monitor, true) || monitor.IsCancelRequested) {
+						return succeeded;
+					}
+					if (!UpdateXcodeProject (monitor) || monitor.IsCancelRequested) {
+						return succeeded;
+					}
+					xcode.OpenProject ();
+					succeeded = true;
+				} catch (Exception ex) {
+					monitor.ReportError (GettextCatalog.GetString ("Could not open Xcode project"), ex);
+				} finally {
+					if (!succeeded)
+						DisableSyncing ();
+				}
+			}
+			return succeeded;
 		}
 		
 		public void OpenDocument (string file)
 		{
-			OpenXcodeProject ();
+			if (!OpenXcodeProject ())
+				return;
 			
 			XC4Debug.Log ("Opening file {0}", file);
 			var xibFile = dnp.Files.GetFile (file);
@@ -215,47 +244,82 @@ namespace MonoDevelop.MacDev.XcodeSyncing
 				return;
 			
 			XC4Debug.Log ("Checking for changed files");
-			bool updateTypes = false, update = false;
+			bool updateTypes = false, updateProject = false;
 			foreach (ProjectFileEventInfo finf in e) {
 				if (finf.Project != dnp)
 					continue;
 				if (finf.ProjectFile.BuildAction == BuildAction.Compile) {
-					updateTypes = update = true;
+					updateTypes = true;
 					break;
 				} else if (IncludeInSyncedProject (finf.ProjectFile)) {
-					update = true;
+					updateProject = true;
 				}
 			}
 			
-			//FIXME: make this async
-			if (updateTypes)
-				UpdateTypes (true);
-			if (update)
-				UpdateXcodeProject ();
+			if (updateTypes) {
+				using (var monitor = GetStatusMonitor (GettextCatalog.GetString ("Syncing to Xcode..."))) {
+					//FIXME: make this async (and safely async)
+					//FIXME: only update the project if obj-c types change
+					updateProject = UpdateTypes (monitor, true);
+				}
+			}
+			
+			if (updateProject) {
+				using (var monitor = GetStatusMonitor (GettextCatalog.GetString ("Syncing to Xcode..."))) {
+					//FIXME: make this async (and safely async)
+					UpdateXcodeProject (monitor);
+				}
+			}
+		}
+		
+		#endregion
+		
+		#region Progress monitors
+		
+		//FIXME: should be use a modal monitor to prevent the user doing unexpected things?
+		IProgressMonitor GetStatusMonitor (string title)
+		{
+			IProgressMonitor monitor = MonoDevelop.Ide.IdeApp.Workbench.ProgressMonitors.GetStatusProgressMonitor (
+				title, null, true);
+			
+			monitor = new MonoDevelop.Core.ProgressMonitoring.AggregatedProgressMonitor (
+				monitor, XC4Debug.GetLoggingMonitor ());
+			
+			return monitor;
 		}
 		
 		#endregion
 		
 		#region Outbound syncing
 		
-		void UpdateTypes (bool force)
+		bool UpdateTypes (IProgressMonitor monitor, bool force)
 		{
-			XC4Debug.Log ("Updating CLI type information");
-			var pinfo = infoService.GetProjectInfo (dnp);
-			if (pinfo == null) {
-				Console.WriteLine ("Did not get project info");
-				return;
+			monitor.BeginTask (GettextCatalog.GetString ("Updating Objective-C type information"), 0);
+			try {
+				var pinfo = infoService.GetProjectInfo (dnp);
+				if (pinfo == null)
+					throw new Exception ("Did not get project info");
+				//FIXME: report progress
+				pinfo.Update (force);
+				userTypes = pinfo.GetTypes ().Where (t => t.IsUserType).ToList ();
+				return true;
+			} catch (Exception ex) {
+				monitor.ReportError (GettextCatalog.GetString ("Error updating Objective-C type information"), ex);
+				return false;
 			}
-			pinfo.Update (force);
-			userTypes = pinfo.GetTypes ().Where (t => t.IsUserType).ToList ();
 		}
 		
 		protected abstract XcodeProject CreateProject (string name);
 		
-		//FIXME: report errors
-		void UpdateXcodeProject ()
+		bool UpdateXcodeProject (IProgressMonitor monitor)
 		{
-			xcode.UpdateProject (CreateSyncList (), CreateProject (dnp.Name));
+			try {
+				xcode.UpdateProject (monitor, CreateSyncList (), CreateProject (dnp.Name));
+				return true;
+			} catch (Exception ex) {
+				monitor.ReportError (GettextCatalog.GetString ("Error updating Xcode project"), ex);
+				return false;
+			}
 		}
 		
 		List<XcodeSyncedItem> CreateSyncList ()
@@ -276,21 +340,30 @@ namespace MonoDevelop.MacDev.XcodeSyncing
 		
 		#region Inbound syncing
 		
-		//FIXME: make this async so it doesn't block the UI
-		void DetectXcodeChanges ()
+		bool SyncXcodeChanges (IProgressMonitor monitor)
 		{
-			XC4Debug.Log ("Detecting changes in synced files");
-			var changeCtx = xcode.GetChanges (infoService, dnp);
-			updatingProjectFiles = true;
-			UpdateCliTypes (changeCtx);
-			CopyFilesToMD (changeCtx);
-			updatingProjectFiles = false;
+			try {
+				monitor.BeginTask (GettextCatalog.GetString ("Detecting changed files in Xcode"), 0);
+				var changeCtx = xcode.GetChanges (infoService, dnp);
+				monitor.EndTask ();
+				updatingProjectFiles = true;
+				UpdateCliTypes (monitor, changeCtx);
+				CopyFilesToMD (monitor, changeCtx);
+				return true;
+			} catch (Exception ex) {
+				monitor.ReportError (GettextCatalog.GetString ("Error synchronizing changes from Xcode"), ex);
+				return false;
+			} finally {
+				updatingProjectFiles = false;
+			}
 		}
 		
-		void CopyFilesToMD (XcodeSyncBackContext context)
+		void CopyFilesToMD (IProgressMonitor monitor, XcodeSyncBackContext context)
 		{
+			if (context.FileSyncJobs.Count == 0)
+				return;
 			foreach (var file in context.FileSyncJobs) {
-				XC4Debug.Log ("Copying changed file from Xcode: {0}", file.SyncedRelative);
+				monitor.Log.WriteLine ("Copying changed file from Xcode: {0}", file.SyncedRelative);
 				var tempFile = file.Original.ParentDirectory.Combine (".#" + file.Original.ParentDirectory.FileName);
 				File.Copy (context.ProjectDir.Combine (file.SyncedRelative), tempFile);
 				FileService.SystemRename (tempFile, file.Original);
@@ -299,26 +372,31 @@ namespace MonoDevelop.MacDev.XcodeSyncing
 			Gtk.Application.Invoke (delegate {
 				FileService.NotifyFilesChanged (context.FileSyncJobs.Select (f => f.Original));
 			});
+			monitor.EndTask ();
 		}
 		
-		//FIXME: error handling
-		void UpdateCliTypes (XcodeSyncBackContext context)
+		void UpdateCliTypes (IProgressMonitor monitor, XcodeSyncBackContext context)
 		{
+			
 			var provider = dnp.LanguageBinding.GetCodeDomProvider ();
 			var options = new System.CodeDom.Compiler.CodeGeneratorOptions ();
 			var writer = MonoDevelop.DesignerSupport.CodeBehindWriter.CreateForProject (
 				new MonoDevelop.Core.ProgressMonitoring.NullProgressMonitor (), dnp);
 			
+			monitor.BeginTask (GettextCatalog.GetString ("Detecting changed types from Xcode"), 0);
 			Dictionary<string,ProjectFile> newFiles;
-			XC4Debug.Log ("Getting changed types from Xcode");
 			var updates = context.GetTypeUpdates (out newFiles);
-			if (updates == null) {
-				XC4Debug.Log ("No changed types from Xcode found");
+			if (updates == null || updates.Count == 0) {
+				monitor.Log.WriteLine ("No changed types found");
+				monitor.EndTask ();
 				return;
 			}
+			monitor.Log.WriteLine ("Found {0} changed types", updates.Count);
+			monitor.EndTask ();
 			
+			monitor.BeginTask (GettextCatalog.GetString ("Updating types in MonoDevelop"), updates.Count);
 			foreach (var df in updates) {
-				XC4Debug.Log ("Syncing {0} types from Xcode to file {1}", df.Value.Count, df.Key);
+				monitor.Log.WriteLine ("Syncing {0} types from Xcode to file '{1}'", df.Value.Count, df.Key);
 				if (provider is Microsoft.CSharp.CSharpCodeProvider) {
 					var cs = new CSharpCodeCodebehind () {
 						Types = df.Value,
@@ -330,6 +408,7 @@ namespace MonoDevelop.MacDev.XcodeSyncing
 					var ccu = GenerateCompileUnit (provider, options, df.Key, df.Value);
 					writer.WriteFile (df.Key, ccu);
 				}
+				monitor.Step (1);
 			}
 			writer.WriteOpenFiles ();
 			
@@ -346,11 +425,13 @@ namespace MonoDevelop.MacDev.XcodeSyncing
 			
 			if (newFiles != null) {
 				foreach (var f in newFiles) {
-					XC4Debug.Log ("Added new designer files {0}", f.Key);
+					monitor.Log.WriteLine ("Added new designer file {0}", f.Key);
 					dnp.AddFile (f.Value);
 				}
+				monitor.Log.WriteLine ("Saving project '{0}'", dnp.Name);
 				Ide.IdeApp.ProjectOperations.Save (dnp);
 			}
+			monitor.EndTask ();
 		}
 		
 		System.CodeDom.CodeCompileUnit GenerateCompileUnit (System.CodeDom.Compiler.CodeDomProvider provider,
@@ -386,18 +467,37 @@ namespace MonoDevelop.MacDev.XcodeSyncing
 	
 	static class XC4Debug
 	{
-		[System.Diagnostics.Conditional ("DEBUG_XCODE_SYNC")]
-		public static void Log (string message)
+		static TextWriter writer;
+		
+		static XC4Debug ()
 		{
-			Console.Write ("XC4: ");
-			Console.WriteLine (message);
+			FilePath logDir = UserProfile.Current.LogDir;
+			FilePath logFile = logDir.Combine ("Xcode4Sync.log");
+			FileService.EnsureDirectoryExists (logDir);
+			try {
+				writer = new StreamWriter (logFile) { AutoFlush = true };
+			} catch (Exception ex) {
+				LoggingService.LogError ("Could not create Xcode sync logging file", ex);
+			}
 		}
 		
-		[System.Diagnostics.Conditional ("DEBUG_XCODE_SYNC")]
+		public static void Log (string message)
+		{
+			if (writer == null)
+				return;
+			writer.WriteLine (message);
+		}
+		
 		public static void Log (string messageFormat, params object[] values)
 		{
-			Console.Write ("XC4: ");
-			Console.WriteLine (messageFormat, values);
+			if (writer == null)
+				return;
+			writer.WriteLine (messageFormat, values);
+		}
+		
+		public static IProgressMonitor GetLoggingMonitor ()
+		{
+			return new MonoDevelop.Core.ProgressMonitoring.ConsoleProgressMonitor (writer);
 		}
 	}
 }

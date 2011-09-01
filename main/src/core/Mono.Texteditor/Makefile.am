@@ -91,6 +91,7 @@ FILES =  \
 	Mono.TextEditor/FoldMarkerMargin.cs \
 	Mono.TextEditor/FoldSegment.cs \
 	Mono.TextEditor/GapBuffer.cs \
+	Mono.TextEditor/GtkWorkarounds.cs \
 	Mono.TextEditor/GutterMargin.cs \
 	Mono.TextEditor/HeightTree.cs \
 	Mono.TextEditor/HelperMethods.cs \
@@ -176,6 +177,7 @@ RES =  \
 	SyntaxModes/MakefileSyntaxMode.xml \
 	SyntaxModes/PythonSyntaxMode.xml \
 	SyntaxModes/RubySyntaxMode.xml \
+	SyntaxModes/StringsSyntaxMode.xml \
 	SyntaxModes/ValaSyntaxMode.xml \
 	SyntaxModes/VBNetSyntaxMode.xml \
 	SyntaxModes/XmlSyntaxMode.xml

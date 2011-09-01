@@ -31,15 +31,15 @@ namespace MonoDevelop.MacDev.XcodeIntegration
 {
 	class PBXFileReference : XcodeObject
 	{
-		string name;
-		string path;
-		string sourceTree;
+		public string Name { get; private set; }
+		public string Path { get; private set; }
+		public string SourceTree {get; private set; }
 
 		public PBXFileReference (string name, string path, string sourceTree)
 		{
-			this.name = name;
-			this.path = path;
-			this.sourceTree = sourceTree;
+			Name = name;
+			Path = path;
+			SourceTree = sourceTree;
 		}
 
 		public override XcodeType Type {
@@ -50,7 +50,7 @@ namespace MonoDevelop.MacDev.XcodeIntegration
 
 		public override string ToString ()
 		{
-			return string.Format ("{0} = {{isa = {1}; name = {2}; path = {3}; sourceTree = {4}; }};", Token, Type, QuoteOnDemand (name), QuoteOnDemand (path), sourceTree);
+			return string.Format ("{0} = {{isa = {1}; name = {2}; path = {3}; sourceTree = {4}; }};", Token, Type, QuoteOnDemand (Name), QuoteOnDemand (Path), SourceTree);
 		}
 	}
 }

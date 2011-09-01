@@ -32,6 +32,8 @@ using System.Text.RegularExpressions;
 using MonoDevelop.Projects;
 using MonoDevelop.Projects.Dom;
 using MonoDevelop.Projects.Dom.Parser;
+using MonoDevelop.Ide;
+using MonoDevelop.Core;
 
 namespace MonoDevelop.MacDev.ObjCIntegration
 {
@@ -147,7 +149,8 @@ namespace MonoDevelop.MacDev.ObjCIntegration
 								MonoDevelop.DesignerSupport.CodeBehind.IsDesignerFile (part.CompilationUnit.FileName);
 						}
 						//type registered with an explicit type name are up to the user to provide a valid name
-						if (att.PositionalArguments.Count == 1)
+						// Note that the attribute now takes one *or* two parameters.
+						if (att.PositionalArguments.Count == 1 || att.PositionalArguments.Count == 2)
 							objcName = (string)((System.CodeDom.CodePrimitiveExpression)att.PositionalArguments[0]).Value;
 						//non-nested types in the root namespace have names accessible from obj-c
 						else if (string.IsNullOrEmpty (type.Namespace) && type.Name.IndexOf ('.') < 0)
@@ -244,10 +247,16 @@ namespace MonoDevelop.MacDev.ObjCIntegration
 					var split = def.Split (whitespaceChars, StringSplitOptions.RemoveEmptyEntries);
 					if (split.Length != 2)
 						continue;
-					string objcType = split[1].TrimStart ('*');
+					string objcName = split[1].TrimStart ('*');
+					string objcType = split[0].TrimEnd ('*');
 					if (objcType == "id")
 						objcType = "NSObject";
-					type.Outlets.Add (new IBOutlet ((objcType), null, split[0].TrimEnd ('*'), null));
+					if (string.IsNullOrEmpty (objcType)) {
+						MessageService.ShowError (GettextCatalog.GetString ("Error while parsing header file."),
+							string.Format (GettextCatalog.GetString ("The definition '{0}' can't be parsed."), def));
+						objcType = "NSObject";
+					}
+					type.Outlets.Add (new IBOutlet (objcName, null, objcType, null));
 				} else {
 					string[] split = def.Split (colonChar);
 					var action = new IBAction (split[0].Trim (), null);
