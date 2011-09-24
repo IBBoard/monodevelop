@@ -2,6 +2,7 @@
 using System.IO;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
 using MonoDevelop.Components.Extensions;
 using System.Windows.Forms;
 using MonoDevelop.Core;
@@ -11,11 +12,31 @@ namespace MonoDevelop.Platform
 {
     class SelectFileDialogHandler : ISelectFileDialogHandler
     {
-        public bool Run(SelectFileDialogData data)
+        volatile Form rootForm;
+
+        public bool Run (SelectFileDialogData data)
+        {
+            var parentWindow = data.TransientFor ?? MessageService.RootWindow;
+            parentWindow.FocusInEvent += OnParentFocusIn;
+            
+            bool result = RunWinUIMethod (RunDialog, data);
+
+            parentWindow.FocusInEvent -= OnParentFocusIn;
+            parentWindow.Present ();
+
+            return result;
+        }
+
+        void OnParentFocusIn (object o, EventArgs args)
+        {
+            if (rootForm != null)
+                rootForm.BeginInvoke (new Action (() => rootForm.Activate ()));
+        }
+
+        bool RunDialog (SelectFileDialogData data)
         {
 			Application.EnableVisualStyles ();
-			
-			var parentWindow = data.TransientFor ?? MessageService.RootWindow;
+
             CommonDialog dlg = null;
             if (data.Action == Gtk.FileChooserAction.Open)
                 dlg = new OpenFileDialog();
@@ -30,9 +51,8 @@ namespace MonoDevelop.Platform
 				SetFolderBrowserProperties (data, dlg as FolderBrowserDialog);
 			
 			using (dlg) {
-                WinFormsRoot root = new WinFormsRoot();
-                if (dlg.ShowDialog(root) == DialogResult.Cancel) {
-					parentWindow.Present ();
+                rootForm = new WinFormsRoot ();
+                if (dlg.ShowDialog (rootForm) == DialogResult.Cancel) {
                     return false;
 				}
 				
@@ -46,10 +66,34 @@ namespace MonoDevelop.Platform
 					var folderDlg = dlg as FolderBrowserDialog;
 					data.SelectedFiles = new [] { new FilePath (folderDlg.SelectedPath) };
 				}
-				
-				parentWindow.Present ();
+
 				return true;
 			}
+        }
+
+        // Any native Winforms component needs to run on a thread marked as single-threaded apartment (STAThread).
+        // Marking the MD's Main method with STAThread has historically shown to be a source of several problems,
+        // thus we isolate the calls by creating a new thread for our calls.
+        // More info here: http://blogs.msdn.com/b/jfoscoding/archive/2005/04/07/406341.aspx
+        internal static bool RunWinUIMethod<T> (Func<T,bool> func, T data) where T : SelectFileDialogData
+        {
+            bool result = false;
+            var t = new Thread (() => {
+                try {
+                    result = func (data);
+                } catch (Exception ex) {
+                    LoggingService.LogError ("Unhandled exception handling a native dialog", ex);
+                }
+            });
+            t.Name = "Win32 Interop Thread";
+            t.IsBackground = true;
+            t.SetApartmentState (ApartmentState.STA);
+
+            t.Start ();
+            while (!t.Join (50))
+                DispatchService.RunPendingEvents ();
+
+            return result;
         }
 		
 		internal static void SetCommonFormProperties (SelectFileDialogData data, FileDialog dialog)

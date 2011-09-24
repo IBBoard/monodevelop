@@ -119,9 +119,6 @@
     <EmbeddedResource Include="templates\EmptyXMLFile.xft.xml">
       <LogicalName>EmptyXMLFile.xft.xml</LogicalName>
     </EmbeddedResource>
-    <EmbeddedResource Include="icons\SplashScreen.png">
-      <LogicalName>SplashScreen.png</LogicalName>
-    </EmbeddedResource>
     <EmbeddedResource Include="icons\Icons.16x16.LinkOverlay.png">
       <LogicalName>Icons.16x16.LinkOverlay.png</LogicalName>
     </EmbeddedResource>
@@ -182,9 +179,6 @@
     <EmbeddedResource Include="icons\navigate-previous-24.png">
       <LogicalName>navigate-previous-24.png</LogicalName>
     </EmbeddedResource>
-    <EmbeddedResource Include="icons\AboutImage.png">
-      <LogicalName>AboutImage.png</LogicalName>
-    </EmbeddedResource>
     <EmbeddedResource Include="options\KeyBindingSchemeMonoDevelop2.xml">
       <LogicalName>KeyBindingSchemeMonoDevelop2.xml</LogicalName>
     </EmbeddedResource>
@@ -205,9 +199,6 @@
     </EmbeddedResource>
     <EmbeddedResource Include="MonoDevelop.Ide.StandardHeader\NewBSDLicencePolicy.xml">
       <LogicalName>NewBSDLicencePolicy.xml</LogicalName>
-    </EmbeddedResource>
-    <EmbeddedResource Include="icons\AboutImageSep.png">
-      <LogicalName>AboutImageSep.png</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Include="MonoDevelop.Ide.CodeTemplates\MonoDevelop-templates.xml">
       <LogicalName>MonoDevelop-templates.xml</LogicalName>
@@ -778,6 +769,24 @@
     </EmbeddedResource>
     <EmbeddedResource Include="icons\software-update-available.png">
       <LogicalName>software-update-available.png</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="branding\WelcomePage_Logo.png">
+      <LogicalName>WelcomePage_Logo.png</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="branding\WelcomePage_TopBorderRepeat.png">
+      <LogicalName>WelcomePage_TopBorderRepeat.png</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="branding\AboutImage.png">
+      <LogicalName>AboutImage.png</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="branding\AboutImageSep.png">
+      <LogicalName>AboutImageSep.png</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="branding\SplashScreen.png">
+      <LogicalName>SplashScreen.png</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="branding\WelcomePageContent.xml">
+      <LogicalName>WelcomePageContent.xml</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
@@ -1454,6 +1463,16 @@
     <Compile Include="MonoDevelop.Ide.Updater\UpdateCheckHandler.cs" />
     <Compile Include="MonoDevelop.Ide.Gui.OptionPanels\SdkLocationPanel.cs" />
     <Compile Include="MonoDevelop.Ide.Projects\PackageReferencePanel.cs" />
+    <Compile Include="MonoDevelop.Ide.WelcomePage\WelcomePageCommands.cs" />
+    <Compile Include="MonoDevelop.Ide.WelcomePage\WelcomePageOptionPanel.cs" />
+    <Compile Include="MonoDevelop.Ide.WelcomePage\WelcomePageView.cs" />
+    <Compile Include="MonoDevelop.Ide.WelcomePage\WelcomePageWidget.cs" />
+    <Compile Include="MonoDevelop.Ide.WelcomePage\WelcomePageOptions.cs" />
+    <Compile Include="MonoDevelop.Ide.WelcomePage\WelcomePageBranding.cs" />
+    <Compile Include="MonoDevelop.Ide.WelcomePage\WelcomePageLinkButton.cs" />
+    <Compile Include="MonoDevelop.Ide.WelcomePage\WelcomePageNewsFeed.cs" />
+    <Compile Include="MonoDevelop.Ide.WelcomePage\WelcomePageRecentProjectsList.cs" />
+    <Compile Include="MonoDevelop.Ide.WelcomePage\WelcomePageLinksList.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="ChangeLog" />
@@ -1521,5 +1540,9 @@
     <Folder Include="MonoDevelop.Ide.Fonts\" />
     <Folder Include="MonoDevelop.Ide.Codons\" />
     <Folder Include="ExtensionModel\" />
+    <Folder Include="icons\" />
+    <Folder Include="icons\" />
+    <Folder Include="MonoDevelop.Ide.WelcomePage\" />
+    <Folder Include="branding\" />
   </ItemGroup>
 </Project>

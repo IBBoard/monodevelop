@@ -325,17 +325,23 @@ namespace MonoDevelop.Projects.Dom
 			this.Location    = location;
 		}
 		
-		System.Xml.XmlDocument helpXml;
+		static Dictionary<string, System.Xml.XmlDocument> helpTreeCache = new Dictionary<string, System.Xml.XmlDocument> ();
 		public System.Xml.XmlDocument HelpXml {
 			get {
-				if (helpXml == null && ProjectDomService.HelpTree != null) {
+				System.Xml.XmlDocument result;
+				var url = HelpUrl;
+				if (!helpTreeCache.TryGetValue (url, out result)) {
+					if (ProjectDomService.HelpTree == null)
+						return null;
 					try {
-						helpXml = ProjectDomService.HelpTree.GetHelpXml (this.HelpUrl);
-					} catch {
-						// Ignore
+						result = ProjectDomService.HelpTree.GetHelpXml (url);
+					} catch (Exception e) {
+						LoggingService.LogError ("Error while reading monodoc file.", e);
+						throw e;
 					}
+					helpTreeCache.Add (url, result);
 				}
-				return helpXml;
+				return result;
 			}
 		}
 		
@@ -764,6 +770,7 @@ namespace MonoDevelop.Projects.Dom
 			public GenericTypeInstanceResolver Parent;
 			public Dictionary<string, IReturnType> typeTable = new Dictionary<string,IReturnType> ();
 			ProjectDom dom;
+			CopyDomVisitor<object> copyVisitor = new CopyDomVisitor<object> ();
 			
 			public GenericTypeInstanceResolver (ProjectDom dom)
 			{
@@ -791,7 +798,7 @@ namespace MonoDevelop.Projects.Dom
 					if (type.ArrayDimensions == 0 && type.PointerNestingLevel == 0) {
 						return res;
 					}
-					DomReturnType copy = (DomReturnType)base.Visit (res, typeToInstantiate);
+					DomReturnType copy = (DomReturnType)copyVisitor.Visit (res, null);
 					copy.PointerNestingLevel = type.PointerNestingLevel;
 					copy.SetDimensions (type.GetDimensions ());
 					return copy;

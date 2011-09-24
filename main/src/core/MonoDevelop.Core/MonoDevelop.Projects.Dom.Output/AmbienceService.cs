@@ -151,7 +151,7 @@ namespace MonoDevelop.Projects.Dom.Output
 		
 		public static string GetDocumentationSummary (IMember member)
 		{
-			if (member == null)
+			if (member == null || member.SourceProjectDom == null)
 				return null;
 			string documentation = member.SourceProjectDom.GetDocumentation (member);
 			
@@ -172,30 +172,6 @@ namespace MonoDevelop.Projects.Dom.Output
 				return CleanEmpty (result);
 			}
 			
-			XmlElement node = (XmlElement)member.GetMonodocDocumentation ();
-			if (node != null) {
-				string innerXml = (node["summary"].InnerXml ?? "").Trim ();
-				StringBuilder sb = new StringBuilder ();
-				bool wasWhiteSpace = false;
-				for (int i = 0; i < innerXml.Length; i++) {
-					char ch = innerXml[i];
-					switch (ch) {
-					case '\n':
-					case '\r':
-						break;
-					default:
-						bool isWhiteSpace = Char.IsWhiteSpace (ch);
-						if (isWhiteSpace && wasWhiteSpace)
-							continue;
-						wasWhiteSpace = isWhiteSpace;
-						sb.Append (ch);
-						break;
-					}
-				}
-				
-			
-				return CleanEmpty (sb.ToString ());
-			}
 			return CleanEmpty (documentation);
 		}
 		
@@ -215,11 +191,6 @@ namespace MonoDevelop.Projects.Dom.Output
 				return null;
 			if (!string.IsNullOrEmpty (member.Documentation))
 				return CleanEmpty (member.Documentation);
-			XmlElement node = (XmlElement)member.GetMonodocDocumentation ();
-			if (node != null) {
-				string result = (node.InnerXml ?? "").Trim ();
-				return CleanEmpty (result);
-			}
 			return null;
 		}
 		

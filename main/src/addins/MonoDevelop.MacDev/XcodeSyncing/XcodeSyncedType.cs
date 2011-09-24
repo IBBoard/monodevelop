@@ -4,7 +4,7 @@
 // Author:
 //       Michael Hutchinson <mhutch@xamarin.com>
 // 
-// Copyright (c) Xamarin, Inc. (http://xamarin.com)
+// Copyright (c) 2011 Xamarin Inc. (http://xamarin.com)
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -41,10 +41,12 @@ namespace MonoDevelop.MacDev.XcodeSyncing
 	class XcodeSyncedType : XcodeSyncedItem
 	{
 		public NSObjectTypeInfo Type { get; set; }
+		public string[] Frameworks { get; set; }
 		
-		public XcodeSyncedType (NSObjectTypeInfo type)
+		public XcodeSyncedType (NSObjectTypeInfo type, string[] frameworks)
 		{
-			this.Type = type;
+			Frameworks = frameworks;
+			Type = type;
 		}
 		
 		public override bool NeedsSyncOut (XcodeSyncContext context)
@@ -59,7 +61,7 @@ namespace MonoDevelop.MacDev.XcodeSyncing
 		
 		public override void SyncOut (XcodeSyncContext context)
 		{
-			Type.GenerateObjcType (context.ProjectDir);
+			Type.GenerateObjcType (context.ProjectDir, Frameworks);
 			context.UpdateSyncTime (Type.ObjCName + ".h");
 			context.UpdateSyncTime (Type.ObjCName + ".m");
 		}
@@ -76,36 +78,34 @@ namespace MonoDevelop.MacDev.XcodeSyncing
 		public override void SyncBack (XcodeSyncBackContext context)
 		{
 			var hFile = context.ProjectDir.Combine (Type.ObjCName + ".h");
-			var parsed = NSObjectInfoService.ParseHeader (hFile);
-			
 			var objcType = context.ProjectInfo.GetType (Type.ObjCName);
+			
 			if (objcType == null) {
 				context.ReportError ("Missing objc type {0}", Type.ObjCName);
 				return;
 			}
-			if (parsed.ObjCName != objcType.ObjCName) {
-				context.ReportError ("Parsed type name {0} does not match original {1}",
-					parsed.ObjCName, objcType.ObjCName);
-				return;
-			}
+			
 			if (!objcType.IsUserType) {
 				context.ReportError ("Parsed type {0} is not a user type", objcType);
 				return;
 			}
 			
-			//FIXME: detect unresolved types
-			parsed.MergeCliInfo (objcType);
-			context.ProjectInfo.ResolveTypes (parsed);
-			if (!context.ProjectInfo.ContainsErrors) {
-				context.TypeSyncJobs.Add (new XcodeSyncObjcBackJob () {
-					HFile = hFile,
-					DesignerFile = objcType.GetDesignerFile (),
-					Type = parsed,
-				});
-			} else {
-				context.SetSyncTimeToNow (Type.ObjCName + ".h");
-				LoggingService.LogWarning ("Sync back skipped because of errors in project info.");
+			var parsed = NSObjectInfoService.ParseHeader (hFile);
+			
+			if (parsed == null) {
+				context.ReportError ("Error parsing objc type {0}", Type.ObjCName);
+				return;
 			}
+			
+			if (parsed.ObjCName != objcType.ObjCName) {
+				context.ReportError ("Parsed type name {0} does not match original {1}",
+					parsed.ObjCName, objcType.ObjCName);
+				return;
+			}
+			
+			parsed.MergeCliInfo (objcType);
+			
+			context.TypeSyncJobs.Add (XcodeSyncObjcBackJob.UpdateType (parsed, objcType.GetDesignerFile ()));
 		}
 		
 		const string supportingFilesGroup = "Supporting Files";

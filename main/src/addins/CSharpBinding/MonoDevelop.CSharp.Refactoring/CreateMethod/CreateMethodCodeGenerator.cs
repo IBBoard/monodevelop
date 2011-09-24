@@ -60,7 +60,7 @@ namespace MonoDevelop.CSharp.Refactoring.CreateMethod
 				return false;
 			}
 		}
-
+		
 		InvocationExpression GetInvocation (ICSharpCode.NRefactory.CSharp.CompilationUnit unit, TextEditorData data)
 		{
 			var containingNode = unit.GetNodeAt (data.Caret.Line, data.Caret.Column);
@@ -180,9 +180,13 @@ namespace MonoDevelop.CSharp.Refactoring.CreateMethod
 					var resolveResult = resolver.Resolve (new ExpressionResult (data.GetTextBetween (parentInvocation.StartLocation.Line, parentInvocation.StartLocation.Column, parentInvocation.EndLocation.Line, parentInvocation.EndLocation.Column)), resolvePosition) as MethodResolveResult;
 					if (resolveResult != null) {
 						if (idx < resolveResult.MostLikelyMethod.Parameters.Count)
-							return resolveResult.MostLikelyMethod.Parameters[idx].ReturnType;
+							return resolveResult.MostLikelyMethod.Parameters [idx].ReturnType;
 					}
 					return DomReturnType.Object;
+				}
+				
+				if (node.Parent is ReturnStatement && options.ResolveResult != null && options.ResolveResult.CallingMember != null) {
+					return options.ResolveResult.CallingMember.ReturnType;
 				}
 				
 				node = node.Parent;
@@ -218,11 +222,11 @@ namespace MonoDevelop.CSharp.Refactoring.CreateMethod
 			} else {
 				bool isStatic = (modifiers & MonoDevelop.Projects.Dom.Modifiers.Static) != 0;
 				if (options.ResolveResult != null) {
-					modifiers = options.ResolveResult.CallingMember.Modifiers;
+					modifiers = options.ResolveResult.CallingMember.Modifiers & (MonoDevelop.Projects.Dom.Modifiers.Public | MonoDevelop.Projects.Dom.Modifiers.Protected | MonoDevelop.Projects.Dom.Modifiers.Private | MonoDevelop.Projects.Dom.Modifiers.Static);
 					if (declaringType.DecoratedFullName != options.ResolveResult.CallingType.DecoratedFullName) {
 						modifiers = MonoDevelop.Projects.Dom.Modifiers.Public;
-		//				if (options.ResolveResult.CallingMember.IsStatic)
-		//					isStatic = true;
+						//				if (options.ResolveResult.CallingMember.IsStatic)
+						//					isStatic = true;
 					}
 				} else {
 					var member = options.Document.CompilationUnit.GetMemberAt (options.Document.Editor.Caret.Line, options.Document.Editor.Caret.Column);

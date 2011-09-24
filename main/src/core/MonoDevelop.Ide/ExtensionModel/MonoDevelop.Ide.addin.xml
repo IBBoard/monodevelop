@@ -7,7 +7,7 @@
        description = "The MonoDevelop IDE application."
        category    = "MonoDevelop Core"
        isroot      = "true"
-       version     = "2.7"
+       version     = "2.7.22"
        compatVersion = "2.7">
 	
 	<Runtime>
@@ -15,7 +15,7 @@
 	</Runtime>
 	
 	<Dependencies>
-		<Addin id="Core" version="2.7"/>
+		<Addin id="Core" version="2.7.22"/>
 	</Dependencies>
 
 	<!-- Extension ponts -->
@@ -149,8 +149,12 @@
 	<ExtensionPoint path = "/MonoDevelop/Ide/Updater/UpdateHandlers" name = "Update handlers">
 		<ExtensionNode name="Type" />
 	</ExtensionPoint>
-
-		<!-- Extensions -->
+	
+	<ExtensionPoint path = "/MonoDevelop/Ide/AboutInformation" name = "Adddional about information">
+		<ExtensionNode name = "Class" objectType = "MonoDevelop.Ide.Gui.Dialogs.IAboutInformation" />
+	</ExtensionPoint>
+	
+	<!-- Extensions -->
 	
 	<Extension path = "/MonoDevelop/Core/Applications">
 		<Application id = "gsetup"
@@ -166,6 +170,7 @@
 	<Extension path = "/MonoDevelop/Ide/StartupHandlers">
 		<Class class = "MonoDevelop.Ide.Updater.UpdateCheckHandler"/>
 		<Class class = "MonoDevelop.Ide.Gui.Dialogs.TipOfTheDayStartup"/>
+		<Class class = "MonoDevelop.Ide.WelcomePage.WelcomePageStartUp"/>
 	</Extension>
 	
 	<Extension path = "/MonoDevelop/Ide/KeyBindingSchemes">

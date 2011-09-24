@@ -662,6 +662,8 @@ namespace MonoDevelop.CSharp.Completion
 										}
 									}
 								}
+								if (result.ExpressionContext == ExpressionContext.TypeName)
+									autoSelect = false;
 								// Bug 677531 - Auto-complete doesn't always highlight generic parameter in method signature
 								//if (result.ExpressionContext == ExpressionContext.TypeName)
 								//	autoSelect = false;
@@ -1816,8 +1818,10 @@ namespace MonoDevelop.CSharp.Completion
 			//				} 
 			//			else {
 			//			}
-			if (type == null)
+			if (type == null) {
+				result.AutoCompleteEmptyMatch = true;
 				return result;
+			}
 			HashSet<string > usedNamespaces = new HashSet<string> (GetUsedNamespaces ());
 			if (type.FullName == DomReturnType.Object.FullName) 
 				AddPrimitiveTypes (col);
@@ -2548,9 +2552,17 @@ namespace MonoDevelop.CSharp.Completion
 			PathEntry[] path = CurrentPath;
 			if (path == null || index < 0 || index >= path.Length)
 				return null;
-			var tag = path[index].Tag;
-			DropDownBoxListWindow window = new DropDownBoxListWindow (tag is ICompilationUnit ? (DropDownBoxListWindow.IListDataProvider)new CompilationUnitDataProvider (Document) : new DataProvider (Document, tag, GetAmbience ()));
-			window.SelectItem (path[index].Tag);
+			var tag = path [index].Tag;
+			DropDownBoxListWindow.IListDataProvider provider;
+			if (tag is ICompilationUnit) {
+				provider = new CompilationUnitDataProvider (Document);
+				tag = Document.ParsedDocument.GetUserRegion (document.Editor.Caret.Line, document.Editor.Caret.Column);
+			} else {
+				provider = new DataProvider (Document, tag, GetAmbience ());
+			}
+			
+			DropDownBoxListWindow window = new DropDownBoxListWindow (provider);
+			window.SelectItem (tag);
 			return window;
 		}
 		
@@ -2585,7 +2597,7 @@ namespace MonoDevelop.CSharp.Completion
 				if (node is ICompilationUnit) {
 					if (!Document.ParsedDocument.UserRegions.Any ())
 						break;
-					FoldingRegion reg = Document.ParsedDocument.UserRegions.Where (r => r.Region.Contains (loc.Line, loc.Column)).LastOrDefault ();
+					FoldingRegion reg = Document.ParsedDocument.GetUserRegion (loc.Line, loc.Column);
 					if (reg == null) {
 						entry = new PathEntry (GettextCatalog.GetString ("No region"));
 					} else {
@@ -2611,7 +2623,7 @@ namespace MonoDevelop.CSharp.Completion
 /*				if (result.Count > 0 && result[result.Count - 1].Tag is ICompilationUnit) {
 					result.Insert (result.Count - 1, noSelection);
 				} else {*/
-					result.Add (noSelection);
+				result.Add (noSelection);
 //				}
 			}
 			var prev = CurrentPath;

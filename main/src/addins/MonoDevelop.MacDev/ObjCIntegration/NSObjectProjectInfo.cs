@@ -26,6 +26,7 @@
 
 using System;
 using System.Linq;
+using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using MonoDevelop.Projects;
@@ -34,6 +35,7 @@ using MonoDevelop.Projects.Dom.Parser;
 using MonoDevelop.Core;
 using MonoDevelop.Ide;
 using System.Text;
+
 namespace MonoDevelop.MacDev.ObjCIntegration
 {
 	public class NSObjectProjectInfo
@@ -44,11 +46,6 @@ namespace MonoDevelop.MacDev.ObjCIntegration
 		NSObjectInfoService infoService;
 		ProjectDom dom;
 		bool needsUpdating;
-		
-		public bool ContainsErrors {
-			get;
-			private set;
-		}
 		
 		public NSObjectProjectInfo (ProjectDom dom, NSObjectInfoService infoService)
 		{
@@ -64,7 +61,8 @@ namespace MonoDevelop.MacDev.ObjCIntegration
 		
 		internal void Update (bool force)
 		{
-			SetNeedsUpdating ();
+			if (force)
+				SetNeedsUpdating ();
 			Update ();
 		}
 		
@@ -81,16 +79,14 @@ namespace MonoDevelop.MacDev.ObjCIntegration
 			
 			objcTypes.Clear ();
 			cliTypes.Clear ();
-			ContainsErrors = false;
 			
 			foreach (var type in infoService.GetRegisteredObjects (dom)) {
 				objcTypes.Add (type.ObjCName, type);
 				cliTypes.Add (type.CliName, type);
 			}
 			
-			foreach (var type in objcTypes.Values) {
-				ResolveTypes (type);
-			}
+			foreach (var type in cliTypes.Values)
+				ResolveCliToObjc (type);
 			
 			needsUpdating = false;
 		}
@@ -106,6 +102,11 @@ namespace MonoDevelop.MacDev.ObjCIntegration
 			if (objcTypes.TryGetValue (objcName, out ret))
 				return ret;
 			return null;
+		}
+		
+		public bool ContainsType (string objcName)
+		{
+			return objcTypes.ContainsKey (objcName);
 		}
 		
 		internal void InsertUpdatedType (NSObjectTypeInfo type)
@@ -131,11 +132,13 @@ namespace MonoDevelop.MacDev.ObjCIntegration
 		{
 			if (objcTypes.TryGetValue (objcType, out resolved))
 				return true;
+			
 			foreach (var r in dom.References) {
 				var rDom = infoService.GetProjectInfo (r);
 				if (rDom != null && rDom.objcTypes.TryGetValue (objcType, out resolved))
 					return true;
 			}
+#if false
 			var msg = new StringBuilder ("Can't resolve "+ objcType + Environment.NewLine);
 			foreach (var r in dom.References) {
 				msg.Append ("Referenced dom:");
@@ -149,14 +152,21 @@ namespace MonoDevelop.MacDev.ObjCIntegration
 				msg.AppendLine (string.Join (",", rDom.objcTypes.Keys.ToArray()));
 			}
 			LoggingService.LogWarning (msg.ToString ());
-			
+#endif
 			resolved = null;
 			return false;
 		}
 		
-		public void ResolveTypes (NSObjectTypeInfo type)
+		/// <summary>
+		/// Resolves the Objective-C types by mapping the known .NET type information.
+		/// </summary>
+		/// <param name='type'>
+		/// An NSObjectTypeInfo with the .NET type information filled in.
+		/// </param>
+		public void ResolveCliToObjc (NSObjectTypeInfo type)
 		{
 			NSObjectTypeInfo resolved;
+			
 			if (type.BaseObjCType == null && type.BaseCliType != null) {
 				if (TryResolveCliToObjc (type.BaseCliType, out resolved)) {
 					if (resolved.IsModel)
@@ -166,12 +176,13 @@ namespace MonoDevelop.MacDev.ObjCIntegration
 					if (resolved.IsUserType)
 						type.UserTypeReferences.Add (resolved.ObjCName);
 				} else {
-					//managed classes many have implicitly registered base classes with a name not
-					//expressible in obj-c. In this case, the best we can do is walk down the 
-					//hierarchy until we find a valid base class
+					// managed classes may have implicitly registered base classes with a name not
+					// expressible in obj-c. In this case, the best we can do is walk down the 
+					// hierarchy until we find a valid base class
 					foreach (var bt in dom.GetInheritanceTree (dom.GetType (type.BaseCliType))) {
 						if (bt.ClassType != ClassType.Class)
 							continue;
+						
 						if (TryResolveCliToObjc (bt.FullName, out resolved)) {
 							if (resolved.IsModel)
 								type.BaseIsModel = true;
@@ -184,43 +195,88 @@ namespace MonoDevelop.MacDev.ObjCIntegration
 				}
 			}
 			
-			if (type.BaseCliType == null && type.BaseObjCType != null) {
-				if (TryResolveObjcToCli (type.BaseObjCType, out resolved))
-					type.BaseCliType = resolved.CliName;
-			}
-			
 			foreach (var outlet in type.Outlets) {
-				if (outlet.ObjCType == null) {
-					if (TryResolveCliToObjc (outlet.CliType, out resolved)) {
-						outlet.ObjCType = resolved.ObjCName;
-						if (resolved.IsUserType)
-							type.UserTypeReferences.Add (resolved.ObjCName);
-					}
-				}
-				if (outlet.CliType == null) {
-					if (TryResolveObjcToCli (outlet.ObjCType, out resolved)) {
-						outlet.CliType = resolved.CliName;
-					} else {
-						MessageService.ShowError (GettextCatalog.GetString ("Error while syncing object c type."),
-							string.Format (GettextCatalog.GetString ("Type '{0}' can't be resolved to a valid cli type."), outlet.ObjCType));
-						ContainsErrors = true;
-						outlet.CliType = outlet.ObjCType;
-					}
+				if (outlet.ObjCType != null)
+					continue;
+				
+				if (TryResolveCliToObjc (outlet.CliType, out resolved)) {
+					outlet.ObjCType = resolved.ObjCName;
+					if (resolved.IsUserType)
+						type.UserTypeReferences.Add (resolved.ObjCName);
 				}
 			}
 			
 			foreach (var action in type.Actions) {
 				foreach (var param in action.Parameters) {
-					if (param.ObjCType == null) {
-						if (TryResolveCliToObjc (param.CliType, out resolved)) {
-							param.ObjCType = resolved.ObjCName;
-							if (resolved.IsUserType)
-								type.UserTypeReferences.Add (resolved.ObjCName);
-						}
+					if (param.ObjCType != null)
+						continue;
+					
+					if (TryResolveCliToObjc (param.CliType, out resolved)) {
+						param.ObjCType = resolved.ObjCName;
+						if (resolved.IsUserType)
+							type.UserTypeReferences.Add (resolved.ObjCName);
 					}
-					if (param.CliType == null) {
-						if (TryResolveObjcToCli (param.ObjCType, out resolved))
-							param.CliType = resolved.CliName;
+				}
+			}
+		}
+		
+		/// <summary>
+		/// Resolves the type by mapping the known Objective-C type information to .NET types.
+		/// </summary>
+		/// <returns>
+		/// The number of unresolved types still remaining.
+		/// </returns>
+		/// <param name='type'>
+		/// The NSObjectTypeInfo that contains the known Objective-C type information.
+		/// Typically this will be the result of NSObjectInfoService.ParseHeader().
+		/// </param>
+		/// <param name='provider'>
+		/// A CodeDom provider which is used to make sure type names don't conflict with language keywords.
+		/// </param>
+		/// <param name='defaultNamespace'>
+		/// The default namespace used when forcing type resolution.
+		/// </param>
+		public void ResolveObjcToCli (IProgressMonitor monitor, NSObjectTypeInfo type, CodeDomProvider provider, string defaultNamespace)
+		{
+			NSObjectTypeInfo resolved;
+			
+			// Resolve our base type
+			if (type.BaseCliType == null) {
+				if (TryResolveObjcToCli (type.BaseObjCType, out resolved)) {
+					type.BaseCliType = resolved.CliName;
+				} else  {
+					type.BaseCliType = defaultNamespace + "." + provider.CreateValidIdentifier (type.BaseObjCType);
+					monitor.ReportWarning (string.Format ("Failed to resolve Objective-C type {0} to CLI type on type {1}",
+						type.BaseObjCType, type.ObjCName));
+				}
+			}
+			
+			// Resolve [Outlet] types
+			foreach (var outlet in type.Outlets) {
+				if (outlet.CliType != null)
+					continue;
+				
+				if (TryResolveObjcToCli (outlet.ObjCType, out resolved)) {
+					outlet.CliType = resolved.CliName;
+				} else {
+					outlet.CliType = defaultNamespace + "." + provider.CreateValidIdentifier (outlet.ObjCType);
+					monitor.ReportWarning (string.Format ("Failed to resolve Objective-C type {0} to CLI type on outlet {1} on type {2}",
+						outlet.ObjCType, outlet.ObjCName, type.ObjCName));
+				}
+			}
+			
+			// Resolve [Action] param types
+			foreach (var action in type.Actions) {
+				foreach (var param in action.Parameters) {
+					if (param.CliType != null)
+						continue;
+					
+					if (TryResolveObjcToCli (param.ObjCType, out resolved)) {
+						param.CliType = resolved.CliName;
+					} else {
+						param.CliType = defaultNamespace + "." + provider.CreateValidIdentifier (param.ObjCType);
+						monitor.ReportWarning (string.Format ("Failed to resolve Objective-C type {0} to CLI type on action parameter {1} for action {2} on type {3}",
+							param.ObjCType, param.Name, action.ObjCName, type.ObjCName));
 					}
 				}
 			}

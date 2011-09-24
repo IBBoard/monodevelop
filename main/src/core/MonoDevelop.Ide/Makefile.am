@@ -681,6 +681,16 @@ FILES =  \
 	MonoDevelop.Ide.WebBrowser/LocationChangingEventArgs.cs \
 	MonoDevelop.Ide.WebBrowser/StatusMessageChangedEventArgs.cs \
 	MonoDevelop.Ide.WebBrowser/TitleChangedEventArgs.cs \
+	MonoDevelop.Ide.WelcomePage/WelcomePageBranding.cs \
+	MonoDevelop.Ide.WelcomePage/WelcomePageCommands.cs \
+	MonoDevelop.Ide.WelcomePage/WelcomePageLinkButton.cs \
+	MonoDevelop.Ide.WelcomePage/WelcomePageLinksList.cs \
+	MonoDevelop.Ide.WelcomePage/WelcomePageNewsFeed.cs \
+	MonoDevelop.Ide.WelcomePage/WelcomePageOptionPanel.cs \
+	MonoDevelop.Ide.WelcomePage/WelcomePageOptions.cs \
+	MonoDevelop.Ide.WelcomePage/WelcomePageRecentProjectsList.cs \
+	MonoDevelop.Ide.WelcomePage/WelcomePageView.cs \
+	MonoDevelop.Ide.WelcomePage/WelcomePageWidget.cs \
 	MonoDevelop.Ide/AddEntryEventHandler.cs \
 	MonoDevelop.Ide/CodeGenerationService.cs \
 	MonoDevelop.Ide/DesktopService.cs \
@@ -700,6 +710,12 @@ FILES =  \
 	MonoDevelop.Ide/WebBrowserService.cs
 
 RES =  \
+	branding/AboutImage.png \
+	branding/AboutImageSep.png \
+	branding/SplashScreen.png \
+	branding/WelcomePage_Logo.png \
+	branding/WelcomePage_TopBorderRepeat.png \
+	branding/WelcomePageContent.xml \
 	ExtensionModel/Commands.addin.xml \
 	ExtensionModel/DefaultPolicyPanels.addin.xml \
 	ExtensionModel/GlobalOptionsDialog.addin.xml \
@@ -713,8 +729,6 @@ RES =  \
 	ExtensionModel/StockIcons.addin.xml \
 	ExtensionModel/Templates.addin.xml \
 	gtk-gui/gui.stetic \
-	icons/AboutImage.png \
-	icons/AboutImageSep.png \
 	icons/add-namespace-16.png \
 	icons/assembly-project-16.png \
 	icons/author-information-16.png \
@@ -861,7 +875,6 @@ RES =  \
 	icons/solution-folder-open-16.png \
 	icons/solution-new-16.png \
 	icons/sort-namespace-16.png \
-	icons/SplashScreen.png \
 	icons/static-16.png \
 	icons/syntax-highlighting-16.png \
 	icons/syntax-highlighting-24.png \

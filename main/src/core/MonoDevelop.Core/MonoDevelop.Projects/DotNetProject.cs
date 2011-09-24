@@ -481,16 +481,6 @@ namespace MonoDevelop.Projects
 			}
 		}
 		
-		internal protected override BuildResult OnRunTarget (IProgressMonitor monitor, string target, ConfigurationSelector configuration)
-		{
-			if (!TargetRuntime.IsInstalled (TargetFramework)) {
-				BuildResult res = new BuildResult ();
-				res.AddError (GettextCatalog.GetString ("Framework '{0}' not installed.", TargetFramework.Name));
-				return res;
-			}
-			return base.OnRunTarget (monitor, target, configuration);
-		}
-		
 		internal protected override void PopulateOutputFileList (List<FilePath> list, ConfigurationSelector configuration)
 		{
 			base.PopulateOutputFileList (list, configuration);
@@ -552,10 +542,10 @@ namespace MonoDevelop.Projects
 			
 			//collect all the "local copy" references and their attendant files
 			foreach (ProjectReference projectReference in References) {
-				if (!projectReference.LocalCopy || ParentSolution == null)
+				if (!projectReference.LocalCopy || !projectReference.CanSetLocalCopy)
 					continue;
 
-				if (projectReference.ReferenceType == ReferenceType.Project) {
+				if (ParentSolution != null && projectReference.ReferenceType == ReferenceType.Project) {
 					DotNetProject p = ParentSolution.FindProjectByName (projectReference.Reference) as DotNetProject;
 
 					if (p == null) {

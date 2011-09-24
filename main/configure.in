@@ -1,4 +1,4 @@
-AC_INIT([monodevelop], 2.7.12, [monodevelop-list@lists.ximian.com])
+AC_INIT([monodevelop], 2.7.22, [monodevelop-list@lists.ximian.com])
 AC_PREREQ(2.53)
 AM_INIT_AUTOMAKE([1.9 tar-ustar])
 AM_MAINTAINER_MODE
@@ -12,7 +12,7 @@ ASSEMBLY_VERSION=2.8.0.0
 # the C# side of things. It should be one of the following two formats:
 # 1) "VERSION_NUMBER"					"2.0"
 # 2) "VERSION_NUMBER BUILD_TYPE BUILD_NUMBER"		"2.0 Alpha 1"
-PACKAGE_VERSION_LABEL="2.8 Alpha 3"
+PACKAGE_VERSION_LABEL="2.8 Beta 3"
 
 AC_PATH_PROG(MONO, mono)
 AC_PATH_PROG(MCS, gmcs)
@@ -284,6 +284,8 @@ src/core/MonoDevelop.Ide/Makefile
 src/core/MonoDevelop.Ide/BuildVariables.cs
 src/core/MonoDevelop.Startup/Makefile
 src/tools/Makefile
+src/tools/MacCrashLogger/Makefile
+src/tools/mdcrashlog/Makefile
 src/tools/mdhost/Makefile
 src/tools/mdtool/Makefile
 src/tools/SharpCoco/Makefile
@@ -304,7 +306,6 @@ src/addins/CSharpBinding/AspNet/Makefile
 src/addins/ILAsmBinding/Makefile
 src/addins/VBNetBinding/Makefile
 src/addins/prj2make-sharp-lib/Makefile
-src/addins/WelcomePage/Makefile
 src/addins/ChangeLogAddIn/Makefile
 src/addins/MonoDevelop.GtkCore/Makefile
 src/addins/MonoDevelop.GtkCore/libstetic/Makefile

@@ -129,10 +129,9 @@ namespace MonoDevelop.MacDev.PlistEditor
 				);
 				return false;
 			}
-			if (!CheckImageSize (pb))
-				return false;
-			pb.Dispose ();
-			return true;
+			
+			using (pb)
+				return CheckImageSize (pb);
 		}
 		
 		protected override void OnClicked ()
@@ -142,15 +141,18 @@ namespace MonoDevelop.MacDev.PlistEditor
 				return;
 			var dialog = new ProjectFileSelectorDialog (project, null, "*.png");
 			try {
-				dialog.Title = GettextCatalog.GetString ("Select icon...");
-				int response = MessageService.RunCustomDialog (dialog);
-				if (response == (int)Gtk.ResponseType.Ok && dialog.SelectedFile != null) {
-					
+				if (AcceptedSize.IsEmpty)
+					dialog.Title = GettextCatalog.GetString ("Select icon...");
+				else
+					dialog.Title = GettextCatalog.GetString ("Select icon ({0}x{1})...", AcceptedSize.Width, AcceptedSize.Height);
+				while (MessageService.RunCustomDialog (dialog) == (int)Gtk.ResponseType.Ok && dialog.SelectedFile != null) {
 					var path = dialog.SelectedFile.FilePath;
 					if (!CheckImage (path))
-						return;
+						continue;
+					
 					SelectedProjectFile = dialog.SelectedFile.ProjectVirtualPath;
 					OnChanged (EventArgs.Empty);
+					break;
 				}
 			} finally {
 				dialog.Destroy ();

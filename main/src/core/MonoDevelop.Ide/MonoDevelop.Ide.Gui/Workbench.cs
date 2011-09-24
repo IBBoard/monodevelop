@@ -190,9 +190,8 @@ namespace MonoDevelop.Ide.Gui
 		
 		public void Present ()
 		{
-			//FIXME: Present is broken on Mac GTK+. It maximises the window.
-			if (!Platform.IsMac)
-				RootWindow.Present ();
+			//FIXME: this probably needs to do a "request for attention" dock bounce on MacOS
+			RootWindow.Present ();
 		}
 				
 		public bool FullScreen {
@@ -387,9 +386,10 @@ namespace MonoDevelop.Ide.Gui
 				if (openFileInfo.NewContent != null) {
 					Counters.OpenDocumentTimer.Trace ("Wrapping document");
 					Document doc = WrapDocument (openFileInfo.NewContent.WorkbenchWindow);
-					if (options.HasFlag (OpenDocumentOptions.BringToFront))
+					if (options.HasFlag (OpenDocumentOptions.BringToFront)) {
 						Present ();
-					doc.RunWhenLoaded (() => doc.Window.SelectWindow ());
+						doc.RunWhenLoaded (() => doc.Window.SelectWindow ());
+					}
 					return doc;
 				} else {
 					return null;
@@ -1064,9 +1064,15 @@ namespace MonoDevelop.Ide.Gui
 			
 			IEditableTextBuffer ipos = newContent.GetContent<IEditableTextBuffer> ();
 			if (fileInfo.Line != -1 && ipos != null) {
-				GLib.Timeout.Add (10, new GLib.TimeoutHandler (JumpToLine));
+				newContent.Control.Realized += HandleNewContentControlRealized;
 			}
 			fileInfo.NewContent = newContent;
+		}
+
+		void HandleNewContentControlRealized (object sender, EventArgs e)
+		{
+			JumpToLine ();
+			newContent.Control.Realized -= HandleNewContentControlRealized;
 		}
 		
 		public bool JumpToLine ()

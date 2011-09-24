@@ -32,6 +32,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Xml;
 
 namespace MonoDevelop.Core
 {
@@ -41,7 +42,6 @@ namespace MonoDevelop.Core
 		internal static void Initialize ()
 		{
 		}
-		
 		readonly static string FileName = "MonoDevelopProperties.xml";
 		static Properties properties;
 
@@ -168,6 +168,11 @@ namespace MonoDevelop.Core
 			var prefsPath = UserProfile.Current.ConfigDir.Combine (FileName);
 			FileService.EnsureDirectoryExists (prefsPath.ParentDirectory);
 			properties.Save (prefsPath);
+		}
+		
+		public static bool HasValue (string property)
+		{
+			return properties.HasValue (property);
 		}
 		
 		public static T Get<T> (string property, T defaultValue)
