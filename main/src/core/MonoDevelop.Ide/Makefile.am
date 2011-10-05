@@ -400,7 +400,6 @@ FILES =  \
 	MonoDevelop.Ide.Gui.Components/EnvVarList.cs \
 	MonoDevelop.Ide.Gui.Components/ExecutionModeComboBox.cs \
 	MonoDevelop.Ide.Gui.Components/ExtensibleTreeView.cs \
-	MonoDevelop.Ide.Gui.Components/FileBrowser.cs \
 	MonoDevelop.Ide.Gui.Components/ITreeBuilder.cs \
 	MonoDevelop.Ide.Gui.Components/ITreeBuilderContext.cs \
 	MonoDevelop.Ide.Gui.Components/ITreeNavigator.cs \
@@ -527,7 +526,6 @@ FILES =  \
 	MonoDevelop.Ide.Gui.Pads/ErrorListPad.cs \
 	MonoDevelop.Ide.Gui.Pads/FileList.cs \
 	MonoDevelop.Ide.Gui.Pads/FileListItem.cs \
-	MonoDevelop.Ide.Gui.Pads/FileScout.cs \
 	MonoDevelop.Ide.Gui.Pads/InternalLogPad.cs \
 	MonoDevelop.Ide.Gui.Pads/MonodocTreePad.cs \
 	MonoDevelop.Ide.Gui.Pads/SolutionPad.cs \
@@ -539,6 +537,7 @@ FILES =  \
 	MonoDevelop.Ide.Gui/AbstractViewContent.cs \
 	MonoDevelop.Ide.Gui/AsyncDispatchAttribute.cs \
 	MonoDevelop.Ide.Gui/BackgroundProgressMonitor.cs \
+	MonoDevelop.Ide.Gui/CommonTextEditorOptions.cs \
 	MonoDevelop.Ide.Gui/ConfigurationComboBox.cs \
 	MonoDevelop.Ide.Gui/DefaultWorkbench.cs \
 	MonoDevelop.Ide.Gui/DisplayBindingService.cs \
@@ -567,6 +566,7 @@ FILES =  \
 	MonoDevelop.Ide.Gui/Pad.cs \
 	MonoDevelop.Ide.Gui/PadFontChanger.cs \
 	MonoDevelop.Ide.Gui/ProgressMonitors.cs \
+	MonoDevelop.Ide.Gui/ProjectLoadProgressMonitor.cs \
 	MonoDevelop.Ide.Gui/SdiWorkspaceWindow.cs \
 	MonoDevelop.Ide.Gui/StartupInfo.cs \
 	MonoDevelop.Ide.Gui/StatusProgressMonitor.cs \

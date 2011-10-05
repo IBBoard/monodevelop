@@ -610,20 +610,31 @@ namespace Mono.TextEditor
 			return true;
 		}
 		#endregion
-
+		
+		//this includes the pre-edit caret offset
 		internal double caretX;
 		internal double caretY;
 		Gdk.GC caretGc;
-
+		
+		//this doesn't include the pre-edit caret offset
+		internal double nonPreeditCaretX;
+		internal double nonPreeditCaretY;
+		
 		void SetVisibleCaretPosition (double x, double y)
 		{
-			if (x == caretX && y == caretY)
-				return;
-			
 			caretX = x;
 			caretY = y;
 			
-			textEditor.IMContext.CursorLocation = new Rectangle ((int)caretX, (int)caretY, 0, (int)(LineHeight - 1));
+			if (x == nonPreeditCaretX && y == nonPreeditCaretY)
+				return;
+			
+			nonPreeditCaretX = x;
+			nonPreeditCaretY = y;
+			
+			textEditor.ResetIMContext ();
+			
+			textEditor.IMContext.CursorLocation = new Rectangle ((int)nonPreeditCaretX, (int)nonPreeditCaretY,
+				0, (int)(LineHeight - 1));
 		}
 
 		public static Gdk.Rectangle EmptyRectangle = new Gdk.Rectangle (0, 0, 0, 0);
@@ -772,7 +783,7 @@ namespace Mono.TextEditor
 		Dictionary<LineSegment, LayoutDescriptor> layoutDict = new Dictionary<LineSegment, LayoutDescriptor> ();
 		LayoutWrapper GetCachedLayout (LineSegment line, int offset, int length, int selectionStart, int selectionEnd, Action<LayoutWrapper> createNew)
 		{
-			bool containsPreedit = offset <= textEditor.preeditOffset && textEditor.preeditOffset <= offset + length;
+			bool containsPreedit = textEditor.ContainsPreedit (offset, length);
 			LayoutDescriptor descriptor;
 			if (!containsPreedit && layoutDict.TryGetValue (line, out descriptor)) {
 				bool isInvalid;
@@ -1046,7 +1057,7 @@ namespace Mono.TextEditor
 				var spanStack = line.StartSpan;
 				int lineOffset = line.Offset;
 				string lineText = textBuilder.ToString ();
-				bool containsPreedit = !string.IsNullOrEmpty (textEditor.preeditString) && offset <= textEditor.preeditOffset && textEditor.preeditOffset <= offset + length;
+				bool containsPreedit = textEditor.ContainsPreedit (offset, length);
 				uint preeditLength = 0;
 				
 				if (containsPreedit) {
@@ -1128,13 +1139,7 @@ namespace Mono.TextEditor
 				if (containsPreedit) {
 					var si = TranslateToUTF8Index (lineChars, (uint)(textEditor.preeditOffset - offset), ref curIndex, ref byteIndex);
 					var ei = TranslateToUTF8Index (lineChars, (uint)(textEditor.preeditOffset - offset + preeditLength), ref curIndex, ref byteIndex);
-					atts.AddUnderlineAttribute (Pango.Underline.Single, si, ei);
-					
-					var parser = Document.SyntaxMode.CreateSpanParser (Document, Document.SyntaxMode, line, line.StartSpan);
-					
-					parser.ParseSpans (line.Offset, textEditor.preeditOffset);
-					var preEditColor = parser.CurSpan != null ? ColorStyle.GetChunkStyle (parser.CurSpan.Color).Color : ColorStyle.Default.Color;
-					atts.AddForegroundAttribute (preEditColor, si, ei);
+					atts.Splice (textEditor.preeditAttrs, (int)si, (int)(ei - si));
 				}
 				wrapper.LineChars = lineChars;
 				wrapper.Layout.SetText (lineText);
@@ -1377,9 +1382,6 @@ namespace Mono.TextEditor
 				if (offset <= caretOffset && caretOffset <= offset + length) {
 					Pango.Rectangle strong_pos, weak_pos;
 					int index = caretOffset- offset;
-					if (offset <= textEditor.preeditOffset && textEditor.preeditOffset < offset + length) {
-						index += textEditor.preeditString.Length;
-					}
 
 					if (Caret.Column > line.EditableLength + 1) {
 						string virtualSpace = this.textEditor.GetTextEditorData ().GetVirtualSpaces (Caret.Line, Caret.Column);
@@ -1390,6 +1392,7 @@ namespace Mono.TextEditor
 						wrapper.Layout.FontDescription = textEditor.Options.Font;
 						int vy, vx;
 						wrapper.Layout.GetSize (out vx, out vy);
+						
 						SetVisibleCaretPosition (((pangoPosition + vx + layout.PangoWidth) / Pango.Scale.PangoScale), y);
 						xPos = (pangoPosition + layout.PangoWidth) / Pango.Scale.PangoScale;
 
@@ -1415,6 +1418,21 @@ namespace Mono.TextEditor
 						SetVisibleCaretPosition (xPos + (strong_pos.X / Pango.Scale.PangoScale), y);
 					} else if (index == length) {
 						SetVisibleCaretPosition ((pangoPosition + layout.PangoWidth) / Pango.Scale.PangoScale, y);
+					}
+					
+					// replace the caret position with the preedit caret position
+					// we had to calculate the "real" caret position so SetVisibleCaretPosition could pass to the IME
+					if (offset <= textEditor.preeditOffset && textEditor.preeditOffset < offset + length) {
+						index += textEditor.preeditCursorPos;
+						if (index >= 0 && index < length) {
+							curIndex = byteIndex = 0;
+							layout.Layout.GetCursorPos ((int)TranslateToUTF8Index (layout.LineChars, (uint)index, ref curIndex, ref byteIndex), out strong_pos, out weak_pos);
+							caretX = xPos + (strong_pos.X / Pango.Scale.PangoScale);
+							caretY = y;
+						} else if (index == length) {
+							caretX = (pangoPosition + layout.PangoWidth) / Pango.Scale.PangoScale;
+							caretY = y;
+						}
 					}
 				}
 			}
@@ -2411,7 +2429,8 @@ namespace Mono.TextEditor
 			}
 			string lineText = textBuilder.ToString ();
 			char[] lineChars = lineText.ToCharArray ();
-			bool containsPreedit = lineOffset <= textEditor.preeditOffset && textEditor.preeditOffset <= lineOffset + line.EditableLength;
+			
+			bool containsPreedit = textEditor.ContainsPreedit (lineOffset, line.EditableLength);
 			uint preeditLength = 0;
 
 			if (containsPreedit) {

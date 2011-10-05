@@ -30,18 +30,23 @@ namespace MonoDevelop.Core
 	public class UserProfile
 	{
 		const string PROFILE_ENV_VAR = "MONODEVELOP_PROFILE";
-		const string CURRENT_PROFILE_VERSION = "2.7";
-
-		internal static string[] GetMigratableVersions ()
+		
+		//These are the known profile versions that can be migrated.
+		//MUST BE SORTED, low to high.
+		//The last is the current profile version.
+		//Should be increased only for major MD versions. Cannot contain '+' or '-'.
+		internal static string[] ProfileVersions = new[] {
+			"2.6",
+			"2.7",
+			"2.8",
+		};
+		
+		static UserProfile ()
 		{
-			return new[] {
-				"2.6",
-			};
+			Current = GetProfile (ProfileVersions[ProfileVersions.Length-1]);
 		}
 		
-		static readonly UserProfile currentProfile = GetCurrentProfile ();
-		
-		public static UserProfile Current { get { return currentProfile; } }
+		public static UserProfile Current { get; private set; }
 		
 		/// <summary>Location for cached data that can be regenerated.</summary>
 		public FilePath CacheDir { get; private set; }
@@ -88,16 +93,11 @@ namespace MonoDevelop.Core
 			}
 		}
 		
-		internal static UserProfile GetCurrentProfile ()
-		{
-			return GetProfile (CURRENT_PROFILE_VERSION);
-		}
-		
 		internal static UserProfile GetProfile (string profileVersion)
 		{
 			FilePath testProfileRoot = Environment.GetEnvironmentVariable (PROFILE_ENV_VAR);
 			if (!testProfileRoot.IsNullOrEmpty)
-				return UserProfile.ForTest (CURRENT_PROFILE_VERSION, testProfileRoot);;
+				return UserProfile.ForTest (profileVersion, testProfileRoot);
 			
 			if (Platform.IsWindows)
 				return UserProfile.ForWindows (profileVersion);

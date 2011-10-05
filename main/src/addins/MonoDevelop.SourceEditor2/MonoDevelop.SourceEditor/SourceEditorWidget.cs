@@ -281,6 +281,10 @@ namespace MonoDevelop.SourceEditor
 			vbox.SetSizeRequest (32, 32);
 			this.lastActiveEditor = this.textEditor = new MonoDevelop.SourceEditor.ExtensibleTextEditor (view);
 			this.textEditor.FocusInEvent += (o, s) => lastActiveEditor = (ExtensibleTextEditor)o;
+			this.textEditor.FocusOutEvent += delegate {
+				if (this.splittedTextEditor == null || !splittedTextEditor.HasFocus)
+					OnLostFocus ();
+			};
 			mainsw = new DecoratedScrolledWindow (this);
 			this.textEditorContainer = new TextEditorContainer (textEditor);
 			mainsw.SetTextEditor (textEditorContainer);
@@ -320,6 +324,12 @@ namespace MonoDevelop.SourceEditor
 			parseInformationUpdaterWorkerThread.DoWork += HandleParseInformationUpdaterWorkerThreadDoWork;
 		}
 
+		void OnLostFocus ()
+		{
+			//clears search status messages
+			IdeApp.Workbench.StatusBar.ShowReady ();
+		}
+
 		void UpdateLineColOnEventHandler (object sender, EventArgs e)
 		{
 			this.UpdateLineCol ();
@@ -348,12 +358,10 @@ namespace MonoDevelop.SourceEditor
 		{
 			Document document = textEditorData.Document;
 			if (document == null || region.Start.Line <= 0 || region.End.Line <= 0 || region.Start.Line > document.LineCount || region.End.Line > document.LineCount)
-			{
 				return null;
-			}
-			
 			int startOffset = document.LocationToOffset (region.Start.Line, region.Start.Column);
-			int endOffset   = document.LocationToOffset (region.End.Line, region.End.Column );
+			// end doesn't include the char at that position.
+			int endOffset   = document.LocationToOffset (region.End.Line, region.End.Column) - 1;
 			FoldSegment result = new FoldSegment (document, text, startOffset, endOffset - startOffset, type);
 			
 			foldSegments.Add (result);
@@ -674,6 +682,10 @@ namespace MonoDevelop.SourceEditor
 			secondsw = new DecoratedScrolledWindow (this);
 			this.splittedTextEditor = new MonoDevelop.SourceEditor.ExtensibleTextEditor (view, this.textEditor.Options, textEditor.Document);
 			this.splittedTextEditor.FocusInEvent += (o, s) => lastActiveEditor = (ExtensibleTextEditor)o;
+			this.splittedTextEditor.FocusOutEvent += delegate {
+				 if (!textEditor.HasFocus)
+					OnLostFocus ();
+			};
 			this.splittedTextEditor.Extension = textEditor.Extension;
 			
 			this.splittedTextEditorContainer = new TextEditorContainer (this.splittedTextEditor);
@@ -1001,6 +1013,8 @@ namespace MonoDevelop.SourceEditor
 				searchAndReplaceWidgetFrame = null;
 				searchAndReplaceWidget = null;
 				result = true;
+				//clears any message it may have set
+				IdeApp.Workbench.StatusBar.ShowReady ();
 			}
 			
 			if (gotoLineNumberWidgetFrame != null) {

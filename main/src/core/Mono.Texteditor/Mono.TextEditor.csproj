@@ -286,6 +286,12 @@
     <EmbeddedResource Include="SyntaxModes\StringsSyntaxMode.xml">
       <LogicalName>StringsSyntaxMode.xml</LogicalName>
     </EmbeddedResource>
+    <EmbeddedResource Include="SyntaxModes\JsonSyntaxMode.xml">
+      <LogicalName>JsonSyntaxMode.xml</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="SyntaxModes\ShellScriptSyntaxMode.xml">
+      <LogicalName>ShellScriptSyntaxMode.xml</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ProjectExtensions>

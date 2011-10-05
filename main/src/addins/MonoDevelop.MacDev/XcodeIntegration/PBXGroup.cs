@@ -55,13 +55,21 @@ namespace MonoDevelop.MacDev.XcodeIntegration
 		{
 			children.Add (file);
 		}
-
+		
 		public override XcodeType Type {
 			get {
 				return XcodeType.PBXGroup;
 			}
 		}
-
+		
+		public PBXGroup GetGroup (string name)
+		{
+			foreach (var v in children)
+				if (v is PBXGroup && v.Name == name)
+					return (PBXGroup) v;
+			return null;
+		}
+		
 		public override string ToString ()
 		{
 			var sb = new StringBuilder ();
@@ -78,7 +86,7 @@ namespace MonoDevelop.MacDev.XcodeIntegration
 				sb.AppendFormat ("\t\t\t\t{0} /* {1} */,\n", child.Token, child.Name);
 			sb.AppendFormat ("\t\t\t);\n");
 			if (name != null)
-				sb.AppendFormat ("\t\t\tname = {0};\n", QuoteOnDemand (name));
+				sb.AppendFormat ("\t\t\tname = \"{0}\";\n", name);
 			sb.AppendFormat ("\t\t\tsourceTree = \"<group>\";\n");
 			sb.AppendFormat ("\t\t}};");
 

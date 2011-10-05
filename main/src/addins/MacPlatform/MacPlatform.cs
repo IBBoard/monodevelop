@@ -58,10 +58,16 @@ namespace MonoDevelop.MacIntegration
 		static bool setupFail, initedApp, initedGlobal;
 		
 		static Dictionary<string, string> mimemap;
+		
+		//this is a BCD value of the form "xxyz", where x = major, y = minor, z = bugfix
+		//eg. 0x1071 = 10.7.1
+		static int systemVersion;
 
 		static MacPlatformService ()
 		{
 			timer.BeginTiming ();
+			
+			systemVersion = Carbon.Gestalt ("sysv");
 			
 			LoadMimeMapAsync ();
 			
@@ -247,6 +253,17 @@ namespace MonoDevelop.MacIntegration
 			//FIXME: should we remove these when finalizing?
 			try {
 				ApplicationEvents.Quit += delegate (object sender, ApplicationQuitEventArgs e) {
+					//FIXME: can we avoid replying to the message until the app quits?
+					//There's NSTerminateLate but I'm not sure how to access it from carbon, maybe
+					//we need to swizzle methods into the app's NSApplicationDelegate.
+					//Also, it stops the main CFRunLoop, hopefully GTK dialogs use a child runloop.
+					//For now, just bounce.
+					var topDialog = MessageService.GetDefaultModalParent () as Gtk.Dialog;
+					if (topDialog != null && topDialog.Modal) {
+						NSApplication.SharedApplication.RequestUserAttention (
+							NSRequestUserAttentionType.CriticalRequest);
+					}
+					//FIXME: delay this until all existing modal dialogs were closed
 					if (!IdeApp.Exit ())
 						e.UserCancelled = true;
 					e.Handled = true;
@@ -300,50 +317,74 @@ namespace MonoDevelop.MacIntegration
 		
 		protected override Gdk.Pixbuf OnGetPixbufForFile (string filename, Gtk.IconSize size)
 		{
+			//this only works on MacOS 10.6.0 and greater
+			if (systemVersion < 0x1060)
+				return base.OnGetPixbufForFile (filename, size);
+			
 			NSImage icon = null;
 			
-			//FIXME: better handling of names of files that haven't been saved yet
-			if (Path.IsPathRooted (filename)) {
+			if (Path.IsPathRooted (filename) && File.Exists (filename)) {
 				icon = NSWorkspace.SharedWorkspace.IconForFile (filename);
 			} else {
-				icon = NSWorkspace.SharedWorkspace.IconForFile ("/tmp/" + filename);
+				string extension = Path.GetExtension (filename);
+				if (!string.IsNullOrEmpty (extension))
+					icon = NSWorkspace.SharedWorkspace.IconForFileType (extension);
 			}
 			
-			if (icon != null) {
-				int w, h;
-				if (!Gtk.Icon.SizeLookup (Gtk.IconSize.Menu, out w, out h))
-					w = h = 22;
-				var rect = new System.Drawing.RectangleF (0, 0, w, h);
-				var rep = icon.BestRepresentation (rect, null, null) as NSBitmapImageRep;
-				if (rep != null) {
-					var tiff = rep.TiffRepresentation;
-					byte[] arr = new byte[tiff.Length];
-					System.Runtime.InteropServices.Marshal.Copy (tiff.Bytes, arr, 0, arr.Length);
-					int pw = rep.PixelsWide, ph = rep.PixelsHigh;
-					var px = new Gdk.Pixbuf (arr, pw, ph);
-					
-					//if one dimension matches, and the other is same or smaller, use as-is
-					if ((pw == w && ph <= h) || (ph == h && pw <= w))
-						return px;
-					
-					//else scale proportionally such that the largest dimension matches the desired size
-					if (pw == ph) {
-						pw = w;
-						ph = h;
-					} else if (pw > ph) {
-						ph = (int) (w * ((float) ph / pw));
-						pw = w;
-					} else {
-						pw = (int) (h * ((float) pw / ph));
-						ph = h;
-					}
-					
-					var scaled = px.ScaleSimple (pw, ph, Gdk.InterpType.Bilinear);
-					px.Dispose ();
-					return scaled;
-				}
+			if (icon == null) {
+				return base.OnGetPixbufForFile (filename, size);
 			}
-			return base.OnGetPixbufForFile (filename, size);
+			
+			int w, h;
+			if (!Gtk.Icon.SizeLookup (Gtk.IconSize.Menu, out w, out h)) {
+				w = h = 22;
+			}
+			var rect = new System.Drawing.RectangleF (0, 0, w, h);
+			
+			var arep = icon.BestRepresentation (rect, null, null);
+			if (arep == null) {
+				return base.OnGetPixbufForFile (filename, size);
+			}
+			
+			var rep = arep as NSBitmapImageRep;
+			if (rep == null) {
+				using (var cgi = arep.AsCGImage (rect, null, null))
+					rep = new NSBitmapImageRep (cgi);
+				arep.Dispose ();
+			}
+			
+			try {
+				byte[] arr;
+				using (var tiff = rep.TiffRepresentation) {
+					arr = new byte[tiff.Length];
+					System.Runtime.InteropServices.Marshal.Copy (tiff.Bytes, arr, 0, arr.Length);
+				}
+				int pw = rep.PixelsWide, ph = rep.PixelsHigh;
+				var px = new Gdk.Pixbuf (arr, pw, ph);
+				
+				//if one dimension matches, and the other is same or smaller, use as-is
+				if ((pw == w && ph <= h) || (ph == h && pw <= w))
+					return px;
+				
+				//else scale proportionally such that the largest dimension matches the desired size
+				if (pw == ph) {
+					pw = w;
+					ph = h;
+				} else if (pw > ph) {
+					ph = (int) (w * ((float) ph / pw));
+					pw = w;
+				} else {
+					pw = (int) (h * ((float) pw / ph));
+					ph = h;
+				}
+				
+				var scaled = px.ScaleSimple (pw, ph, Gdk.InterpType.Bilinear);
+				px.Dispose ();
+				return scaled;
+			} finally {
+				if (rep != null)
+					rep.Dispose ();
+			}
 		}
 		
 		public override IProcessAsyncOperation StartConsoleProcess (string command, string arguments, string workingDirectory,
@@ -423,6 +464,9 @@ end tell", directory.ToString ().Replace ("\"", "\\\"")));
 			RectangleF visible = monitor.VisibleFrame;
 			RectangleF frame = monitor.Frame;
 			
+			if (visible.Height > frame.Height || visible.Width > frame.Width)
+				return base.GetUsableMonitorGeometry (screen, monitor_id);
+			
 			// VisibleFrame.Y is the height of the Dock if it is at the bottom of the screen, so in order
 			// to get the menu height, we just figure out the difference between the visibleFrame height
 			// and the actual frame height, then subtract the Dock height.
@@ -433,6 +477,12 @@ end tell", directory.ToString ().Replace ("\"", "\\\"")));
 			visible.Y = menubar;
 			
 			return new Gdk.Rectangle ((int) visible.X, (int) visible.Y, (int) visible.Width, (int) visible.Height);
+		}
+		
+		public override void GrabDesktopFocus (Gtk.Window window)
+		{
+			window.Present ();
+			NSApplication.SharedApplication.ActivateIgnoringOtherApps (true);
 		}
 	}
 }
