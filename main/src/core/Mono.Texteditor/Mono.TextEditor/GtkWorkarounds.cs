@@ -103,6 +103,7 @@ namespace Mono.TextEditor
 		{
 			IntPtr array = objc_msgSend_IntPtr (cls_NSScreen, sel_screens);
 			IntPtr iter = objc_msgSend_IntPtr (array, sel_objectEnumerator);
+			Gdk.Rectangle geometry = screen.GetMonitorGeometry (0);
 			RectangleF visible, frame;
 			IntPtr scrn;
 			int i = 0;
@@ -116,16 +117,37 @@ namespace Mono.TextEditor
 			objc_msgSend_RectangleF (out visible, scrn, sel_visibleFrame);
 			objc_msgSend_RectangleF (out frame, scrn, sel_frame);
 			
+			// Note: Frame and VisibleFrame rectangles are relative to monitor 0, but we need absolute
+			// coordinates.
+			visible.X += geometry.X;
+			visible.Y += geometry.Y;
+			frame.X += geometry.X;
+			frame.Y += geometry.Y;
+			
 			// VisibleFrame.Y is the height of the Dock if it is at the bottom of the screen, so in order
 			// to get the menu height, we just figure out the difference between the visibleFrame height
 			// and the actual frame height, then subtract the Dock height.
 			//
 			// We need to swap the Y offset with the menu height because our callers expect the Y offset
 			// to be from the top of the screen, not from the bottom of the screen.
-			float menubar = (frame.Height - visible.Height) - visible.Y;
-			visible.Y = menubar;
+			float x, y, width, height;
 			
-			return new Gdk.Rectangle ((int) visible.X, (int) visible.Y, (int) visible.Width, (int) visible.Height);
+			if (visible.Height < frame.Height) {
+				float dockHeight = visible.Y;
+				float menubarHeight = (frame.Height - visible.Height) - dockHeight;
+				
+				height = frame.Height - menubarHeight - dockHeight;
+				y = menubarHeight;
+			} else {
+				height = frame.Height;
+				y = frame.Y;
+			}
+			
+			// Takes care of the possibility of the Dock being positioned on the left or right edge of the screen.
+			width = System.Math.Min (visible.Width, frame.Width);
+			x = System.Math.Max (visible.X, frame.X);
+			
+			return new Gdk.Rectangle ((int) x, (int) y, (int) width, (int) height);
 		}
 		
 		static void MacRequestAttention (bool critical)

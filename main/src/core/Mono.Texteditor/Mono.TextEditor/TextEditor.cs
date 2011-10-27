@@ -369,7 +369,7 @@ namespace Mono.TextEditor
 			window.ShowAll ();
 		}
 		
-		internal int preeditOffset, preeditLine, preeditCursorPos;
+		internal int preeditOffset, preeditLine, preeditCursorCharIndex;
 		internal string preeditString;
 		internal Pango.AttrList preeditAttrs;
 
@@ -383,19 +383,26 @@ namespace Mono.TextEditor
 		
 		void PreeditStringChanged (object sender, EventArgs e)
 		{
-			imContext.GetPreeditString (out preeditString, out preeditAttrs, out preeditCursorPos);
+			imContext.GetPreeditString (out preeditString, out preeditAttrs, out preeditCursorCharIndex);
 			if (!string.IsNullOrEmpty (preeditString)) {
-				//FIXME: respect UTF16 surrogates in cursor pos
-				//argh, mcs explodes if you use (System.)Math in a Mono namespace
-				preeditCursorPos = System.Math.Max (0, System.Math.Min (preeditString.Length, preeditCursorPos));
 				if (preeditOffset < 0) {
 					preeditOffset = Caret.Offset;
 					preeditLine = Caret.Line;
 				}
+				using (var preeditLayout = PangoUtil.CreateLayout (this)) {
+					preeditLayout.SetText (preeditString);
+					preeditLayout.Attributes = preeditAttrs;
+					int w, h;
+					preeditLayout.GetSize (out w, out h);
+					if (LineHeight != System.Math.Ceiling (h / Pango.Scale.PangoScale))
+						OptionsChanged (this, EventArgs.Empty);
+				}
+				
 			} else {
 				preeditOffset = -1;
 				preeditString = null;
 				preeditAttrs = null;
+				preeditCursorCharIndex = 0;
 			}
 			this.textViewMargin.ForceInvalidateLine (preeditLine);
 			this.textEditorData.Document.CommitLineUpdate (preeditLine);
@@ -1016,39 +1023,39 @@ namespace Mono.TextEditor
 				
 		protected override void OnDragDataReceived (DragContext context, int x, int y, SelectionData selection_data, uint info, uint time_)
 		{
-			textEditorData.Document.BeginAtomicUndo ();
-			int dragOffset = Document.LocationToOffset (dragCaretPos);
-			if (context.Action == DragAction.Move) {
-				if (CanEdit (Caret.Line) && selection != null) {
-					ISegment selectionRange = selection.GetSelectionRange (textEditorData);
-					if (selectionRange.Offset < dragOffset)
-						dragOffset -= selectionRange.Length;
-					Caret.PreserveSelection = true;
-					textEditorData.DeleteSelection (selection);
-					Caret.PreserveSelection = false;
-
-					selection = null;
-				}
-			}
-			if (selection_data.Length > 0 && selection_data.Format == 8) {
-				Caret.Offset = dragOffset;
-				if (CanEdit (dragCaretPos.Line)) {
-					int offset = Caret.Offset;
-					if (selection != null && selection.GetSelectionRange (textEditorData).Offset >= offset) {
-						var start = Document.OffsetToLocation (selection.GetSelectionRange (textEditorData).Offset + selection_data.Text.Length);
-						var end = Document.OffsetToLocation (selection.GetSelectionRange (textEditorData).Offset + selection_data.Text.Length + selection.GetSelectionRange (textEditorData).Length);
-						selection = new Selection (start, end);
+			using (var undo = OpenUndoGroup ()) {
+				int dragOffset = Document.LocationToOffset (dragCaretPos);
+				if (context.Action == DragAction.Move) {
+					if (CanEdit (Caret.Line) && selection != null) {
+						ISegment selectionRange = selection.GetSelectionRange (textEditorData);
+						if (selectionRange.Offset < dragOffset)
+							dragOffset -= selectionRange.Length;
+						Caret.PreserveSelection = true;
+						textEditorData.DeleteSelection (selection);
+						Caret.PreserveSelection = false;
+	
+						selection = null;
 					}
-					textEditorData.Insert (offset, selection_data.Text);
-					Caret.Offset = offset + selection_data.Text.Length;
-					MainSelection = new Selection (Document.OffsetToLocation (offset), Document.OffsetToLocation (offset + selection_data.Text.Length));
-					textEditorData.PasteText (offset, selection_data.Text);
 				}
-				dragOver = false;
-				context = null;
+				if (selection_data.Length > 0 && selection_data.Format == 8) {
+					Caret.Offset = dragOffset;
+					if (CanEdit (dragCaretPos.Line)) {
+						int offset = Caret.Offset;
+						if (selection != null && selection.GetSelectionRange (textEditorData).Offset >= offset) {
+							var start = Document.OffsetToLocation (selection.GetSelectionRange (textEditorData).Offset + selection_data.Text.Length);
+							var end = Document.OffsetToLocation (selection.GetSelectionRange (textEditorData).Offset + selection_data.Text.Length + selection.GetSelectionRange (textEditorData).Length);
+							selection = new Selection (start, end);
+						}
+						textEditorData.Insert (offset, selection_data.Text);
+						Caret.Offset = offset + selection_data.Text.Length;
+						MainSelection = new Selection (Document.OffsetToLocation (offset), Document.OffsetToLocation (offset + selection_data.Text.Length));
+						textEditorData.PasteText (offset, selection_data.Text);
+					}
+					dragOver = false;
+					context = null;
+				}
+				mouseButtonPressed = 0;
 			}
-			mouseButtonPressed = 0;
-			textEditorData.Document.EndAtomicUndo ();
 			base.OnDragDataReceived (context, x, y, selection_data, info, time_);
 		}
 		
@@ -1858,6 +1865,11 @@ namespace Mono.TextEditor
 		{
 			return Document.OffsetToLineNumber (offset);
 		}
+		
+		public IDisposable OpenUndoGroup()
+		{
+			return Document.OpenUndoGroup ();
+		}
 		#endregion
 		
 		#region Search & Replace
@@ -2314,7 +2326,7 @@ namespace Mono.TextEditor
 		
 		void ShowTooltip (Gdk.ModifierType modifierState, int offset, int xloc, int yloc)
 		{
-			CancelSheduledShow ();
+			CancelScheduledShow ();
 			
 			if (tipWindow != null && currentTooltipProvider.IsInteractive (this, tipWindow)) {
 				int wx, ww, wh;
@@ -2388,7 +2400,7 @@ namespace Mono.TextEditor
 				if (tw == null)
 					return false;
 				
-				CancelSheduledShow ();
+				CancelScheduledShow ();
 				DoShowTooltip (provider, tw, tipX, tipY);
 				tipShowTimeoutId = 0;
 			} else
@@ -2398,7 +2410,7 @@ namespace Mono.TextEditor
 		
 		void DoShowTooltip (ITooltipProvider provider, Gtk.Window liw, int xloc, int yloc)
 		{
-			CancelSheduledShow ();
+			CancelScheduledShow ();
 			
 			tipWindow = liw;
 			currentTooltipProvider = provider;
@@ -2416,8 +2428,10 @@ namespace Mono.TextEditor
 			provider.GetRequiredPosition (this, liw, out w, out xalign);
 			w += 10;
 			
-			int x = xloc + ox + (int)textViewMargin.XOffset - (int) ((double)w * xalign);
-			Gdk.Rectangle geometry = Screen.GetUsableMonitorGeometry (Screen.GetMonitorAtPoint (ox + xloc, oy + yloc));
+			int x = xloc + ox + (int) textViewMargin.XOffset;
+			Gdk.Rectangle geometry = Screen.GetUsableMonitorGeometry (Screen.GetMonitorAtPoint (x, oy + yloc));
+			
+			x -= (int) ((double) w * xalign);
 			
 			if (x + w >= geometry.Right)
 				x = geometry.Right - w;
@@ -2432,7 +2446,7 @@ namespace Mono.TextEditor
 		public void HideTooltip ()
 		{
 			CancelScheduledHide ();
-			CancelSheduledShow ();
+			CancelScheduledShow ();
 			
 			if (tipWindow != null) {
 				tipWindow.Destroy ();
@@ -2451,14 +2465,14 @@ namespace Mono.TextEditor
 		
 		void CancelScheduledHide ()
 		{
-			CancelSheduledShow ();
+			CancelScheduledShow ();
 			if (tipHideTimeoutId != 0) {
 				GLib.Source.Remove (tipHideTimeoutId);
 				tipHideTimeoutId = 0;
 			}
 		}
 		
-		void CancelSheduledShow ()
+		void CancelScheduledShow ()
 		{
 			// Don't remove the timeout handler since it may be reused
 			nextTipOffset = -1;
