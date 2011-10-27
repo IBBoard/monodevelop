@@ -10,7 +10,6 @@ REFS =  \
 	$(GCONF_SHARP_LIBS) \
 	$(GLIB_SHARP_LIBS) \
 	$(GNOME_SHARP_LIBS) \
-	$(GNOME_VFS_SHARP_LIBS) \
 	$(GTK_SHARP_LIBS) \
 	-r:System
 
