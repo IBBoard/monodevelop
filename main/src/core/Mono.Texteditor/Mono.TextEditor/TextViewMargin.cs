@@ -1531,6 +1531,10 @@ namespace Mono.TextEditor
 		protected internal override void MousePressed (MarginMouseEventArgs args)
 		{
 			base.MousePressed (args);
+			
+			if (args.TriggersContextMenu ())
+				return;
+			
 			inSelectionDrag = false;
 			inDrag = false;
 			Selection selection = textEditor.MainSelection;
@@ -1657,7 +1661,6 @@ namespace Mono.TextEditor
 		}
 
 		CodeSegmentPreviewWindow previewWindow = null;
-		ISegment previewSegment = null;
 		public bool IsCodeSegmentPreviewWindowShown {
 			get {
 				return previewWindow != null;
@@ -1676,6 +1679,7 @@ namespace Mono.TextEditor
 		{
 			if (!IsCodeSegmentPreviewWindowShown)
 				throw new InvalidOperationException ("CodeSegment preview window isn't shown.");
+			var previewSegment = previewWindow.Segment;
 
 			int x = 0, y = 0;
 			this.previewWindow.GdkWindow.GetOrigin (out x, out y);
@@ -1687,7 +1691,6 @@ namespace Mono.TextEditor
 			codeSegmentEditorWindow.Move (x, y);
 			codeSegmentEditorWindow.Resize (w, h);
 			codeSegmentEditorWindow.SyntaxMode = Document.SyntaxMode;
-
 			int indentLength = SyntaxMode.GetIndentLength (Document, previewSegment.Offset, previewSegment.Length, false);
 
 			StringBuilder textBuilder = new StringBuilder ();
@@ -1712,11 +1715,10 @@ namespace Mono.TextEditor
 		uint codeSegmentTooltipTimeoutId = 0;
 		void ShowTooltip (ISegment segment, Rectangle hintRectangle)
 		{
-			if (previewSegment == segment)
+			if (previewWindow != null && previewWindow.Segment == segment)
 				return;
 			CancelCodeSegmentTooltip ();
 			HideCodeSegmentPreviewWindow ();
-			previewSegment = segment;
 			if (segment == null || segment.Length == 0)
 				return;
 			codeSegmentTooltipTimeoutId = GLib.Timeout.Add (650, delegate {
@@ -1860,7 +1862,6 @@ namespace Mono.TextEditor
 				}
 				return;
 			}
-
 
 			if (inDrag)
 				return;
