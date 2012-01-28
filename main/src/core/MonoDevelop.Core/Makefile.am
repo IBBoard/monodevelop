@@ -75,6 +75,7 @@ FILES =  \
 	MonoDevelop.Core.Execution/RemotingService.cs \
 	MonoDevelop.Core.FileSystem/DefaultFileSystemExtension.cs \
 	MonoDevelop.Core.FileSystem/FileSystemExtension.cs \
+	MonoDevelop.Core.FileSystem/UnixFileSystemExtension.cs \
 	MonoDevelop.Core.Instrumentation/Counter.cs \
 	MonoDevelop.Core.Instrumentation/CounterCategory.cs \
 	MonoDevelop.Core.Instrumentation/InstrumentationService.cs \
@@ -88,6 +89,11 @@ FILES =  \
 	MonoDevelop.Core.Logging/InstrumentationLogger.cs \
 	MonoDevelop.Core.Logging/LogLevel.cs \
 	MonoDevelop.Core.Logging/RemoteLogger.cs \
+	MonoDevelop.Core.LogReporting/CrashEventArgs.cs \
+	MonoDevelop.Core.LogReporting/CrashMonitor.cs \
+	MonoDevelop.Core.LogReporting/ICrashMonitor.cs \
+	MonoDevelop.Core.LogReporting/LogReportingService.cs \
+	MonoDevelop.Core.LogReporting/MacCrashMonitor.cs \
 	MonoDevelop.Core.ProgressMonitoring/AggregatedAsyncOperation.cs \
 	MonoDevelop.Core.ProgressMonitoring/AggregatedOperationMonitor.cs \
 	MonoDevelop.Core.ProgressMonitoring/AggregatedProgressMonitor.cs \
@@ -163,11 +169,13 @@ FILES =  \
 	MonoDevelop.Core/IAsyncOperation.cs \
 	MonoDevelop.Core/IconId.cs \
 	MonoDevelop.Core/ICustomXmlSerializer.cs \
+	MonoDevelop.Core/IPasswordProvider.cs \
 	MonoDevelop.Core/IProgressMonitor.cs \
 	MonoDevelop.Core/ISystemInformationProvider.cs \
 	MonoDevelop.Core/LinuxSystemInformation.cs \
 	MonoDevelop.Core/LoggingService.cs \
 	MonoDevelop.Core/MacSystemInformation.cs \
+	MonoDevelop.Core/PasswordService.cs \
 	MonoDevelop.Core/Platform.cs \
 	MonoDevelop.Core/Properties.cs \
 	MonoDevelop.Core/PropertyBag.cs \
@@ -378,6 +386,7 @@ FILES =  \
 	MonoDevelop.Projects.Text/TextFileReader.cs \
 	MonoDevelop.Projects.Text/TextFileService.cs \
 	MonoDevelop.Projects.Text/TextFormatter.cs \
+	MonoDevelop.Projects.Utility/ByteOrderMark.cs \
 	MonoDevelop.Projects.Utility/DiffUtility.cs \
 	MonoDevelop.Projects/AuthorInformation.cs \
 	MonoDevelop.Projects/BuildAction.cs \
@@ -487,6 +496,7 @@ REFS =  \
 	-r:System.Configuration \
 	-r:System.Core \
 	-r:System.Runtime.Remoting \
+	-r:System.Web \
 	-r:System.Xml \
 	-r:System.Xml.Linq
 

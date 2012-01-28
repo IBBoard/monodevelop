@@ -62,7 +62,7 @@ namespace Mono.Debugging.Evaluation
 				if (state == DebuggerBrowsableState.Never)
 					continue;
 				ObjectValue oval = val.CreateObjectValue (options);
-				names.FixName (val, oval);
+				names.Disambiguate (val, oval);
 				list.Add (oval);
 			}
 			if ((bindingFlags & BindingFlags.NonPublic) == 0) {

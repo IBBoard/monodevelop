@@ -62,7 +62,6 @@ namespace Mono.TextEditor
 		
 		public TextEditorContainer (TextEditor textEditorWidget)
 		{
-			WidgetFlags |= WidgetFlags.NoWindow;
 			this.textEditorWidget = textEditorWidget;
 			AddTopLevelWidget (textEditorWidget, 0, 0);
 			stage.ActorStep += OnActorStep;
@@ -132,29 +131,6 @@ namespace Mono.TextEditor
 			widget.GdkWindow.Raise ();
 		}
 		
-		protected override void OnRealized ()
-		{
-			WidgetFlags |= WidgetFlags.Realized;
-			WindowAttr attributes = new WindowAttr ();
-			attributes.WindowType = Gdk.WindowType.Child;
-			attributes.X = Allocation.X;
-			attributes.Y = Allocation.Y;
-			attributes.Width = Allocation.Width;
-			attributes.Height = Allocation.Height;
-			attributes.Wclass = WindowClass.InputOutput;
-			attributes.Visual = this.Visual;
-			attributes.Colormap = this.Colormap;
-			attributes.EventMask = (int)(this.Events | Gdk.EventMask.ExposureMask);
-			attributes.Mask = this.Events | Gdk.EventMask.ExposureMask;
-//			attributes.Mask = EventMask;
-			
-			WindowAttributesType mask = WindowAttributesType.X | WindowAttributesType.Y | WindowAttributesType.Colormap | WindowAttributesType.Visual;
-			this.GdkWindow = new Gdk.Window (ParentWindow, attributes, mask);
-			this.GdkWindow.UserData = this.Raw;
-			this.Style = Style.Attach (this.GdkWindow);
-			this.WidgetFlags &= ~WidgetFlags.NoWindow;
-		}
-		
 		protected override void OnAdded (Widget widget)
 		{
 			AddTopLevelWidget (widget, 0, 0);
@@ -176,10 +152,58 @@ namespace Mono.TextEditor
 			containerChildren.ForEach (child => callback (child.Child));
 		}
 		
+		protected override void OnMapped ()
+		{
+			WidgetFlags |= WidgetFlags.Mapped;
+			// Note: SourceEditorWidget.ShowAutoSaveWarning() might have set TextEditor.Visible to false,
+			// in which case we want to not map it (would cause a gtk+ critical error).
+			containerChildren.ForEach (child => { if (child.Child.Visible) child.Child.Map (); });
+			GdkWindow.Show ();
+		}
+		
+		protected override void OnUnmapped ()
+		{
+			WidgetFlags &= ~WidgetFlags.Mapped;
+			
+			// We hide the window first so that the user doesn't see widgets disappearing one by one.
+			GdkWindow.Hide ();
+			
+			containerChildren.ForEach (child => child.Child.Unmap ());
+		}
+		
+		protected override void OnRealized ()
+		{
+			WidgetFlags |= WidgetFlags.Realized;
+			WindowAttr attributes = new WindowAttr () {
+				WindowType = Gdk.WindowType.Child,
+				X = Allocation.X,
+				Y = Allocation.Y,
+				Width = Allocation.Width,
+				Height = Allocation.Height,
+				Wclass = WindowClass.InputOutput,
+				Visual = this.Visual,
+				Colormap = this.Colormap,
+				EventMask = (int)(this.Events | Gdk.EventMask.ExposureMask),
+				Mask = this.Events | Gdk.EventMask.ExposureMask,
+			};
+			
+			WindowAttributesType mask = WindowAttributesType.X | WindowAttributesType.Y | WindowAttributesType.Colormap | WindowAttributesType.Visual;
+			GdkWindow = new Gdk.Window (ParentWindow, attributes, mask);
+			GdkWindow.UserData = Raw;
+			Style = Style.Attach (GdkWindow);
+		}
+		
+		protected override void OnUnrealized ()
+		{
+			WidgetFlags &= ~WidgetFlags.Realized;
+			GdkWindow.Dispose ();
+			base.OnUnrealized ();
+		}
+		
 		protected override void OnSizeAllocated (Rectangle allocation)
 		{
 			base.OnSizeAllocated (allocation);
-			if (this.GdkWindow != null) 
+			if (this.GdkWindow != null)
 				this.GdkWindow.MoveResize (allocation);
 			allocation = new Rectangle (0, 0, allocation.Width, allocation.Height);
 			if (textEditorWidget.Allocation != allocation)
@@ -189,15 +213,19 @@ namespace Mono.TextEditor
 		
 		void SetChildrenPositions (Rectangle allocation)
 		{
-			//Console.WriteLine (textEditorWidget.VAdjustment.Value +"/" + textEditorWidget.HAdjustment.Value);
 			foreach (EditorContainerChild child in containerChildren.ToArray ()) {
 				if (child.Child == textEditorWidget)
 					continue;
 				Requisition req = child.Child.SizeRequest ();
-				//Console.WriteLine (child.X + "x" + child.Y);
-				Rectangle childRectangle = new Gdk.Rectangle (/*allocation.X + */ (int)(child.FixedPosition ? child.X : child.X * textEditorWidget.Options.Zoom - textEditorWidget.HAdjustment.Value), 
-				                                              /*allocation.Y + */ (int)(child.FixedPosition ? child.Y : child.Y * textEditorWidget.Options.Zoom - textEditorWidget.VAdjustment.Value), req.Width, req.Height);
-			//	if (childRectangle != child.Child.Allocation)
+				var childRectangle = new Gdk.Rectangle (child.X, child.Y, req.Width, req.Height);
+				if (!child.FixedPosition) {
+					double zoom = textEditorWidget.Options.Zoom;
+					childRectangle.X = (int)(child.X * zoom - textEditorWidget.HAdjustment.Value);
+					childRectangle.Y = (int)(child.Y * zoom - textEditorWidget.VAdjustment.Value);
+				}
+				childRectangle.X += allocation.X;
+				childRectangle.Y += allocation.Y;
+				
 				child.Child.SizeAllocate (childRectangle);
 			}
 		}
@@ -312,7 +340,9 @@ namespace Mono.TextEditor
 		
 		void HandleHAdjustementValueChanged (object sender, EventArgs e)
 		{
-			SetChildrenPositions (Allocation);
+			var alloc = this.Allocation;
+			alloc.X = alloc.Y = 0;
+			SetChildrenPositions (alloc);
 		}
 		
 		protected override void OnDestroyed ()

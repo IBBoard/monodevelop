@@ -73,7 +73,7 @@ namespace MonoDevelop.Ide.Gui.Pads.ProjectPad
 		{
 			ProjectFile file = (ProjectFile) dataObject;
 
-			label = file.Link.IsNullOrEmpty ? file.FilePath.FileName : file.Link.FileName;
+			label = GLib.Markup.EscapeText (file.Link.IsNullOrEmpty ? file.FilePath.FileName : file.Link.FileName);
 			if (!File.Exists (file.FilePath)) {
 				label = "<span foreground='red'>" + label + "</span>";
 			}
@@ -146,6 +146,7 @@ namespace MonoDevelop.Ide.Gui.Pads.ProjectPad
 
 		public override void RenameItem (string newName)
 		{
+			ProjectFile newProjectFile = null;
 			ProjectFile file = (ProjectFile) CurrentNode.DataItem;
 			
 			FilePath oldPath, newPath, newLink = FilePath.Null, oldLink = FilePath.Null;
@@ -159,27 +160,29 @@ namespace MonoDevelop.Ide.Gui.Pads.ProjectPad
 				newPath = oldPath.ParentDirectory.Combine (newName);	
 			}
 			
-			if (oldPath != newPath) {
-				try {
-					if (!FileService.IsValidPath (newPath)) {
-						MessageService.ShowWarning (GettextCatalog.GetString ("The name you have chosen contains illegal characters. Please choose a different name."));
-					} else if (File.Exists (newPath) || Directory.Exists (newPath) ||
-					           (file.Project != null && file.Project.Files.GetFileWithVirtualPath (newPath.ToRelative (file.Project.BaseDirectory)) != null)) {
-						MessageService.ShowWarning (GettextCatalog.GetString ("File or directory name is already in use. Please choose a different one."));
-					} else {
-						if (file.IsLink) {
-							file.Link = newLink;
-						} else {
-							FileService.RenameFile (oldPath, newName);
-						}
-						if (file.Project != null)
-							IdeApp.ProjectOperations.Save (file.Project);
-					}
-				} catch (System.ArgumentException) { // new file name with wildcard (*, ?) characters in it
+			try {
+				if (file.Project != null)
+					newProjectFile = file.Project.Files.GetFileWithVirtualPath (newPath.ToRelative (file.Project.BaseDirectory));
+				
+				if (!FileService.IsValidPath (newPath)) {
 					MessageService.ShowWarning (GettextCatalog.GetString ("The name you have chosen contains illegal characters. Please choose a different name."));
-				} catch (System.IO.IOException ex) {
-					MessageService.ShowException (ex, GettextCatalog.GetString ("There was an error renaming the file."));
+				} else if (newProjectFile != null && newProjectFile != file) {
+					// If there is already a file under the newPath which is *different*, then throw an exception
+					MessageService.ShowWarning (GettextCatalog.GetString ("File or directory name is already in use. Please choose a different one."));
+				} else {
+					if (file.IsLink) {
+						file.Link = newLink;
+					} else {
+						// This could throw an exception if we try to replace another file during the rename.
+						FileService.RenameFile (oldPath, newName);
+					}
+					if (file.Project != null)
+						IdeApp.ProjectOperations.Save (file.Project);
 				}
+			} catch (System.ArgumentException) { // new file name with wildcard (*, ?) characters in it
+				MessageService.ShowWarning (GettextCatalog.GetString ("The name you have chosen contains illegal characters. Please choose a different name."));
+			} catch (System.IO.IOException ex) {
+				MessageService.ShowException (ex, GettextCatalog.GetString ("There was an error renaming the file."));
 			}
 		}
 		
@@ -187,6 +190,16 @@ namespace MonoDevelop.Ide.Gui.Pads.ProjectPad
 		{
 			ProjectFile file = (ProjectFile) CurrentNode.DataItem;
 			IdeApp.Workbench.OpenDocument (file.FilePath);
+		}
+		
+		public override void ActivateMultipleItems ()
+		{
+			ProjectFile file;
+			for (int i = 0; i < CurrentNodes.Length; i++) {
+				// Only bring the last file to the front
+				file = (ProjectFile) CurrentNodes [i].DataItem;
+				IdeApp.Workbench.OpenDocument (file.FilePath, i == CurrentNodes.Length - 1);
+			}
 		}
 		
 		public override DragOperation CanDragNode ()
@@ -366,7 +379,7 @@ namespace MonoDevelop.Ide.Gui.Pads.ProjectPad
 				if (action == "--") {
 					info.AddSeparator ();
 				} else {
-					CommandInfo ci = info.Add (BuildAction.Translate (action), action);
+					CommandInfo ci = info.Add (action, action);
 					ci.Checked = toggledActions.Contains (action);
 					if (ci.Checked)
 						ci.CheckedInconsistent = toggledActions.Count > 1;

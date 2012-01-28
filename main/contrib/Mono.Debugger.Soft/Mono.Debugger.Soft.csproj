@@ -63,6 +63,7 @@
     <Compile Include="Mono.Debugger.Soft\IInvokeAsyncResult.cs" />
     <Compile Include="Mono.Debugger.Soft\ILInstruction.cs" />
     <Compile Include="Mono.Debugger.Soft\IMirror.cs" />
+    <Compile Include="Mono.Debugger.Soft\InterfaceMappingMirror.cs" />
     <Compile Include="Mono.Debugger.Soft\InvalidStackFrameException.cs" />
     <Compile Include="Mono.Debugger.Soft\InvocationException.cs" />
     <Compile Include="Mono.Debugger.Soft\InvokeOptions.cs" />
@@ -105,9 +106,9 @@
     <Compile Include="Mono.Debugger.Soft\VMMismatchException.cs" />
     <Compile Include="Mono.Debugger.Soft\VMStartEvent.cs" />
     <Compile Include="Mono.Debugger.Soft\AssemblyLoadEventRequest.cs" />
+    <Compile Include="Locale.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Mono.Debugger.Soft\ChangeLog" />
     <None Include="Makefile.am" />
     <None Include="mono-git-revision" />
   </ItemGroup>
@@ -119,6 +120,7 @@
     <ProjectReference Include="..\Mono.Cecil\Mono.Cecil.csproj">
       <Project>{3EC06433-F168-4C5B-A885-99CE4AB617E1}</Project>
       <Name>Mono.Cecil</Name>
+      <Private>False</Private>
     </ProjectReference>
   </ItemGroup>
   <ProjectExtensions>

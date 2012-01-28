@@ -49,7 +49,7 @@ namespace MonoDevelop.MacIntegration
 					alert.AlertStyle = NSAlertStyle.Critical;
 				} else if (data.Message.Icon == MonoDevelop.Ide.Gui.Stock.Warning) {
 					alert.AlertStyle = NSAlertStyle.Warning;
-				} else if (data.Message.Icon == MonoDevelop.Ide.Gui.Stock.Information) {
+				} else { //if (data.Message.Icon == MonoDevelop.Ide.Gui.Stock.Information) {
 					alert.AlertStyle = NSAlertStyle.Informational;
 				}
 				
@@ -62,6 +62,9 @@ namespace MonoDevelop.MacIntegration
 							alert.Icon = new NSImage (NSData.FromBytes ((IntPtr)b, (uint)buf.Length));
 						}
 					}
+				} else {
+					//for some reason the NSAlert doesn't pick up the app icon by default
+					alert.Icon = NSApplication.SharedApplication.ApplicationIconImage;
 				}
 				
 				alert.MessageText = data.Message.Text;
@@ -86,11 +89,11 @@ namespace MonoDevelop.MacIntegration
 					if (button.IsStockButton)
 						label = Gtk.Stock.Lookup (label).Label;
 					label = label.Replace ("_", "");
-					
+
 					//this message seems to be a standard Mac message since alert handles it specially
 					if (button == AlertButton.CloseWithoutSave)
 						label = GettextCatalog.GetString ("Don't Save");
-					
+
 					alert.AddButton (label);
 				}
 				
@@ -123,11 +126,36 @@ namespace MonoDevelop.MacIntegration
 					applyToAllCheck.Title = GettextCatalog.GetString ("Apply to all");
 				}
 				
+				// Hack up a slightly wider than normal alert dialog. I don't know how to do this in a nicer way
+				// as the min size constraints are apparently ignored.
+				var frame = ((NSPanel) alert.Window).Frame;
+				((NSPanel) alert.Window).SetFrame (new RectangleF (frame.X, frame.Y, Math.Max (frame.Width, 600), frame.Height), true);
 				alert.Layout ();
 				
-				int result = alert.RunModal () - (int)NSAlertButtonReturn.First;
+				bool completed = false;
+				if (data.Message.CancellationToken.CanBeCanceled) {
+					data.Message.CancellationToken.Register (delegate {
+						alert.InvokeOnMainThread (() => {
+							if (!completed) {
+								NSApplication.SharedApplication.AbortModal ();
+							}
+						});
+					});
+				}
 				
-				data.ResultButton = buttons [result];
+				if (!data.Message.CancellationToken.IsCancellationRequested) {
+					int result = alert.RunModal () - (int)NSAlertButtonReturn.First;
+					completed = true;
+					if (result >= 0 && result < buttons.Count) {
+						data.ResultButton = buttons [result];
+					} else {
+						data.ResultButton = null;
+					}
+				}
+				
+				if (data.ResultButton == null || data.Message.CancellationToken.IsCancellationRequested) {
+					data.SetResultToCancelled ();
+				}
 				
 				if (optionButtons != null) {
 					foreach (var button in optionButtons) {

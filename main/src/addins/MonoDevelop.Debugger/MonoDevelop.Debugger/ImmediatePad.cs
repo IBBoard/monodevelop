@@ -47,18 +47,6 @@ namespace MonoDevelop.Debugger
 			view.SetFont (font);
 			view.ShadowType = Gtk.ShadowType.None;
 			view.ShowAll ();
-			
-			DockItemToolbar toolbar = container.GetToolbar (Gtk.PositionType.Right);
-			DockToolButton buttonClear = new DockToolButton ("gtk-clear");
-			buttonClear.Clicked += ButtonClearClicked;
-			buttonClear.TooltipText = GettextCatalog.GetString ("Clear");
-			toolbar.Add (buttonClear);
-			toolbar.ShowAll ();
-		}
-		
-		void ButtonClearClicked (object sender, EventArgs e)
-		{
-			view.Clear ();
 		}
 
 		void OnViewConsoleInput (object sender, ConsoleInputEventArgs e)
@@ -70,8 +58,10 @@ namespace MonoDevelop.Debugger
 			} else {
 				EvaluationOptions ops = EvaluationOptions.DefaultOptions;
 				ops.AllowMethodEvaluation = true;
+				ops.AllowToStringCalls = true;
 				ops.AllowTargetInvoke = true;
 				ops.EvaluationTimeout = 20000;
+				ops.EllipsizeStrings = false;
 				var ff = DebuggingService.CurrentFrame;
 				string tt = e.Text;
 				ValidationResult vres = ff.ValidateExpression (tt, ops);

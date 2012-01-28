@@ -363,6 +363,9 @@ namespace MonoDevelop.SourceEditor
 		{
 			if (!widget.EnsureCorrectEolMarker (fileName, encoding))
 				return;
+			if (widget.HasMessageBar)
+				return;
+			
 			if (!string.IsNullOrEmpty (ContentName))
 				AutoSave.RemoveAutoSaveFile (ContentName);
 
@@ -460,6 +463,15 @@ namespace MonoDevelop.SourceEditor
 		{
 			Load (fileName, null);
 		}
+
+		void RunFirstTimeFoldUpdate (string text)
+		{
+			if (string.IsNullOrEmpty (text)) 
+				return;
+			var foldingParser = ProjectDomService.GetFoldingParser (Document.MimeType);
+			if (foldingParser != null) 
+				widget.UpdateParsedDocument (foldingParser.Parse (Document.FileName, text));
+		}
 		
 		public void Load (string fileName, string encoding)
 		{
@@ -475,6 +487,7 @@ namespace MonoDevelop.SourceEditor
 			
 			// Look for a mime type for which there is a syntax mode
 			UpdateMimeType (fileName);
+			string text = null;
 			bool didLoadCleanly;
 			if (AutoSave.AutoSaveExists (fileName)) {
 				widget.ShowAutoSaveWarning (fileName);
@@ -483,7 +496,7 @@ namespace MonoDevelop.SourceEditor
 			} else {
 				TextFile file = TextFile.ReadFile (fileName, encoding);
 				inLoad = true;
-				Document.Text = file.Text;
+				Document.Text = text = file.Text;
 				inLoad = false;
 				this.encoding = file.SourceEncoding;
 				this.hadBom = file.HadBOM;
@@ -510,12 +523,13 @@ namespace MonoDevelop.SourceEditor
 			
 			ContentName = fileName;
 			lastSaveTime = File.GetLastWriteTime (ContentName);			
+			RunFirstTimeFoldUpdate (text);
 			
 			widget.TextEditor.Caret.Offset = 0;
 			UpdateExecutionLocation ();
 			UpdateBreakpoints ();
 			UpdatePinnedWatches ();
-			this.IsDirty = false;
+			this.IsDirty = !didLoadCleanly;
 			UpdateTasks (null, null);
 			widget.TextEditor.VAdjustment.Changed += HandleTextEditorVAdjustmentChanged;
 			if (didLoadCleanly)
@@ -595,7 +609,7 @@ namespace MonoDevelop.SourceEditor
 			inLoad = false;
 			this.encoding = encoding;
 			ContentName = fileName;
-
+			RunFirstTimeFoldUpdate (content);
 			UpdateExecutionLocation ();
 			UpdateBreakpoints ();
 			UpdatePinnedWatches ();
@@ -711,8 +725,10 @@ namespace MonoDevelop.SourceEditor
 		
 		void GotFileChanged (object sender, FileEventArgs args)
 		{
-			if (!isDisposed) {
-				foreach (FileEventInfo f in args)
+			if (!isDisposed && !string.IsNullOrEmpty (ContentName)) {
+				FilePath path = new FilePath (ContentName).CanonicalPath;
+				var f = args.FirstOrDefault (fi => fi.FileName.CanonicalPath == path);
+				if (f != null)
 					HandleFileChanged (f.FileName);
 			}
 		}
@@ -927,10 +943,12 @@ namespace MonoDevelop.SourceEditor
 		
 		void UpdateBreakpoints (bool forceUpdate = false)
 		{
+			FilePath fp = Name;
+			
 			if (!forceUpdate) {
 				int i = 0, count = 0;
 				bool mismatch = false;
-				foreach (Breakpoint bp in DebuggingService.Breakpoints.GetBreakpoints ()) {
+				foreach (Breakpoint bp in DebuggingService.Breakpoints.GetBreakpointsAtFile (fp.FullPath)) {
 					count++;
 					if (i < breakpointSegments.Count) {
 						int lineNumber = widget.TextEditor.Document.OffsetToLineNumber (breakpointSegments[i].Offset);
@@ -941,6 +959,7 @@ namespace MonoDevelop.SourceEditor
 						i++;
 					}
 				}
+				
 				if (count != breakpointSegments.Count)
 					mismatch = true;
 				
@@ -955,9 +974,9 @@ namespace MonoDevelop.SourceEditor
 				widget.TextEditor.Document.RemoveMarker (line, typeof (DisabledBreakpointTextMarker));
 				widget.TextEditor.Document.RemoveMarker (line, typeof (InvalidBreakpointTextMarker));
 			}
-	
+			
 			breakpointSegments.Clear ();
-			foreach (Breakpoint bp in DebuggingService.Breakpoints.GetBreakpoints ()) {
+			foreach (Breakpoint bp in DebuggingService.Breakpoints.GetBreakpointsAtFile (fp.FullPath)) {
 				lineNumbers.Add (bp.Line);
 				AddBreakpoint (bp);
 			}
@@ -1117,12 +1136,16 @@ namespace MonoDevelop.SourceEditor
 		public void SetCaretTo (int line, int column)
 		{
 			this.Document.RunWhenLoaded (() => widget.TextEditor.SetCaretTo (line, column, true));
-			
 		}
 
 		public void SetCaretTo (int line, int column, bool highlight)
 		{
 			this.Document.RunWhenLoaded (() => widget.TextEditor.SetCaretTo (line, column, highlight));
+		}
+		
+		public void SetCaretTo (int line, int column, bool highlight, bool centerCaret)
+		{
+			this.Document.RunWhenLoaded (() => widget.TextEditor.SetCaretTo (line, column, highlight, centerCaret));
 		}
 
 		public void Redo()
@@ -1516,7 +1539,7 @@ namespace MonoDevelop.SourceEditor
 			data.Document.CommitLineUpdate (data.Caret.Line);
 		}
 		
-		void FireCompletionContextChanged ()
+		internal void FireCompletionContextChanged ()
 		{
 			if (CompletionContextChanged != null)
 				CompletionContextChanged (this, EventArgs.Empty);

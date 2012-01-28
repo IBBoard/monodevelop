@@ -1,10 +1,6 @@
+// IronPythonExecutionHandler.cs
 // 
-// CrashEventArgs.cs
-//  
-// Author:
-//       Alan McGovern <alan@xamarin.com>
-// 
-// Copyright 2011, Xamarin Inc.
+// Copyright (c) 2011 Carlos Alberto Cortez <calberto.cortez@gmail.com>
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,18 +21,31 @@
 // THE SOFTWARE.
 
 using System;
+using System.IO;
+using MonoDevelop.Core;
+using MonoDevelop.Core.Execution;
 
-namespace MonoDevelop.Monitoring
-{
-	public class CrashEventArgs : EventArgs
+using PyBinding.Runtime;
+
+namespace PyBinding
+{	
+	public class IronPythonExecutionHandler : IExecutionHandler
 	{
-		public string CrashLogPath {
-			get; private set;
+		public bool CanExecute (ExecutionCommand command)
+		{
+			return command is PythonExecutionCommand;
 		}
 		
-		public CrashEventArgs (string crashLogPath)
+		public IProcessAsyncOperation Execute (ExecutionCommand command, IConsole console)
 		{
-			CrashLogPath = crashLogPath;
+			var config = ((PythonExecutionCommand)command).Configuration;
+			var runtime = (IronPythonRuntime)config.Runtime;
+			
+			var args = runtime.GetArguments (config);
+			string dir = Path.GetFullPath (config.ParentItem.BaseDirectory);
+			
+			var cmd = new DotNetExecutionCommand (runtime.Path, String.Join (" ", args), dir, config.EnvironmentVariables);
+			return cmd.TargetRuntime.GetExecutionHandler ().Execute (cmd, console);
 		}
 	}
 }

@@ -231,7 +231,7 @@ namespace MonoDevelop.Ide.Gui.Components
 			tree.DragDataReceived += OnDragDataReceived;
 			tree.DragDrop += OnDragDrop;
 			tree.DragEnd += OnDragEnd;
-			tree.DragMotion += OnDragMotion;
+			tree.CheckCanDrop = (ctx, x, y, time) => dragObjects != null && CheckAndDrop (x, y, false, ctx, dragObjects);
 			
 			tree.CursorChanged += OnSelectionChanged;
 			tree.KeyPressEvent += OnKeyPress;
@@ -380,17 +380,6 @@ namespace MonoDevelop.Ide.Gui.Components
 			dragObjects = null;
 		}
 		
-		[GLib.ConnectBefore]
-		void OnDragMotion (object o, Gtk.DragMotionArgs args)
-		{
-			if (dragObjects != null) {
-				if (!CheckAndDrop (args.X, args.Y, false, args.Context, dragObjects)) {
-					Gdk.Drag.Status (args.Context, (Gdk.DragAction)0, args.Time);
-					args.RetVal = true;
-				}
-			}
-		}
-		
 		bool CheckAndDrop (int x, int y, bool drop, Gdk.DragContext ctx, object[] obj)
 		{
 			Gtk.TreePath path;
@@ -434,6 +423,11 @@ namespace MonoDevelop.Ide.Gui.Components
 						LoggingService.LogError (ex.ToString ());
 					}
 				}
+			} catch (Exception ex) {
+				// We're now in an indeterminate state, so report the exception
+				// and exit.
+				GLib.ExceptionManager.RaiseUnhandledException (ex, true);
+				return false;
 			} finally {
 				if (updatesLocked)
 					UnlockUpdates ();

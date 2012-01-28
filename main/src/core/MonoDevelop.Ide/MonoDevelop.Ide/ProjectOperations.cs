@@ -333,22 +333,19 @@ namespace MonoDevelop.Ide
 			}
 		}
 		
-		public void Export (IWorkspaceObject item)
+		public void Export (WorkspaceItem item)
 		{
 			Export (item, null);
 		}
 		
-		public void Export (IWorkspaceObject entry, FileFormat format)
+		public void Export (WorkspaceItem item, FileFormat format)
 		{
-			ExportProjectDialog dlg = new ExportProjectDialog (entry, format);
+			ExportSolutionDialog dlg = new ExportSolutionDialog (item, format);
+			
 			try {
 				if (MessageService.RunCustomDialog (dlg) == (int) Gtk.ResponseType.Ok) {
-					
-					using (IProgressMonitor mon = IdeApp.Workbench.ProgressMonitors.GetToolOutputProgressMonitor (true)) {
-						string folder = dlg.TargetFolder;
-						
-						string file = entry is WorkspaceItem ? ((WorkspaceItem)entry).FileName : ((SolutionEntityItem)entry).FileName;
-						Services.ProjectService.Export (mon, file, folder, dlg.Format);
+					using (IProgressMonitor monitor = IdeApp.Workbench.ProgressMonitors.GetToolOutputProgressMonitor (true)) {
+						Services.ProjectService.Export (monitor, item.FileName, dlg.TargetFolder, dlg.Format);
 					}
 				}
 			} finally {
@@ -917,6 +914,7 @@ namespace MonoDevelop.Ide
 				entry.Execute (monitor, context, IdeApp.Workspace.ActiveConfiguration);
 			} catch (Exception ex) {
 				monitor.ReportError (GettextCatalog.GetString ("Execution failed."), ex);
+				LoggingService.LogError ("Execution failed", ex);
 			} finally {
 				monitor.Dispose ();
 			}
@@ -1098,8 +1096,6 @@ namespace MonoDevelop.Ide
 			
 			ITimeTracker tt = Counters.BuildItemTimer.BeginTiming ("Building " + entry.Name);
 			try {
-				tt.Trace ("Pre-build operations");
-				DoBeforeCompileAction ();
 				IProgressMonitor monitor = IdeApp.Workbench.ProgressMonitors.GetBuildProgressMonitor ();
 			
 				tt.Trace ("Start build event");
@@ -1122,12 +1118,17 @@ namespace MonoDevelop.Ide
 		{
 			BuildResult result = null;
 			try {
-				tt.Trace ("Building item");
-				SolutionItem it = entry as SolutionItem;
-				if (it != null)
-					result = it.Build (monitor, IdeApp.Workspace.ActiveConfiguration, true);
-				else
-					result = entry.RunTarget (monitor, ProjectService.BuildTarget, IdeApp.Workspace.ActiveConfiguration);
+				tt.Trace ("Pre-build operations");
+				result = DoBeforeCompileAction ();
+
+				if (result.ErrorCount == 0) {
+					tt.Trace ("Building item");
+					SolutionItem it = entry as SolutionItem;
+					if (it != null)
+						result = it.Build (monitor, IdeApp.Workspace.ActiveConfiguration, true);
+					else
+						result = entry.RunTarget (monitor, ProjectService.BuildTarget, IdeApp.Workspace.ActiveConfiguration);
+				}
 			} catch (Exception ex) {
 				monitor.ReportError (GettextCatalog.GetString ("Build failed."), ex);
 			} finally {
@@ -1138,38 +1139,54 @@ namespace MonoDevelop.Ide
 					BuildDone (monitor, result, entry, tt);	// BuildDone disposes the monitor
 			});
 		}
+		
+		// Note: This must run in the main thread
+		void PromptForSave (BuildResult result)
+		{
+			var couldNotSaveError = "The build has been aborted as the file '{0}' could not be saved";
+			
+			foreach (var doc in IdeApp.Workbench.Documents) {
+				if (doc.IsDirty && doc.Project != null) {
+					if (MessageService.AskQuestion (GettextCatalog.GetString ("Save changed documents before building?"),
+					                                GettextCatalog.GetString ("Some of the open documents have unsaved changes."),
+					                                AlertButton.BuildWithoutSave, AlertButton.Save) == AlertButton.Save) {
+						MarkFileDirty (doc.FileName);
+						doc.Save ();
+						if (doc.IsDirty)
+							result.AddError (string.Format (couldNotSaveError, Path.GetFileName (doc.FileName)), doc.FileName);
+					} else
+						break;
+				}
+			}
+		}
+		
+		// Note: This must run in the main thread
+		void SaveAllFiles (BuildResult result)
+		{
+			var couldNotSaveError = "The build has been aborted as the file '{0}' could not be saved";
+			
+			foreach (var doc in new List<MonoDevelop.Ide.Gui.Document> (IdeApp.Workbench.Documents)) {
+				if (doc.IsDirty && doc.Project != null) {
+					doc.Save ();
+					if (doc.IsDirty)
+						result.AddError (string.Format (couldNotSaveError, Path.GetFileName (doc.FileName)), doc.FileName);
+				}
+			}
+		}
 
-		void DoBeforeCompileAction ()
+		BuildResult DoBeforeCompileAction ()
 		{
 			BeforeCompileAction action = IdeApp.Preferences.BeforeBuildSaveAction;
+			var result = new BuildResult ();
 			
 			switch (action) {
-				case BeforeCompileAction.Nothing:
-					break;
-				case BeforeCompileAction.PromptForSave:
-					foreach (var doc in IdeApp.Workbench.Documents) {
-						if (doc.IsDirty && doc.Project != null) {
-							if (MessageService.AskQuestion (
-						            GettextCatalog.GetString ("Save changed documents before building?"),
-							        GettextCatalog.GetString ("Some of the open documents have unsaved changes."),
-							                                AlertButton.BuildWithoutSave, AlertButton.Save) == AlertButton.Save) {
-								MarkFileDirty (doc.FileName);
-								doc.Save ();
-							}
-							else
-								break;
-						}
-					}
-					break;
-				case BeforeCompileAction.SaveAllFiles:
-					foreach (var doc in new List<MonoDevelop.Ide.Gui.Document> (IdeApp.Workbench.Documents))
-						if (doc.IsDirty && doc.Project != null)
-							doc.Save ();
-					break;
-				default:
-					System.Diagnostics.Debug.Assert(false);
-					break;
+			case BeforeCompileAction.Nothing: break;
+			case BeforeCompileAction.PromptForSave: DispatchService.GuiDispatch (delegate { PromptForSave (result); }); break;
+			case BeforeCompileAction.SaveAllFiles: DispatchService.GuiDispatch (delegate { SaveAllFiles (result); }); break;
+			default: System.Diagnostics.Debug.Assert (false); break;
 			}
+			
+			return result;
 		}
 
 		void BeginBuild (IProgressMonitor monitor)
@@ -1417,7 +1434,7 @@ namespace MonoDevelop.Ide
 					
 					string fileBuildAction = buildAction;
 					if (string.IsNullOrEmpty (buildAction))
-						fileBuildAction = project.GetDefaultBuildAction (file);
+						fileBuildAction = project.GetDefaultBuildAction (targetPath);
 					
 					//files in the target directory get added directly in their current location without moving/copying
 					if (file.CanonicalPath == targetPath) {
@@ -1461,16 +1478,7 @@ namespace MonoDevelop.Ide
 						}
 						
 						if (action == AddAction.Link) {
-							//FIXME: MD project system doesn't cope with duplicate includes - project save/load will remove the file
-							ProjectFile pf;
-							if (filesInProject.TryGetValue (file, out pf)) {
-								var link = pf.Link;
-								MessageService.ShowWarning (GettextCatalog.GetString (
-									"The link '{0}' in the project already includes the file '{1}'", link, file));
-								continue;
-							}
-							
-							pf = new ProjectFile (file, fileBuildAction) {
+							ProjectFile pf = new ProjectFile (file, fileBuildAction) {
 								Link = vpath
 							};
 							vpathsInProject.Add (pf.ProjectVirtualPath);
@@ -1565,20 +1573,28 @@ namespace MonoDevelop.Ide
 					!copyOnlyProjectFiles ||
 					IsDirectoryHierarchyEmpty (sourcePath)));
 
-			// Get the list of files to copy
-
+			// We need to remove all files + directories from the source project
+			// but when dealing with the VCS addins we need to process only the
+			// files so we do not create a 'file' in the VCS which corresponds
+			// to a directory in the project and blow things up.
+			List<ProjectFile> filesToRemove = null;
 			List<ProjectFile> filesToMove = null;
 			try {
 				//get the real ProjectFiles
 				if (sourceProject != null) {
 					if (sourceIsFolder) {
 						var virtualPath = sourcePath.ToRelative (sourceProject.BaseDirectory);
-						filesToMove = sourceProject.Files.GetFilesInVirtualPath (virtualPath).ToList ();
+						// Grab all the child nodes of the folder we just dragged/dropped
+						filesToRemove = sourceProject.Files.GetFilesInVirtualPath (virtualPath).ToList ();
+						// Add the folder itself so we can remove it from the soruce project if its a Move operation
+						var folder = sourceProject.Files.Where (f => f.ProjectVirtualPath == virtualPath).FirstOrDefault ();
+						if (folder != null)
+							filesToRemove.Add (folder);
 					} else {
-						filesToMove = new List<ProjectFile> ();
+						filesToRemove = new List<ProjectFile> ();
 						var pf = sourceProject.GetProjectFile (sourcePath);
 						if (pf != null)
-							filesToMove.Add (pf);
+							filesToRemove.Add (pf);
 					}
 				}
 				//get all the non-project files and create fake ProjectFiles
@@ -1586,18 +1602,21 @@ namespace MonoDevelop.Ide
 					var col = new List<ProjectFile> ();
 					GetAllFilesRecursive (sourcePath, col);
 					if (sourceProject != null) {
-						var names = new HashSet<string> (filesToMove.Select (f => sourceProject.BaseDirectory.Combine (f.ProjectVirtualPath).ToString ()));
+						var names = new HashSet<string> (filesToRemove.Select (f => sourceProject.BaseDirectory.Combine (f.ProjectVirtualPath).ToString ()));
 						foreach (var f in col)
 							if (names.Add (f.Name))
-							    filesToMove.Add (f);
+							    filesToRemove.Add (f);
 					} else {
-						filesToMove = col;
+						filesToRemove = col;
 					}
 				}
 			} catch (Exception ex) {
 				monitor.ReportError (GettextCatalog.GetString ("Could not get any file from '{0}'.", sourcePath), ex);
 				return;
 			}
+			
+			// Strip out all the directories to leave us with just the files.
+			filesToMove = filesToRemove.Where (f => f.Subtype != Subtype.Directory).ToList ();
 			
 			// If copying a single file, bring any grouped children along
 			ProjectFile sourceParent = null;
@@ -1669,8 +1688,6 @@ namespace MonoDevelop.Ide
 				}
 				
 				if (sourceProject != null) {
-					if (removeFromSource && sourceProject.Files.Contains (file))
-						sourceProject.Files.Remove (file);
 					if (fileIsLink) {
 						var linkFile = (sourceProject == targetProject)? file : (ProjectFile) file.Clone ();
 						if (movingFolder) {
@@ -1697,6 +1714,12 @@ namespace MonoDevelop.Ide
 				}
 				
 				monitor.Step (1);
+			}
+			
+			if (removeFromSource) {
+				// Remove all files and directories under 'sourcePath'
+				foreach (var v in filesToRemove)
+					sourceProject.Files.Remove (v);
 			}
 			
 			var pfolder = sourcePath.ParentDirectory;
@@ -1889,14 +1912,24 @@ namespace MonoDevelop.Ide
 		class ProviderProxy : ITextEditorDataProvider, IEditableTextFile
 		{
 			TextEditorData data;
-			public ProviderProxy (TextEditorData data)
+			string encoding;
+			bool bom;
+			
+			public ProviderProxy (TextEditorData data, string encoding, bool bom)
 			{
 				this.data = data;
+				this.encoding = encoding;
+				this.bom = bom;
 			}
 
 			public TextEditorData GetTextEditorData ()
 			{
 				return data;
+			}
+			
+			void Save ()
+			{
+				TextFile.WriteFile (Name, Text, encoding, bom);
 			}
 			
 			#region IEditableTextFile implementation
@@ -1908,6 +1941,7 @@ namespace MonoDevelop.Ide
 			{
 				return data.GetTextBetween (startPosition, endPosition);
 			}
+			
 			public char GetCharAt (int position)
 			{
 				return data.GetCharAt (position);
@@ -1928,15 +1962,15 @@ namespace MonoDevelop.Ide
 			public int InsertText (int position, string text)
 			{
 				int result = data.Insert (position, text);
-				File.WriteAllText (Name, Text);
+				Save ();
+				
 				return result;
 			}
-			
 			
 			public void DeleteText (int position, int length)
 			{
 				data.Remove (position, length);
-				File.WriteAllText (Name, Text);
+				Save ();
 			}
 			
 			public string Text {
@@ -1945,6 +1979,7 @@ namespace MonoDevelop.Ide
 				}
 				set {
 					data.Text = value;
+					Save ();
 				}
 			}
 			
@@ -1960,10 +1995,12 @@ namespace MonoDevelop.Ide
 				}
 			}
 			
+			TextFile file = TextFile.ReadFile (filePath);
 			TextEditorData data = new TextEditorData ();
 			data.Document.FileName = filePath;
-			data.Text = File.ReadAllText (filePath);
-			return new ProviderProxy (data);
+			data.Text = file.Text;
+			
+			return new ProviderProxy (data, file.SourceEncoding, file.HadBOM);
 		}
 		
 		public TextEditorData GetTextEditorData (FilePath filePath)
@@ -1981,9 +2018,10 @@ namespace MonoDevelop.Ide
 				}
 			}
 			
+			TextFile file = TextFile.ReadFile (filePath);
 			TextEditorData data = new TextEditorData ();
 			data.Document.FileName = filePath;
-			data.Text = File.ReadAllText (filePath);
+			data.Text = file.Text;
 			isOpen = false;
 			return data;
 		}

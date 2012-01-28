@@ -44,7 +44,6 @@ FILES =  \
 	gtk-gui/MonoDevelop.Ide.Gui.Components.ProjectSelectorWidget.cs \
 	gtk-gui/MonoDevelop.Ide.Gui.Components.StringTagSelectorButton.cs \
 	gtk-gui/MonoDevelop.Ide.Gui.Dialogs.AddinLoadErrorDialog.cs \
-	gtk-gui/MonoDevelop.Ide.Gui.Dialogs.GtkErrorDialog.cs \
 	gtk-gui/MonoDevelop.Ide.Gui.Dialogs.MultiMessageDialog.cs \
 	gtk-gui/MonoDevelop.Ide.Gui.Dialogs.MultiTaskProgressDialog.cs \
 	gtk-gui/MonoDevelop.Ide.Gui.Dialogs.NewLayoutDialog.cs \
@@ -73,8 +72,8 @@ FILES =  \
 	gtk-gui/MonoDevelop.Ide.Projects.CombineEntryFeatureSelector.cs \
 	gtk-gui/MonoDevelop.Ide.Projects.ConfirmProjectDeleteDialog.cs \
 	gtk-gui/MonoDevelop.Ide.Projects.DeleteConfigDialog.cs \
-	gtk-gui/MonoDevelop.Ide.Projects.ExportProjectDialog.cs \
 	gtk-gui/MonoDevelop.Ide.Projects.ExportProjectPolicyDialog.cs \
+	gtk-gui/MonoDevelop.Ide.Projects.ExportSolutionDialog.cs \
 	gtk-gui/MonoDevelop.Ide.Projects.FeatureSelectorDialog.cs \
 	gtk-gui/MonoDevelop.Ide.Projects.ImportProjectPolicyDialog.cs \
 	gtk-gui/MonoDevelop.Ide.Projects.IncludeNewFilesDialog.cs \
@@ -485,6 +484,7 @@ FILES =  \
 	MonoDevelop.Ide.Gui.OptionPanels/IDEStyleOptionsPanel.cs \
 	MonoDevelop.Ide.Gui.OptionPanels/KeyBindingsPanel.cs \
 	MonoDevelop.Ide.Gui.OptionPanels/LoadSavePanel.cs \
+	MonoDevelop.Ide.Gui.OptionPanels/LogAgentOptionsPanel.cs \
 	MonoDevelop.Ide.Gui.OptionPanels/MaintenanceOptionsPanel.cs \
 	MonoDevelop.Ide.Gui.OptionPanels/MonoRuntimePanel.cs \
 	MonoDevelop.Ide.Gui.OptionPanels/SdkLocationPanel.cs \
@@ -622,8 +622,8 @@ FILES =  \
 	MonoDevelop.Ide.Projects/ConfirmProjectDeleteDialog.cs \
 	MonoDevelop.Ide.Projects/DefaultPolicyOptionsDialog.cs \
 	MonoDevelop.Ide.Projects/DeleteConfigDialog.cs \
-	MonoDevelop.Ide.Projects/ExportProjectDialog.cs \
 	MonoDevelop.Ide.Projects/ExportProjectPolicyDialog.cs \
+	MonoDevelop.Ide.Projects/ExportSolutionDialog.cs \
 	MonoDevelop.Ide.Projects/FeatureSelectorDialog.cs \
 	MonoDevelop.Ide.Projects/ImportProjectPolicyDialog.cs \
 	MonoDevelop.Ide.Projects/IncludeNewFilesDialog.cs \
@@ -703,6 +703,7 @@ FILES =  \
 	MonoDevelop.Ide/IdeStartup.cs \
 	MonoDevelop.Ide/IdeVersionInfo.cs \
 	MonoDevelop.Ide/ImageService.cs \
+	MonoDevelop.Ide/LogReportingStartup.cs \
 	MonoDevelop.Ide/MessageService.cs \
 	MonoDevelop.Ide/ProjectOperations.cs \
 	MonoDevelop.Ide/RootWorkspace.cs \

@@ -425,8 +425,9 @@ namespace Mono.TextEditor
 			DisposeGCs ();
 
 			markerLayout.FontDescription = textEditor.Options.Font;
-			markerLayout.FontDescription.Weight = Pango.Weight.Bold;
-			markerLayout.SetText (" ");
+			markerLayout.FontDescription.Weight = Pango.Weight.Normal;
+			markerLayout.FontDescription.Style = Pango.Style.Italic;
+			markerLayout.SetText ("_");
 			int w, h;
 			markerLayout.GetSize (out w, out h);
 			
@@ -1550,7 +1551,7 @@ namespace Mono.TextEditor
 			if (args.Button == 1) {
 				VisualLocationTranslator trans = new VisualLocationTranslator (this);
 				clickLocation = trans.PointToLocation (args.X, args.Y);
-				if (clickLocation.IsEmpty)
+				if (clickLocation.Line < DocumentLocation.MinLine || clickLocation.Column < DocumentLocation.MinColumn)
 					return;
 				LineSegment line = Document.GetLine (clickLocation.Line);
 				bool isHandled = false;
@@ -1623,6 +1624,9 @@ namespace Mono.TextEditor
 			}
 
 			DocumentLocation docLocation = PointToLocation (args.X, args.Y);
+			if (docLocation.Line < DocumentLocation.MinLine || docLocation.Column < DocumentLocation.MinColumn)
+				return;
+			
 			// disable middle click on windows.
 			if (!Platform.IsWindows && args.Button == 2 && this.textEditor.CanEdit (docLocation.Line)) {
 				ISegment selectionRange = null;
@@ -1969,10 +1973,10 @@ namespace Mono.TextEditor
 			if (isDefaultColor && !drawDefaultBackground)
 				return;
 			cr.Color = color;
-			double xp = System.Math.Floor (area.X);
+			double xp = /*System.Math.Floor*/ (area.X);
 			
 			if (textEditor.Options.ShowRuler) {
-				double divider = System.Math.Max (area.X, System.Math.Min (x + TextStartPosition + rulerX + 0.5, area.X + area.Width));
+				double divider = System.Math.Max (area.X, System.Math.Min (x + TextStartPosition + rulerX, area.X + area.Width));
 				if (divider < area.X + area.Width) {
 					cr.Rectangle (xp, area.Y, divider - area.X, area.Height);
 					cr.Fill ();
@@ -1984,7 +1988,7 @@ namespace Mono.TextEditor
 					return;
 				}
 			}
-			cr.Rectangle (xp, area.Y, System.Math.Ceiling (area.Width), area.Height);
+			cr.Rectangle (xp, area.Y, area.Width, area.Height);
 			cr.Fill ();
 		}
 
@@ -2198,6 +2202,12 @@ namespace Mono.TextEditor
 
 			if (!isSelectionDrawn) {
 				if (isEolSelected) {
+					// prevent "gaps" in the selection drawing ('fuzzy' lines problem)
+					lineArea = new Cairo.Rectangle (pangoPosition / Pango.Scale.PangoScale - 1,
+						lineArea.Y,
+						textEditor.Allocation.Width - pangoPosition / Pango.Scale.PangoScale + 1,
+						lineArea.Height);
+					
 					DrawRectangleWithRuler (cr, x, lineArea, this.SelectionColor.CairoBackgroundColor, false);
 				} else if (!(HighlightCaretLine || textEditor.Options.HighlightCaretLine) || Caret.Line != lineNr) {
 					LayoutWrapper wrapper = GetLayout (line);

@@ -845,6 +845,10 @@ namespace MonoDevelop.AssemblyBrowser
 				LineSegment line = inspectEditor.GetLineByOffset (seg.Offset);
 				if (line == null)
 					continue;
+				// FIXME: ILSpy sometimes gives reference segments for punctuation. See http://bugzilla.xamarin.com/show_bug.cgi?id=2918
+				string text = inspectEditor.GetTextAt (seg);
+				if (text != null && text.Length == 1 && !(char.IsLetter (text[0]) || text[0] =='…'))
+					continue;
 				var marker = new UnderlineMarker ("blue", 1 + seg.Offset - line.Offset, 1 + seg.EndOffset - line.Offset);
 				marker.Wave = false;
 				underlineMarkers.Add (marker);
@@ -1061,7 +1065,13 @@ namespace MonoDevelop.AssemblyBrowser
 				if (unit.FileName == fileName) 
 					return unit.AssemblyDefinition;
 			}
-			DomCecilCompilationUnit newUnit = DomCecilCompilationUnit.Load (fileName, true, false);
+			DomCecilCompilationUnit newUnit = null;
+			try {
+				newUnit = DomCecilCompilationUnit.Load (fileName, true, false);
+			} catch (Exception e) {
+				LoggingService.LogError ("Can't add reference to:" + fileName, e);
+				return null;
+			}
 			definitions.Add (newUnit);
 		
 			ITreeBuilder builder;

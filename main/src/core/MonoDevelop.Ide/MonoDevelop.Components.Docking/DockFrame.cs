@@ -48,8 +48,8 @@ namespace MonoDevelop.Components.Docking
 		
 		int handleSize = IsWindows ? 4 : 6;
 		int handlePadding = 0;
-		int defaultItemWidth = 130;
-		int defaultItemHeight = 130;
+		int defaultItemWidth = 300;
+		int defaultItemHeight = 250;
 		uint autoShowDelay = 400;
 		uint autoHideDelay = 500;
 		
@@ -646,8 +646,11 @@ namespace MonoDevelop.Components.Docking
 				widget.AnimateHide ();
 			}
 			else {
+				// The widget may already be removed from the parent
+				// so 'parent' can be null
 				Gtk.Container parent = (Gtk.Container) item.Widget.Parent;
-				parent.Remove (item.Widget);
+				if (parent != null)
+					parent.Remove (item.Widget);
 				RemoveTopLevel (widget);
 				widget.Disposed = true;
 				widget.Destroy ();

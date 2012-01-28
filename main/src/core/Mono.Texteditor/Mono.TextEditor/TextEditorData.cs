@@ -43,6 +43,7 @@ namespace Mono.TextEditor
 		Caret      caret;
 		
 		static Adjustment emptyAdjustment = new Adjustment (0, 0, 0, 0, 0, 0);
+		
 		Adjustment hadjustment = emptyAdjustment; 
 		public Adjustment HAdjustment {
 			get {
@@ -62,6 +63,7 @@ namespace Mono.TextEditor
 				vadjustment = value;
 			}
 		}
+		
 		EditMode currentMode = null;
 		public EditMode CurrentMode {
 			get {
@@ -310,14 +312,20 @@ namespace Mono.TextEditor
 		{
 			if (document == null) 
 				return;
-			document.LineChanged -= HandleDocLineChanged;
+			
 			document.BeginUndo -= OnBeginUndo;
 			document.EndUndo -= OnEndUndo;
+			
 			document.Undone -= DocumentHandleUndone;
 			document.Redone -= DocumentHandleRedone;
+			document.LineChanged -= HandleDocLineChanged;
+			
 			document.TextSet -= HandleDocTextSet;
 			document.Folded -= HandleTextEditorDataDocumentFolded;
 			document.FoldTreeUpdated -= HandleTextEditorDataDocumentFoldTreeUpdated;
+			
+			document.splitter.LineInserted -= HandleDocumentsplitterhandleLineInserted;
+			document.splitter.LineRemoved -= HandleDocumentsplitterhandleLineRemoved;
 			
 			document = null;
 		}
@@ -1154,11 +1162,16 @@ namespace Mono.TextEditor
 		{
 			SetCaretTo (line, column, true);
 		}
-
+		
 		public void SetCaretTo (int line, int column, bool highlight)
 		{
+			SetCaretTo (line, column, highlight, true);
+		}
+		
+		public void SetCaretTo (int line, int column, bool highlight, bool centerCaret)
+		{
 			if (Parent != null) {
-				Parent.SetCaretTo (line, column, highlight);
+				Parent.SetCaretTo (line, column, highlight, centerCaret);
 			} else {
 				Caret.Location = new DocumentLocation (line, column);
 			}

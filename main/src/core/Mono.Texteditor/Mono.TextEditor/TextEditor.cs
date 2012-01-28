@@ -68,6 +68,7 @@ namespace Mono.TextEditor
 		Gdk.Key lastIMEventMappedKey;
 		uint lastIMEventMappedChar;
 		Gdk.ModifierType lastIMEventMappedModifier;
+		bool sizeHasBeenAllocated;
 		bool imContextNeedsReset;
 		string currentStyleName;
 		
@@ -573,20 +574,22 @@ namespace Mono.TextEditor
 		protected override void OnRealized ()
 		{
 			WidgetFlags |= WidgetFlags.Realized;
-			WindowAttr attributes = new WindowAttr ();
-			attributes.WindowType = Gdk.WindowType.Child;
-			attributes.X = Allocation.X;
-			attributes.Y = Allocation.Y;
-			attributes.Width = Allocation.Width;
-			attributes.Height = Allocation.Height;
-			attributes.Wclass = WindowClass.InputOutput;
-			attributes.Visual = this.Visual;
-			attributes.Colormap = this.Colormap;
-			attributes.EventMask = (int)(this.Events | Gdk.EventMask.ExposureMask);
-			attributes.Mask = this.Events | Gdk.EventMask.ExposureMask;
-//			attributes.Mask = EventMask;
+			WindowAttr attributes = new WindowAttr () {
+				WindowType = Gdk.WindowType.Child,
+				X = Allocation.X,
+				Y = Allocation.Y,
+				Width = Allocation.Width,
+				Height = Allocation.Height,
+				Wclass = WindowClass.InputOutput,
+				Visual = this.Visual,
+				Colormap = this.Colormap,
+				EventMask = (int)(this.Events | Gdk.EventMask.ExposureMask),
+				Mask = this.Events | Gdk.EventMask.ExposureMask,
+				//Mask = EventMask,
+			};
 			
-			WindowAttributesType mask = WindowAttributesType.X | WindowAttributesType.Y | WindowAttributesType.Colormap | WindowAttributesType.Visual;
+			WindowAttributesType mask = WindowAttributesType.X | WindowAttributesType.Y
+				| WindowAttributesType.Colormap | WindowAttributesType.Visual;
 			this.GdkWindow = new Gdk.Window (ParentWindow, attributes, mask);
 			this.GdkWindow.UserData = this.Raw;
 			this.Style = Style.Attach (this.GdkWindow);
@@ -872,10 +875,21 @@ namespace Mono.TextEditor
 		
 		protected override bool OnKeyPressEvent (Gdk.EventKey evt)
 		{
-			ModifierType mod;
 			Gdk.Key key;
-			uint keyVal;
-			GtkWorkarounds.MapRawKeys (evt, out key, out mod, out keyVal);
+			Gdk.ModifierType mod;
+			KeyboardShortcut[] accels;
+			GtkWorkarounds.MapKeys (evt, out key, out mod, out accels);
+			
+			//HACK: we never call base.OnKeyPressEvent, so implement the popup key manually
+			if ((key == Gdk.Key.Menu && mod == ModifierType.None) || (key == Gdk.Key.F10 && mod == ModifierType.ShiftMask)) {
+				OnPopupMenu ();
+				return true;
+			}
+			
+			uint keyVal = (uint) key;
+			key = accels[0].Key;
+			mod = accels[0].Modifier;
+			
 			if (key == Gdk.Key.F1 && (mod & (ModifierType.ControlMask | ModifierType.ShiftMask)) == ModifierType.ControlMask) {
 				var p = LocationToPoint (Caret.Location);
 				ShowTooltip (Gdk.ModifierType.None, Caret.Offset, p.X, p.Y);
@@ -886,20 +900,26 @@ namespace Mono.TextEditor
 				return true;
 			}
 			
+			//FIXME: why are we doing this?
 			if ((key == Gdk.Key.space || key == Gdk.Key.parenleft || key == Gdk.Key.parenright) && (mod & Gdk.ModifierType.ShiftMask) == Gdk.ModifierType.ShiftMask)
 				mod = Gdk.ModifierType.None;
 			
 			uint unicodeChar = Gdk.Keyval.ToUnicode (keyVal);
 			
 			if (CurrentMode.WantsToPreemptIM || CurrentMode.PreemptIM (key, unicodeChar, mod)) {
-				ResetIMContext ();	
+				ResetIMContext ();
+				//FIXME: should call base.OnKeyPressEvent when SimulateKeyPress didn't handle the event
 				SimulateKeyPress (key, unicodeChar, mod);
 				return true;
 			}
 			bool filter = IMFilterKeyPress (evt, key, unicodeChar, mod);
-			if (!filter) {
-				return OnIMProcessedKeyPressEvent (key, unicodeChar, mod);
-			}
+			if (filter)
+				return true;
+			
+			//FIXME: OnIMProcessedKeyPressEvent should return false when it didn't handle the event
+			if (OnIMProcessedKeyPressEvent (key, unicodeChar, mod))
+				return true;
+			
 			return base.OnKeyPressEvent (evt);
 		}
 		
@@ -1353,10 +1373,10 @@ namespace Mono.TextEditor
 				if (this.textEditorData.VAdjustment.Upper < Allocation.Height) {
 					this.textEditorData.VAdjustment.Value = 0;
 				} else {
-					double yMargin = 1 * this.LineHeight;
+					double yMargin = 3 * this.LineHeight;
 					double caretPosition = LineToY (p.Line);
 					if (this.textEditorData.VAdjustment.Value > caretPosition) {
-						this.textEditorData.VAdjustment.Value = caretPosition;
+						this.textEditorData.VAdjustment.Value = caretPosition - yMargin;
 					} else if (this.textEditorData.VAdjustment.Value + this.textEditorData.VAdjustment.PageSize - this.LineHeight < caretPosition + yMargin) {
 						this.textEditorData.VAdjustment.Value = caretPosition - this.textEditorData.VAdjustment.PageSize + this.LineHeight + yMargin;
 					}
@@ -1405,6 +1425,7 @@ namespace Mono.TextEditor
 			if (this.GdkWindow != null) 
 				this.GdkWindow.MoveResize (allocation);
 			SetAdjustments (Allocation);
+			sizeHasBeenAllocated = true;
 			QueueDraw ();
 		}
 		
@@ -2468,27 +2489,35 @@ namespace Mono.TextEditor
 			
 			int ox = 0, oy = 0;
 			if (GdkWindow != null)
-				this.GdkWindow.GetOrigin (out ox, out oy);
+				GdkWindow.GetOrigin (out ox, out oy);
 			
 			int w;
 			double xalign;
-			provider.GetRequiredPosition (this, liw, out w, out xalign);
+			provider.GetRequiredPosition (this, tipWindow, out w, out xalign);
 			w += 10;
 			
 			int x = xloc + ox + (int) textViewMargin.XOffset;
-			Gdk.Rectangle geometry = Screen.GetUsableMonitorGeometry (Screen.GetMonitorAtPoint (x, oy + yloc));
+			int y = yloc + oy;
+			Gdk.Rectangle geometry = Screen.GetUsableMonitorGeometry (Screen.GetMonitorAtPoint (x, y));
 			
 			x -= (int) ((double) w * xalign);
+			y += 10;
 			
 			if (x + w >= geometry.Right)
 				x = geometry.Right - w;
 			if (x < geometry.Left)
 				x = geometry.Left;
 			
-			tipWindow.Move (x, yloc + oy + 10);
+			int h = tipWindow.SizeRequest ().Height;
+			if (y + h >= geometry.Bottom)
+				y = geometry.Bottom - h;
+			if (y < geometry.Top)
+				y = geometry.Top;
+			
+			tipWindow.Move (x, y);
+			
 			tipWindow.ShowAll ();
 		}
-		
 
 		public void HideTooltip ()
 		{
@@ -2764,13 +2793,15 @@ namespace Mono.TextEditor
 			TextEditor view;
 			int line, column;
 			bool highlightCaretLine;
+			bool centerCaret;
 			
-			public SetCaret (TextEditor view, int line, int column, bool highlightCaretLine)
+			public SetCaret (TextEditor view, int line, int column, bool highlightCaretLine, bool centerCaret)
 			{
 				this.view = view;
 				this.line = line;
 				this.column = column;
 				this.highlightCaretLine = highlightCaretLine;
+				this.centerCaret = centerCaret;
  			}
 			
 			public void Run (object sender, EventArgs e)
@@ -2782,6 +2813,8 @@ namespace Mono.TextEditor
 				try {
 					view.Caret.Location = new DocumentLocation (line, column);
 					view.GrabFocus ();
+					if (centerCaret)
+						view.CenterToCaret ();
 					if (view.TextViewMargin.XOffset == 0)
 						view.HAdjustment.Value = 0;
 					view.SizeAllocated -= Run;
@@ -2799,19 +2832,24 @@ namespace Mono.TextEditor
 		{
 			SetCaretTo (line, column, true);
 		}
-
+		
 		public void SetCaretTo (int line, int column, bool highlight)
+		{
+			SetCaretTo (line, column, highlight, true);
+		}
+
+		public void SetCaretTo (int line, int column, bool highlight, bool centerCaret)
 		{
 			if (line < DocumentLocation.MinLine)
 				throw new ArgumentException ("line < MinLine");
 			if (column < DocumentLocation.MinColumn)
 				throw new ArgumentException ("column < MinColumn");
 			
-			if (!IsRealized) {
-				SetCaret setCaret = new SetCaret (this, line, column, highlight);
+			if (!sizeHasBeenAllocated) {
+				SetCaret setCaret = new SetCaret (this, line, column, highlight, centerCaret);
 				SizeAllocated += setCaret.Run;
 			} else {
-				new SetCaret (this, line, column, highlight).Run (null, null);
+				new SetCaret (this, line, column, highlight, centerCaret).Run (null, null);
 			}
 		}
 	}

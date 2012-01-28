@@ -51,6 +51,7 @@
       <SpecificVersion>False</SpecificVersion>
     </Reference>
     <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Web" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="MonoDevelop.Core\StringParserService.cs" />
@@ -514,9 +515,17 @@
     <Compile Include="MonoDevelop.Core\LinuxSystemInformation.cs" />
     <Compile Include="MonoDevelop.Core\UnixSystemInformation.cs" />
     <Compile Include="MonoDevelop.Core\ISystemInformationProvider.cs" />
+    <Compile Include="MonoDevelop.Core.FileSystem\UnixFileSystemExtension.cs" />
+    <Compile Include="MonoDevelop.Core.LogReporting\LogReportingService.cs" />
+    <Compile Include="MonoDevelop.Core.LogReporting\CrashEventArgs.cs" />
+    <Compile Include="MonoDevelop.Core.LogReporting\CrashMonitor.cs" />
+    <Compile Include="MonoDevelop.Core.LogReporting\ICrashMonitor.cs" />
+    <Compile Include="MonoDevelop.Core.LogReporting\MacCrashMonitor.cs" />
+    <Compile Include="MonoDevelop.Core\PasswordService.cs" />
+    <Compile Include="MonoDevelop.Core\IPasswordProvider.cs" />
+    <Compile Include="MonoDevelop.Projects.Utility\ByteOrderMark.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="ChangeLog" />
     <None Include="Makefile.am" />
     <None Include="MonoDevelop.Projects.Formats.MSBuild.Conditions\InvalidProjectFileException.cs" />
   </ItemGroup>
@@ -572,6 +581,7 @@
     <Folder Include="MonoDevelop.Projects.Extensions\" />
     <Folder Include="MonoDevelop.Core.Setup\" />
     <Folder Include="MonoDevelop.Core\" />
+    <Folder Include="MonoDevelop.Core.LogReporting\" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\contrib\Mono.Cecil\Mono.Cecil.csproj">

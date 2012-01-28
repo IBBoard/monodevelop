@@ -279,7 +279,10 @@ namespace MonoDevelop.Debugger
 		
 		public static void ShowExceptionCaughtDialog ()
 		{
-			ExceptionInfo val = CurrentFrame.GetException ();
+			EvaluationOptions ops = session.EvaluationOptions.Clone ();
+			ops.EllipsizeStrings = false;
+			
+			ExceptionInfo val = CurrentFrame.GetException (ops);
 			if (val != null) {
 				ExceptionCaughtDialog dlg = new ExceptionCaughtDialog (val);
 				dlg.TransientFor = IdeApp.Workbench.RootWindow;
@@ -767,7 +770,7 @@ namespace MonoDevelop.Debugger
 			if (currentBacktrace != null) {
 				var sf = GetCurrentVisibleFrame ();
 				if (!string.IsNullOrEmpty (sf.SourceLocation.FileName) && System.IO.File.Exists (sf.SourceLocation.FileName) && sf.SourceLocation.Line != -1) {
-					Document document = IdeApp.Workbench.OpenDocument (sf.SourceLocation.FileName, sf.SourceLocation.Line, 1, OpenDocumentOptions.BringToFront);
+					Document document = IdeApp.Workbench.OpenDocument (sf.SourceLocation.FileName, sf.SourceLocation.Line, 1, OpenDocumentOptions.Debugger);
 					OnDisableConditionalCompilation (new DocumentEventArgs (document));
 				}
 			}
@@ -829,14 +832,14 @@ namespace MonoDevelop.Debugger
 		
 		static void OnLineCountChanged (object ob, LineCountEventArgs a)
 		{
-			List<Breakpoint> bps = new List<Breakpoint> (breakpoints.GetBreakpoints ());
-			foreach (Breakpoint bp in bps) {
+			foreach (Breakpoint bp in breakpoints.GetBreakpoints ()) {
 				if (bp.FileName == a.TextFile.Name) {
 					if (bp.Line > a.LineNumber) {
-						// If the line that has the breakpoint is deleted, delete the breakpoint
-						breakpoints.Remove (bp);
+						// If the line that has the breakpoint is deleted, delete the breakpoint, otherwise update the line #.
 						if (bp.Line + a.LineCount >= a.LineNumber)
-							breakpoints.Add (bp.FileName, bp.Line + a.LineCount);
+							breakpoints.UpdateBreakpointLine (bp, bp.Line + a.LineCount);
+						else
+							breakpoints.Remove (bp);
 					}
 					else if (bp.Line == a.LineNumber && a.LineCount < 0)
 						breakpoints.Remove (bp);
@@ -944,8 +947,7 @@ namespace MonoDevelop.Debugger
 	internal class GtkConnectionDialog : IConnectionDialog
 	{
 		bool disposed;
-		Gtk.Dialog dialog;
-		Gtk.Label label;
+		System.Threading.CancellationTokenSource cts;
 		
 		public event EventHandler UserCancelled;
 		
@@ -955,26 +957,16 @@ namespace MonoDevelop.Debugger
 
 		public void SetMessage (DebuggerStartInfo dsi, string message, bool listening, int attemptNumber)
 		{
-			if (disposed)
+			//FIXME: we don't support changing the message
+			if (disposed || cts != null)
 				return;
 			
-			if (string.IsNullOrEmpty (message))
-				message = DefaultListenMessage;
+			cts = new System.Threading.CancellationTokenSource ();
 			
-			if (dialog == null) {
-				Gtk.Application.Invoke (delegate {
-					if (disposed)
-						return;
-					RunDialog (message);
-				});
-			} else {
-				Gtk.Application.Invoke (delegate {
-					if (disposed)
-						return;
-					if (label != null)
-						label.Text = message;
-				});
-			}
+			//MessageService is threadsafe but we want this to be async
+			Gtk.Application.Invoke (delegate {
+				RunDialog (message);
+			});
 		}
 		
 		void RunDialog (string message)
@@ -982,24 +974,29 @@ namespace MonoDevelop.Debugger
 			if (disposed)
 				return;
 			
-			dialog = new Gtk.Dialog () {
-				Title = "Waiting for debugger"
-			};
+			string title;
 			
-			var label = new Gtk.Alignment (0.5f, 0.5f, 1f, 1f) {
-				Child = new Gtk.Label (message),
-				BorderWidth = 12
-			};
-			dialog.VBox.PackStart (label);
-			label.ShowAll ();
+			if (message == null) {
+				title = GettextCatalog.GetString ("Waiting for debugger");
+			} else {
+				message = message.Trim ();
+				int i = message.IndexOfAny (new char[] { '\n', '\r' });
+				if (i > 0) {
+					title = message.Substring (0, i).Trim ();
+					message = message.Substring (i).Trim ();
+				} else {
+					title = message;
+					message = null;
+				}
+			}
+
+			var gm = new GenericMessage (title, message, cts.Token);
+			gm.Buttons.Add (AlertButton.Cancel);
+			gm.DefaultButton = 0;
+			MessageService.GenericAlert (gm);
+			cts = null;
 			
-			dialog.AddButton ("Cancel", Gtk.ResponseType.Cancel);
-			
-			int response = MonoDevelop.Ide.MessageService.ShowCustomDialog (dialog);
-			dialog.Destroy ();
-			dialog = null;
-			
-			if (!disposed && response != (int) Gtk.ResponseType.Ok && UserCancelled != null) {
+			if (!disposed && UserCancelled != null) {
 				UserCancelled (null, null);
 			}
 		}
@@ -1009,13 +1006,9 @@ namespace MonoDevelop.Debugger
 			if (disposed)
 				return;
 			disposed = true;
-			
-			if (dialog != null) {
-				Gtk.Application.Invoke (delegate {
-					if (dialog != null)
-						dialog.Respond (Gtk.ResponseType.Ok);
-				});
-			}
+			var c = cts;
+			if (c != null)
+				c.Cancel ();
 		}
 	}
 }

@@ -468,7 +468,7 @@ namespace Mono.Debugging.Soft
 			}
 		}
 
-		protected void ConnectOutput (System.IO.StreamReader reader, bool error)
+		protected void ConnectOutput (StreamReader reader, bool error)
 		{
 			Thread t = (error ? errorReader : outputReader);
 			if (t != null || reader == null)
@@ -486,7 +486,7 @@ namespace Mono.Debugging.Soft
 				outputReader = t;
 		}
 
-		void ReadOutput (System.IO.StreamReader reader, bool isError)
+		void ReadOutput (StreamReader reader, bool isError)
 		{
 			try {
 				var buffer = new char [1024];
@@ -714,11 +714,28 @@ namespace Mono.Debugging.Soft
 
 			var bi = new BreakInfo ();
 			
-			if (ev is Breakpoint) {
+			if (ev is FunctionBreakpoint) {
+				var fb = (FunctionBreakpoint) ev;
+				bi.Location = FindLocationByFunction (fb.FunctionName, fb.ParamTypes, fb.Line);
+				if (bi.Location != null) {
+					fb.SetResolvedFileName (bi.Location.SourceFile);
+					bi.FileName = fb.FileName;
+					
+					InsertBreakpoint (fb, bi);
+					bi.SetStatus (BreakEventStatus.Bound, null);
+				} else {
+					int dot = fb.FunctionName.LastIndexOf ('.');
+					if (dot != -1)
+						bi.TypeName = fb.FunctionName.Substring (0, dot);
+					
+					pending_bes.Add (bi);
+					bi.SetStatus (BreakEventStatus.NotBound, null);
+				}
+			} else if (ev is Breakpoint) {
 				var bp = (Breakpoint) ev;
 				bool inisideLoadedRange;
 				bi.FileName = bp.FileName;
-				bi.Location = FindLocation (bp.FileName, bp.Line, out inisideLoadedRange);
+				bi.Location = FindLocationByFile (bp.FileName, bp.Line, out inisideLoadedRange);
 				if (bi.Location != null) {
 					InsertBreakpoint (bp, bi);
 					bi.SetStatus (BreakEventStatus.Bound, null);
@@ -736,7 +753,7 @@ namespace Mono.Debugging.Soft
 
 				if (!types.TryGetValue (cp.ExceptionName, out type)) {
 					//
-					// Same as in FindLocation (), fetch types matching the type name
+					// Same as in FindLocationByFile (), fetch types matching the type name
 					if (vm.Version.AtLeast (2, 9)) {
 						foreach (TypeMirror t in vm.GetTypes (cp.ExceptionName, false))
 							ProcessType (t);
@@ -746,7 +763,7 @@ namespace Mono.Debugging.Soft
 					InsertCatchpoint (cp, bi, type);
 					bi.SetStatus (BreakEventStatus.Bound, null);
 				} else {
-					bi.ExceptionName = cp.ExceptionName;
+					bi.TypeName = cp.ExceptionName;
 					pending_bes.Add (bi);
 					bi.SetStatus (BreakEventStatus.NotBound, null);
 				}
@@ -759,6 +776,18 @@ namespace Mono.Debugging.Soft
 			if (vm.Version.AtLeast (2, 9)) {
 				var sourceFileList = pending_bes.Where (b => b.FileName != null).Select (b => b.FileName).ToArray ();
 				if (sourceFileList.Length > 0) {
+					//HACK: explicitly try lowercased drivename on windows, since csc (when not hosted in VS) lowercases
+					//the drivename in the pdb files that get converted to mdbs as-is
+					//FIXME: we should really do a case-insensitive request on Win/Mac, when sdb supports that
+					if (IsWindows) {
+						int originalCount = sourceFileList.Length;
+						Array.Resize (ref sourceFileList, originalCount * 2);
+						for (int i = 0; i < originalCount; i++) {
+							string n = sourceFileList[i];
+							sourceFileList[originalCount + i] = char.ToLower (n[0]) + n.Substring (1);
+						}
+					}
+						     
 					if (typeLoadReq == null) {
 						typeLoadReq = vm.CreateTypeLoadRequest ();
 					}
@@ -766,7 +795,8 @@ namespace Mono.Debugging.Soft
 					typeLoadReq.SourceFileFilter = sourceFileList;
 					typeLoadReq.Enabled = true;
 				}
-				var typeNameList = pending_bes.Where (b => b.ExceptionName != null).Select (b => b.ExceptionName).ToArray ();
+				
+				var typeNameList = pending_bes.Where (b => b.TypeName != null).Select (b => b.TypeName).ToArray ();
 				if (typeNameList.Length > 0) {
 					// Use a separate request since the filters are ANDed together
 					if (typeLoadTypeNameReq == null) {
@@ -826,9 +856,63 @@ namespace Mono.Debugging.Soft
 			bi.Req.Enabled = cp.Enabled;
 		}
 		
-		Location FindLocation (string file, int line, out bool inisideLoadedRange)
+		bool CheckMethodParams (MethodMirror method, string[] paramTypes)
 		{
-			inisideLoadedRange = false;
+			if (paramTypes == null) {
+				// User supplied no params to match against, match anything we find.
+				return true;
+			}
+			
+			int i = 0;
+			foreach (var param in method.GetParameters ()) {
+				if (i == paramTypes.Length) {
+					// This method has too many parameters...
+					return false;
+				}
+				
+				if (param.ParameterType.FullName != paramTypes[i] &&
+				    param.ParameterType.CSharpName != paramTypes[i])
+					return false;
+				
+				i++;
+			}
+			
+			return i == paramTypes.Length;
+		}
+		
+		Location FindLocationByFunction (string function, string[] paramTypes, int line)
+		{
+			if (!started)
+				return null;
+			
+			int dot = function.LastIndexOf ('.');
+			if (dot == -1 || dot + 1 == function.Length)
+				return null;
+			
+			string methodName = function.Substring (dot + 1);
+			string typeName = function.Substring (0, dot);
+			
+			if (vm.Version.AtLeast (2, 9)) {
+				foreach (var type in vm.GetTypes (typeName, false)) {
+					ProcessType (type);
+					
+					foreach (var method in type.GetMethodsByNameFlags (methodName, BindingFlags.Default, false)) {
+						if (!CheckMethodParams (method, paramTypes))
+							continue;
+						
+						Location location = GetLocFromMethod (method, line);
+						if (location != null)
+							return location;
+					}
+				}
+			}
+			
+			return null;
+		}
+		
+		Location FindLocationByFile (string file, int line, out bool insideLoadedRange)
+		{
+			insideLoadedRange = false;
 			if (!started)
 				return null;
 
@@ -841,7 +925,17 @@ namespace Mono.Debugging.Soft
 			// just the ones which match a source file with an existing breakpoint.
 			//
 			if (vm.Version.AtLeast (2, 9)) {
-				foreach (TypeMirror t in vm.GetTypesForSourceFile (filename, false))
+				//FIXME: do a case insensitive request on Win/Mac when sdb supports it (currently asserts NOTIMPLEMENTED)
+				var typesInFile = vm.GetTypesForSourceFile (filename, false);
+				
+				//HACK: explicitly try lowercased drivename on windows, since csc (when not hosted in VS) lowercases
+				//the drivename in the pdb files that get converted to mdbs as-is
+				if (typesInFile.Count == 0 && IsWindows) {
+					string alternateCaseFilename = char.ToLower (filename[0]) + filename.Substring (1);
+					typesInFile = vm.GetTypesForSourceFile (alternateCaseFilename, false);
+				}
+				
+				foreach (TypeMirror t in typesInFile)
 					ProcessType (t);
 			}
 	
@@ -855,7 +949,7 @@ namespace Mono.Debugging.Soft
 					bool insideRange;
 					target_loc = GetLocFromType (t, filename, line, out insideRange);
 					if (insideRange)
-						inisideLoadedRange = true;
+						insideLoadedRange = true;
 					if (target_loc != null)
 						break;
 				}
@@ -1317,7 +1411,7 @@ namespace Mono.Debugging.Soft
 				MDB.StackFrame[] frames = thread.GetFrames ();
 				if (frames.Length == 0)
 					return string.Empty;
-				EvaluationOptions ops = Options.EvaluationOptions;
+				EvaluationOptions ops = Options.EvaluationOptions.Clone ();
 				ops.AllowTargetInvoke = true;
 				var ctx = new SoftEvaluationContext (this, frames[0], ops);
 				ValueReference val = ctx.Evaluator.Evaluate (ctx, exp);
@@ -1328,7 +1422,8 @@ namespace Mono.Debugging.Soft
 			}
 		}
 		
-		void ProcessType (TypeMirror t) {
+		void ProcessType (TypeMirror t)
+		{
 			string typeName = t.FullName;
 
 			if (types.ContainsKey (typeName))
@@ -1348,7 +1443,7 @@ namespace Mono.Debugging.Soft
 					for (int i = 0; i < sourceFiles.Length; i++) {
 						string s = sourceFiles[i];
 						if (s != null && !s.StartsWith ("/"))
-							sourceFiles[i] = System.IO.Path.GetFileName (s);
+							sourceFiles[i] = Path.GetFileName (s);
 					}
 				}
 			}
@@ -1370,30 +1465,96 @@ namespace Mono.Debugging.Soft
 
 			type_to_source [t] = sourceFiles;
 		}
+		
+		string[] GetParamTypes (MethodMirror method)
+		{
+			List<string> paramTypes = new List<string> ();
+			
+			foreach (var param in method.GetParameters ())
+				paramTypes.Add (param.ParameterType.CSharpName);
+			
+			return paramTypes.ToArray ();
+		}
 
 		void ResolveBreakpoints (TypeMirror t)
 		{
-			ProcessType (t);
-
-			string typeName = t.FullName;
-
-			/* Handle pending breakpoints */
-			
 			var resolved = new List<BreakInfo> ();
+			string typeName = t.FullName;
+			Location loc;
 			
+			ProcessType (t);
+			
+			// First, resolve FunctionBreakpoints
+			foreach (var bi in pending_bes.Where (b => b.BreakEvent is FunctionBreakpoint)) {
+				var bp = (FunctionBreakpoint) bi.BreakEvent;
+				int dot = bp.FunctionName.LastIndexOf ('.');
+				string ftypeName = bp.FunctionName.Substring (0, dot);
+				
+				if (ftypeName == typeName) {
+					string methodName = bp.FunctionName.Substring (dot + 1);
+					
+					if (vm.Version.AtLeast (2, 6)) {
+						foreach (var method in t.GetMethodsByNameFlags (methodName, BindingFlags.Default, false)) {
+							if (!CheckMethodParams (method, bp.ParamTypes))
+								continue;
+							
+							loc = GetLocFromMethod (method, bp.Line);
+							if (loc != null) {
+								string paramList = bp.ParamTypes != null ? "(" + string.Join (",", bp.ParamTypes) + ")" : "";
+								OnDebuggerOutput (false, string.Format ("Resolved pending breakpoint for '{0}{1}' to {2}:{3} [0x{4:x5}].\n",
+								                                        bp.FunctionName, paramList, loc.SourceFile, loc.LineNumber, loc.ILOffset));
+								
+								if (bp.ParamTypes == null)
+									bp.ParamTypes = GetParamTypes (method);
+								
+								bp.SetResolvedFileName (loc.SourceFile);
+								ResolvePendingBreakpoint (bi, loc);
+								resolved.Add (bi);
+								break;
+							}
+						}
+					} else {
+						foreach (var method in t.GetMethods ()) {
+							if (method.Name != methodName || !CheckMethodParams (method, bp.ParamTypes))
+								continue;
+							
+							loc = GetLocFromMethod (method, bp.Line);
+							if (loc != null) {
+								string paramList = bp.ParamTypes != null ? "(" + string.Join (",", bp.ParamTypes) + ")" : "";
+								OnDebuggerOutput (false, string.Format ("Resolved pending breakpoint for '{0}{1}' to {2}:{3} [0x{4:x5}].\n",
+								                                        bp.FunctionName, paramList, loc.SourceFile, loc.LineNumber, loc.ILOffset));
+								
+								if (bp.ParamTypes == null)
+									bp.ParamTypes = GetParamTypes (method);
+								
+								bp.SetResolvedFileName (loc.SourceFile);
+								ResolvePendingBreakpoint (bi, loc);
+								resolved.Add (bi);
+								break;
+							}
+						}
+					}
+				}
+			}
+			
+			foreach (var be in resolved)
+				pending_bes.Remove (be);
+			resolved.Clear ();
+
+			// Now resolve normal Breakpoints
 			foreach (string s in type_to_source [t]) {
 				foreach (var bi in pending_bes.Where (b => b.BreakEvent is Breakpoint)) {
 					var bp = (Breakpoint) bi.BreakEvent;
 					if (PathComparer.Compare (PathToFileName (bp.FileName), s) == 0) {
-						bool inisideLoadedRange;
-						Location l = GetLocFromType (t, s, bp.Line, out inisideLoadedRange);
-						if (l != null) {
+						bool insideLoadedRange;
+						loc = GetLocFromType (t, s, bp.Line, out insideLoadedRange);
+						if (loc != null) {
 							OnDebuggerOutput (false, string.Format ("Resolved pending breakpoint at '{0}:{1}' to {2} [0x{3:x5}].\n",
-							                                        s, l.LineNumber, l.Method.FullName, l.ILOffset));
-							ResolvePendingBreakpoint (bi, l);
+							                                        s, loc.LineNumber, loc.Method.FullName, loc.ILOffset));
+							ResolvePendingBreakpoint (bi, loc);
 							resolved.Add (bi);
 						} else {
-							if (inisideLoadedRange) {
+							if (insideLoadedRange) {
 								bi.SetStatus (BreakEventStatus.Invalid, null);
 							}
 						}
@@ -1405,8 +1566,7 @@ namespace Mono.Debugging.Soft
 				resolved.Clear ();
 			}
 			
-			//handle pending catchpoints
-			
+			// Thirdly, resolve pending catchpoints
 			foreach (var bi in pending_bes.Where (b => b.BreakEvent is Catchpoint)) {
 				var cp = (Catchpoint) bi.BreakEvent;
 				if (cp.ExceptionName == typeName) {
@@ -1414,6 +1574,7 @@ namespace Mono.Debugging.Soft
 					resolved.Add (bi);
 				}
 			}
+			
 			foreach (var be in resolved)
 				pending_bes.Remove (be);
 		}
@@ -1430,12 +1591,27 @@ namespace Mono.Debugging.Soft
 		{
 			if (useFullPaths)
 				return path;
-			return System.IO.Path.GetFileName (path);
+			
+			return Path.GetFileName (path);
 		}
 		
 		bool PathsAreEqual (string p1, string p2)
 		{
 			return PathComparer.Compare (p1, p2) == 0;
+		}
+		
+		Location GetLocFromMethod (MethodMirror method, int line)
+		{
+			Location target_loc = null;
+			
+			foreach (Location loc in method.Locations) {
+				if (target_loc == null || target_loc.ILOffset == loc.ILOffset)
+					target_loc = loc;
+				else
+					break;
+			}
+			
+			return target_loc;
 		}
 		
 		Location GetLocFromType (TypeMirror type, string file, int line, out bool insideTypeRange)
@@ -1718,11 +1894,17 @@ namespace Mono.Debugging.Soft
 		readonly static bool IsMac;
 		readonly static StringComparer PathComparer;
 		
+		static bool IgnoreFilenameCase {
+			get {
+				return IsMac || IsWindows;
+			}
+		}
+		
 		static SoftDebuggerSession ()
 		{
 			IsWindows = Path.DirectorySeparatorChar == '\\';
 			IsMac = !IsWindows && IsRunningOnMac();
-			PathComparer = (IsWindows || IsMac)? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+			PathComparer = (IgnoreFilenameCase)? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 		}
 		
 		//From Managed.Windows.Forms/XplatUI
@@ -1755,7 +1937,7 @@ namespace Mono.Debugging.Soft
 		public EventRequest Req;
 		public string LastConditionValue;
 		public string FileName;
-		public string ExceptionName;
+		public string TypeName;
 	}
 	
 	class DisconnectedException: DebuggerException

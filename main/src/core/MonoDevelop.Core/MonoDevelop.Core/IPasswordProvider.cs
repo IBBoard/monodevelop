@@ -1,10 +1,10 @@
 // 
-// CrashReport.cs
+// IPasswordProvider.cs
 //  
 // Author:
 //       Alan McGovern <alan@xamarin.com>
 // 
-// Copyright 2011, Xamarin Inc.
+// Copyright (c) 2012, Xamarin Inc.
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -26,18 +26,12 @@
 
 using System;
 
-namespace MonoDevelop.CrashReporting
+namespace MonoDevelop.Core
 {
-	[Serializable]
-	public class CrashReport
+	public interface IPasswordProvider
 	{
-		public string CrashLogPath {
-			get; set;
-		}
-		
-		public string Email {
-			get; set;
-		}
+		void AddWebPassword (Uri uri, string password);
+		string GetWebPassword (Uri uri);
 	}
 }
 

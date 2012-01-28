@@ -38,6 +38,7 @@ REFS =  \
 	-r:System.Xml
 
 FILES =  \
+	Mono.TextEditor.Tests.DefaultEditActions/BookmarkTests.cs \
 	Mono.TextEditor.Tests.DefaultEditActions/CaretMoveActionTests.cs \
 	Mono.TextEditor.Tests.DefaultEditActions/DeleteActionTests.cs \
 	Mono.TextEditor.Tests.DefaultEditActions/InsertNewLineTests.cs \
@@ -68,6 +69,7 @@ FILES =  \
 	MonoDevelop.CSharpBinding/CodeCompletionCSharpTests.cs \
 	MonoDevelop.CSharpBinding/CodeCompletionOperatorTests.cs \
 	MonoDevelop.CSharpBinding/FindMemberVisitorTests.cs \
+	MonoDevelop.CSharpBinding/FoldingParserTests.cs \
 	MonoDevelop.CSharpBinding/MemberTests.cs \
 	MonoDevelop.CSharpBinding/ParameterCompletionTests.cs \
 	MonoDevelop.CSharpBinding/ProjectDomTests.cs \

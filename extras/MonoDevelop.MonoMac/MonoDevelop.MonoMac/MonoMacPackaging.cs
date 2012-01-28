@@ -120,7 +120,7 @@ namespace MonoDevelop.MonoMac.Gui
 			try {
 				//user will have agreed to overwrite when they picked the target
 				if (Directory.Exists (target))
-					Directory.Delete (target);
+					Directory.Delete (target, true);
 				else if (File.Exists (target))
 					File.Delete (target);
 				
@@ -202,16 +202,16 @@ namespace MonoDevelop.MonoMac.Gui
 					
 				if (settings.SignBundle) {
 					monitor.BeginTask (GettextCatalog.GetString ("Signing app bundle"), 0);
-					
-					var args = new ProcessArgumentBuilder ();
-					args.Add ("-v", "-f", "-s");
-					args.AddQuoted (bundleKey, workingApp);
-					
-					var psi = new ProcessStartInfo ("codesign", args.ToString ());
-					if (MacBuildUtilities.ExecuteBuildCommand (monitor, psi) != 0) {
-						monitor.ReportError ("Signing failed", null);
-						return false;
+
+					// Sign any dynamic libraries, before we sign the bundle
+					var dylibs = Directory.GetFiles (workingApp, "*.dylib", SearchOption.AllDirectories);
+					foreach (var dylib in dylibs){
+						if (!Sign (monitor, bundleKey, dylib))
+							return false;
 					}
+					
+					if (!Sign (monitor, bundleKey, workingApp))
+						return false;
 					
 					monitor.EndTask ();
 				}
@@ -256,6 +256,20 @@ namespace MonoDevelop.MonoMac.Gui
 				}
 			}
 			
+			return true;
+		}
+
+		static bool Sign (IProgressMonitor monitor, string bundleKey, string path)
+		{
+			var args = new ProcessArgumentBuilder ();
+			args.Add ("-v", "-f", "-s");
+			args.AddQuoted (bundleKey, path);
+			
+			var psi = new ProcessStartInfo ("codesign", args.ToString ());
+			if (MacBuildUtilities.ExecuteBuildCommand (monitor, psi) != 0) {
+				monitor.ReportError ("Signing failed", null);
+				return false;
+			}
 			return true;
 		}
 		

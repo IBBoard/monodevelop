@@ -1,10 +1,10 @@
 // 
-// ICrashMonitor.cs
+// PasswordService.cs
 //  
 // Author:
 //       Alan McGovern <alan@xamarin.com>
 // 
-// Copyright 2011, Xamarin Inc.
+// Copyright (c) 2012, Xamarin Inc.
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,15 +25,29 @@
 // THE SOFTWARE.
 
 using System;
+using System.Linq;
+using Mono.Addins;
 
-namespace MonoDevelop.Monitoring
+namespace MonoDevelop.Core
 {
-	public  interface ICrashMonitor
+	public static class PasswordService
 	{
-		event EventHandler ApplicationExited;
-		event EventHandler<CrashEventArgs> CrashDetected;
+		const string PasswordProvidersPath = "/MonoDevelop/Core/PasswordProvider";
+
+		public static void AddWebPassword (Uri url, string password)
+		{
+			var provider = AddinManager.GetExtensionObjects <IPasswordProvider> (PasswordProvidersPath).FirstOrDefault ();
+			if (provider != null)
+				provider.AddWebPassword (url, password);
+		}
 		
-		void Start ();
-		void Stop ();
+		public static string GetWebPassword (Uri url)
+		{
+			var provider = AddinManager.GetExtensionObjects <IPasswordProvider> (PasswordProvidersPath).FirstOrDefault ();
+			if (provider != null)
+				return provider.GetWebPassword (url);
+			return null;
+		}
 	}
 }
+

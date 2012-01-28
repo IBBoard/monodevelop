@@ -34,6 +34,7 @@ using MonoDevelop.Ide.Gui.Dialogs;
 using System.Collections.Generic;
 using MonoDevelop.Components.Extensions;
 using Mono.Addins;
+using System.Threading;
 
 namespace MonoDevelop.Ide
 {
@@ -138,24 +139,45 @@ namespace MonoDevelop.Ide
 		}
 		
 		#region ShowException
-		public static void ShowException (Exception e, string primaryText)
-		{
-			ShowException (RootWindow, e, primaryText);
-		}
 		
 		public static void ShowException (Exception e)
 		{
 			ShowException (RootWindow, e);
 		}
 		
+		public static void ShowException (Exception e, string message)
+		{
+			ShowException (RootWindow, e, message);
+		}
+		
+		public static void ShowException (Exception e, string message, string title)
+		{
+			ShowException (RootWindow, e, message, title);
+		}
+		
+		public static AlertButton ShowException (Exception e, string message, string title, params AlertButton[] buttons)
+		{
+			return ShowException (RootWindow, e, message, title, buttons);
+		}
+
 		public static void ShowException (Gtk.Window parent, Exception e)
 		{
 			ShowException (RootWindow, e, e.Message);
 		}
 		
-		public static void ShowException (Gtk.Window parent, Exception e, string primaryText)
+		public static void ShowException (Gtk.Window parent, Exception e, string message)
 		{
-			messageService.ShowException (parent, e, primaryText);
+			ShowException (parent, e, message, null);
+		}
+		
+		public static void ShowException (Gtk.Window parent, Exception e, string message, string title)
+		{
+			ShowException (parent, e, message, title, null);
+		}
+
+		public static AlertButton ShowException (Gtk.Window parent, Exception e, string message, string title, params AlertButton[] buttons)
+		{
+			return messageService.ShowException (parent, title, message, e, buttons);
 		}
 		#endregion
 		
@@ -364,13 +386,19 @@ namespace MonoDevelop.Ide
 			return GenericAlert (icon, primaryText, secondaryText, buttons.Length - 1, buttons);
 		}
 		
-		public static AlertButton GenericAlert (string icon, string primaryText, string secondaryText, int defaultButton, params AlertButton[] buttons)
+		public static AlertButton GenericAlert (string icon, string primaryText, string secondaryText, int defaultButton,
+			params AlertButton[] buttons)
 		{
-			GenericMessage message = new GenericMessage () {
+			return GenericAlert (icon, primaryText, secondaryText, defaultButton, CancellationToken.None, buttons);
+		}
+		
+		public static AlertButton GenericAlert (string icon, string primaryText, string secondaryText, int defaultButton,
+			CancellationToken cancellationToken,
+			params AlertButton[] buttons)
+		{
+			var message = new GenericMessage (primaryText, secondaryText, cancellationToken) {
 				Icon = icon,
-				Text = primaryText,
-				SecondaryText = secondaryText,
-				DefaultButton = defaultButton
+				DefaultButton = defaultButton,
 			};
 			foreach (AlertButton but in buttons)
 				message.Buttons.Add (but);
@@ -410,14 +438,17 @@ namespace MonoDevelop.Ide
 		//The real GTK# code is wrapped in a GuiSyncObject to make calls synchronous on the GUI thread
 		private class InternalMessageService : GuiSyncObject
 		{
-			public void ShowException (Gtk.Window parent, Exception e, string primaryText)
+			public AlertButton ShowException (Gtk.Window parent, string title, string message, Exception e, params AlertButton[] buttons)
 			{
 				var exceptionDialog = new ExceptionDialog () {
-					Message = primaryText,
+					Buttons = buttons ?? new AlertButton[] { AlertButton.Ok },
+					Title = title ?? GettextCatalog.GetString ("An error has occurred"),
+					Message = message,
 					Exception = e,
 					TransientFor = parent,
 				};
 				exceptionDialog.Run ();
+				return exceptionDialog.ResultButton;
 			}
 			
 			public AlertButton GenericAlert (MessageDescription message)
@@ -444,11 +475,16 @@ namespace MonoDevelop.Ide
 	
 	public class MessageDescription
 	{
-		internal MessageDescription ()
+		internal MessageDescription () : this (CancellationToken.None)
+		{
+		}
+		
+		internal MessageDescription (CancellationToken cancellationToken)
 		{
 			DefaultButton = -1;
 			Buttons = new List<AlertButton> ();
 			Options = new List<AlertOption> ();
+			CancellationToken = cancellationToken;
 		}
 		
 		internal IList<AlertButton> Buttons { get; private set; }
@@ -462,6 +498,7 @@ namespace MonoDevelop.Ide
 		public string SecondaryText { get; set; }
 		public bool AllowApplyToAll { get; set; }
 		public int DefaultButton { get; set; }
+		public CancellationToken CancellationToken { get; private set; }
 		
 		public void AddOption (string id, string text, bool setByDefault)
 		{
@@ -490,17 +527,24 @@ namespace MonoDevelop.Ide
 	
 	public sealed class GenericMessage: MessageDescription
 	{
-		public GenericMessage ()
+		public GenericMessage () : base (CancellationToken.None)
 		{
 		}
 		
-		public GenericMessage (string text)
+		public GenericMessage (string text) : this () 
 		{
 			Text = text;
 		}
 		
-		public GenericMessage (string text, string secondaryText): this (text)
+		public GenericMessage (string text, string secondaryText) : this (text)
 		{
+			SecondaryText = secondaryText;
+		}
+
+		public GenericMessage (string text, string secondaryText, CancellationToken cancellationToken)
+			: base (cancellationToken)
+		{
+			Text = text;
 			SecondaryText = secondaryText;
 		}
 		

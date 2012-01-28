@@ -56,6 +56,12 @@ namespace Mono.Debugger.Soft
 		public long[] nested;
 	}
 
+	struct IfaceMapInfo {
+		public long iface_id;
+		public long[] iface_methods;
+		public long[] target_methods;
+	}
+
 	class MethodInfo {
 		public int attributes, iattributes, token;
 	}
@@ -353,7 +359,7 @@ namespace Mono.Debugger.Soft
 		 * with newer runtimes, and vice versa.
 		 */
 		internal const int MAJOR_VERSION = 2;
-		internal const int MINOR_VERSION = 9;
+		internal const int MINOR_VERSION = 11;
 
 		enum WPSuspendPolicy {
 			NONE = 0,
@@ -496,6 +502,8 @@ namespace Mono.Debugger.Soft
 			/* FIXME: Merge into GET_VALUES when the major protocol version is increased */
 			GET_VALUES_2 = 14,
 			CMD_TYPE_GET_METHODS_BY_NAME_FLAGS = 15,
+			GET_INTERFACES = 16,
+			GET_INTERFACE_MAP = 17
 		}
 
 		enum BindingFlagsExtensions {
@@ -515,7 +523,9 @@ namespace Mono.Debugger.Soft
 		}
 
 		enum CmdStringRef {
-			GET_VALUE = 1
+			GET_VALUE = 1,
+			GET_LENGTH = 2,
+			GET_CHARS = 3
 		}
 
 		enum CmdObjectRef {
@@ -776,6 +786,13 @@ namespace Mono.Debugger.Soft
 					throw new NotImplementedException ("Unable to handle type " + etype);
 				}
 			}
+
+			public long[] ReadIds (int n) {
+				long[] res = new long [n];
+				for (int i = 0; i < n; ++i)
+					res [i] = ReadId ();
+				return res;
+			}
 		}
 
 		class PacketWriter {
@@ -858,6 +875,7 @@ namespace Mono.Debugger.Soft
 				if (s == null)
 					return WriteInt (-1);
 
+				MakeRoom (4);
 				encode_int (data, s.Length, ref offset);
 				byte[] b = Encoding.UTF8.GetBytes (s);
 				MakeRoom (b.Length);
@@ -1921,6 +1939,27 @@ namespace Mono.Debugger.Soft
 				res [i] = r.ReadId ();
 			return res;
 		}
+
+		internal long[] Type_GetInterfaces (long id) {
+			PacketReader r = SendReceive (CommandSet.TYPE, (int)CmdType.GET_INTERFACES, new PacketWriter ().WriteId (id));
+			int len = r.ReadInt ();
+			return r.ReadIds (len);
+		}
+
+		internal IfaceMapInfo[] Type_GetInterfaceMap (long id, long[] ids) {
+			PacketReader r = SendReceive (CommandSet.TYPE, (int)CmdType.GET_INTERFACE_MAP, new PacketWriter ().WriteId (id).WriteInt (ids.Length).WriteIds (ids));
+			var res = new IfaceMapInfo [ids.Length];
+			for (int i = 0; i < ids.Length; ++i) {
+				int n = r.ReadInt ();
+
+				res [i].iface_id = ids [i];
+				res [i].iface_methods = r.ReadIds (n);
+				res [i].target_methods = r.ReadIds (n);
+			}
+
+			return res;
+		}
+
 		/*
 		 * EVENTS
 		 */
@@ -2053,6 +2092,18 @@ namespace Mono.Debugger.Soft
 		 */
 		internal string String_GetValue (long id) {
 			return SendReceive (CommandSet.STRING_REF, (int)CmdStringRef.GET_VALUE, new PacketWriter ().WriteId (id)).ReadString ();
+		}			
+
+		internal int String_GetLength (long id) {
+			return (int)SendReceive (CommandSet.STRING_REF, (int)CmdStringRef.GET_LENGTH, new PacketWriter ().WriteId (id)).ReadLong ();
+		}			
+
+		internal char[] String_GetChars (long id, int index, int length) {
+			var r = SendReceive (CommandSet.STRING_REF, (int)CmdStringRef.GET_CHARS, new PacketWriter ().WriteId (id).WriteLong (index).WriteLong (length));
+			var res = new char [length];
+			for (int i = 0; i < length; ++i)
+				res [i] = (char)r.ReadShort ();
+			return res;
 		}			
 
 		/*

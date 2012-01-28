@@ -203,6 +203,10 @@ namespace MonoDevelop.MacDev.ObjCIntegration
 				
 				sw.WriteLine ("@end");
 			}
+
+			var lastSourceUpdateTime = DefinedIn.Max (f => File.GetLastWriteTime (f));
+			File.SetLastWriteTime (hFilePath, lastSourceUpdateTime);
+			File.SetLastWriteTime (mFilePath, lastSourceUpdateTime);
 		}
 		
 		static string AsId (string objcType)
@@ -371,6 +375,29 @@ namespace MonoDevelop.MacDev.ObjCIntegration
 				m.UserData ["OxygenePartial"] = "YES";
 				m.UserData ["OxygeneEmpty"] = "YES";
 			}
+		}
+		
+		static void GenerateReleaseDesignerOutletsMethod (CodeTypeDeclaration type)
+		{
+			var thisRef = new CodeThisReferenceExpression ();
+			var nullRef = new CodePrimitiveExpression (null);
+			
+			var meth = new CodeMemberMethod () {
+				Name = "ReleaseDesignerOutlets",
+			};
+			
+			foreach (var outlet in type.Members.OfType<CodeMemberProperty> ()) {
+				var propRef = new CodePropertyReferenceExpression (thisRef, outlet.Name);
+				meth.Statements.Add (
+					new CodeConditionStatement (
+						new CodeBinaryOperatorExpression (propRef, CodeBinaryOperatorType.IdentityInequality, nullRef),
+						new CodeExpressionStatement (new CodeMethodInvokeExpression (propRef, "Dispose")),
+						new CodeAssignStatement (propRef, nullRef)
+					)
+				);
+			}
+			
+			type.Members.Add (meth);
 		}
 		
 		public static CodeTypeMember CreateEventMethod (CodeTypeReference exportAtt, IBAction action)

@@ -121,6 +121,7 @@ namespace MonoDevelop.Debugger
 			menuSet = new CommandEntrySet ();
 			menuSet.AddItem (DebugCommands.AddWatch);
 			menuSet.AddSeparator ();
+			menuSet.AddItem (EditCommands.Copy);
 			menuSet.AddItem (EditCommands.Rename);
 			menuSet.AddItem (EditCommands.DeleteKey);
 		}
@@ -497,9 +498,11 @@ namespace MonoDevelop.Debugger
 			if (!store.IterParent (out parent, it))
 				parent = TreeIter.Zero;
 			
-			EvaluationOptions ops = frame.DebuggerSession.Options.EvaluationOptions;
+			EvaluationOptions ops = frame.DebuggerSession.Options.EvaluationOptions.Clone ();
 			ops.AllowMethodEvaluation = true;
+			ops.AllowToStringCalls = true;
 			ops.AllowTargetInvoke = true;
+			ops.EllipsizeStrings = false;
 			
 			string oldName = val.Name;
 			val.Refresh (ops);
@@ -1061,6 +1064,22 @@ namespace MonoDevelop.Debugger
 			IdeApp.CommandService.ShowContextMenu (this, evt, menuSet, this);
 		}
 		
+		[CommandHandler (EditCommands.Copy)]
+		protected void OnCopy ()
+		{
+			TreePath[] selected = Selection.GetSelectedRows ();
+			TreeIter iter;
+			
+			if (selected == null || selected.Length != 1)
+				return;
+			
+			if (!store.GetIter (out iter, selected[0]))
+				return;
+			
+			string value = (string) store.GetValue (iter, ValueCol);
+			Clipboard.Get (Gdk.Selection.Clipboard).Text = value;
+		}
+		
 		[CommandHandler (EditCommands.Delete)]
 		[CommandHandler (EditCommands.DeleteKey)]
 		protected void OnDelete ()
@@ -1147,7 +1166,7 @@ namespace MonoDevelop.Debugger
 			TreePath[] sel = Selection.GetSelectedRows ();
 			if (store.GetIter (out it, sel[0])) {
 				ObjectValue val = (ObjectValue) store.GetValue (it, ObjectCol);
-				if (val.Name == DebuggingService.DebuggerSession.EvaluationOptions.CurrentExceptionTag)
+				if (val != null && val.Name == DebuggingService.DebuggerSession.EvaluationOptions.CurrentExceptionTag)
 					DebuggingService.ShowExceptionCaughtDialog ();
 			}
 		}

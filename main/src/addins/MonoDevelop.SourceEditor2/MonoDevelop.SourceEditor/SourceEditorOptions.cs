@@ -40,6 +40,12 @@ namespace MonoDevelop.SourceEditor
 		
 	}
 	
+	public enum LineEndingConversion {
+		Ask,
+		LeaveAsIs,
+		ConvertAlways
+	}
+	
 	public class DefaultSourceEditorOptions : TextEditorOptions, ISourceEditorOptions
 	{
 		static DefaultSourceEditorOptions instance;
@@ -242,6 +248,7 @@ namespace MonoDevelop.SourceEditor
 			this.ControlLeftRightMode = PropertyService.Get ("ControlLeftRightMode", defaultControlMode);
 			base.EnableAnimations = PropertyService.Get ("EnableAnimations", true);
 			base.UseAntiAliasing = PropertyService.Get ("UseAntiAliasing", true);
+			this.EnableHighlightUsages = PropertyService.Get ("EnableHighlightUsages", false);
 		}
 		
 		#region new options
@@ -432,6 +439,34 @@ namespace MonoDevelop.SourceEditor
 				if (value != this.editorFontType) {
 					this.editorFontType = value;
 					PropertyService.Set ("EditorFontType", value);
+					OnChanged (EventArgs.Empty);
+				}
+			}
+		}
+		
+		bool enableHighlightUsages;
+		public bool EnableHighlightUsages {
+			get {
+				return enableHighlightUsages;
+			}
+			set {
+				if (value != this.enableHighlightUsages) {
+					this.enableHighlightUsages = value;
+					PropertyService.Set ("EnableHighlightUsages", value);
+					OnChanged (EventArgs.Empty);
+				}
+			}
+		}
+		
+		LineEndingConversion lineEndingConversion;
+		public LineEndingConversion LineEndingConversion {
+			get {
+				return lineEndingConversion;
+			}
+			set {
+				if (value != this.lineEndingConversion) {
+					this.lineEndingConversion = value;
+					PropertyService.Set ("LineEndingConversion", value);
 					OnChanged (EventArgs.Empty);
 				}
 			}

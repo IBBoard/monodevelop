@@ -66,7 +66,10 @@ namespace MonoDevelop.VersionControl.Subversion
 		
 		public override string GetBaseText (FilePath sourcefile)
 		{
-			return File.ReadAllText (Svn.GetPathToBaseText (sourcefile));
+			// The base file will not exist if the file has just been
+			// added to svn and not committed
+			var baseFile = Svn.GetPathToBaseText (sourcefile);
+			return File.Exists (baseFile) ? File.ReadAllText (baseFile) : "";
 		}
 
 		public string GetPathToBaseText (FilePath sourcefile)
@@ -474,6 +477,14 @@ namespace MonoDevelop.VersionControl.Subversion
 				else
 					Directory.Delete (path, true);
 			}
+		}
+		
+		public override DiffInfo GenerateDiff (FilePath baseLocalPath, VersionInfo versionInfo)
+		{
+			string diff = Svn.GetUnifiedDiff (versionInfo.LocalPath, false, false);
+			if (!string.IsNullOrEmpty (diff))
+				return GenerateUnifiedDiffInfo (diff, baseLocalPath, new FilePath[] { versionInfo.LocalPath }) [0];
+			return null;
 		}
 		
 		public override DiffInfo[] PathDiff (FilePath localPath, Revision fromRevision, Revision toRevision)
