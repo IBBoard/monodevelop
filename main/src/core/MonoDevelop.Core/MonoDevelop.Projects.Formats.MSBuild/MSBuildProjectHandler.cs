@@ -56,8 +56,7 @@ namespace MonoDevelop.Projects.Formats.MSBuild
 		ITimeTracker timer;
 		bool useXBuild;
 		MSBuildVerbosity verbosity;
-		string fileName;
-		
+
 		struct ItemInfo {
 			public MSBuildItem Item;
 			public bool Added;
@@ -241,7 +240,6 @@ namespace MonoDevelop.Projects.Formats.MSBuild
 			
 			timer.Trace ("Reading project file");
 			MSBuildProject p = new MSBuildProject ();
-			this.fileName = fileName;
 			p.Load (fileName);
 			
 			//determine the file format
@@ -770,7 +768,7 @@ namespace MonoDevelop.Projects.Formats.MSBuild
 			if (Item is UnknownProject || Item is UnknownSolutionItem)
 				return;
 			
-			bool newProject = false;
+			bool newProject;
 			SolutionEntityItem eitem = EntityItem;
 			
 			MSBuildSerializer ser = CreateSerializer ();
@@ -780,11 +778,11 @@ namespace MonoDevelop.Projects.Formats.MSBuild
 			DotNetProject dotNetProject = Item as DotNetProject;
 			
 			MSBuildProject msproject = new MSBuildProject ();
-			if (fileName != null) {
-				msproject.Load (fileName);
-			} else {
+			newProject = EntityItem.FileName == null || !File.Exists (EntityItem.FileName);
+			if (newProject) {
 				msproject.DefaultTargets = "Build";
-				newProject = true;
+			} else {
+				msproject.Load (EntityItem.FileName);
 			}
 
 			// Global properties
@@ -855,7 +853,7 @@ namespace MonoDevelop.Projects.Formats.MSBuild
 				langParams = dotNetProject.LanguageParameters;
 			}
 			
-			if (fileName == null)
+			if (newProject)
 				ser.InternalItemProperties.ItemData.Sort (globalConfigOrder);
 
 			WritePropertyGroupMetadata (globalGroup, ser.InternalItemProperties.ItemData, ser, Item, langParams);
