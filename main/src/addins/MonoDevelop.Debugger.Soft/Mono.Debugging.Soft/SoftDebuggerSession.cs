@@ -30,6 +30,8 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Collections.Generic;
+using Mono.Cecil.Mdb;
+using Mono.CompilerServices.SymbolWriter;
 using Mono.Debugging.Client;
 using Mono.Debugger.Soft;
 using Mono.Debugging.Evaluation;
@@ -57,8 +59,10 @@ namespace Mono.Debugging.Soft
 		ThreadInfo[] current_threads;
 		bool exited;
 		bool started;
+		bool autoStepInto;
 		internal int StackVersion;
 		StepEventRequest currentStepRequest;
+		long currentAddress = -1;
 		ExceptionEventRequest unhandledExceptionRequest;
 		string remoteProcessName;
 		Dictionary<long,long> localThreadIds = new Dictionary<long, long> ();
@@ -77,6 +81,7 @@ namespace Mono.Debugging.Soft
 		
 		List<string> userAssemblyNames;
 		List<AssemblyMirror> assemblyFilters;
+		Dictionary<string, string> assemblyPathMap;
 		
 		bool loggedSymlinkedRuntimesBug = false;
 
@@ -119,7 +124,7 @@ namespace Mono.Debugging.Soft
 		{
 			this.startArgs = dsi.StartArgs;
 			
-			RegisterUserAssemblies (dsi.UserAssemblyNames);
+			RegisterUserAssemblies (dsi);
 			
 			if (!String.IsNullOrEmpty (dsi.LogMessage))
 				LogWriter (false, dsi.LogMessage + "\n");
@@ -164,7 +169,7 @@ namespace Mono.Debugging.Soft
 		{
 			var args = (SoftDebuggerLaunchArgs) dsi.StartArgs;
 			var runtime = Path.Combine (Path.Combine (args.MonoRuntimePrefix, "bin"), "mono");
-			RegisterUserAssemblies (dsi.UserAssemblyNames);
+			RegisterUserAssemblies (dsi);
 			
 			var psi = new System.Diagnostics.ProcessStartInfo (runtime) {
 				Arguments = string.Format ("\"{0}\" {1}", dsi.Command, dsi.Arguments),
@@ -294,7 +299,7 @@ namespace Mono.Debugging.Soft
 			
 			remoteProcessName = args.AppName;
 			
-			RegisterUserAssemblies (dsi.UserAssemblyNames);
+			RegisterUserAssemblies (dsi);
 			
 			dbgEP = new IPEndPoint (args.Address, args.DebugPort);
 			conEP = args.RedirectOutput? new IPEndPoint (args.Address, args.OutputPort) : null;
@@ -445,12 +450,16 @@ namespace Mono.Debugging.Soft
 			eventHandler.Start ();
 		}
 		
-		protected void RegisterUserAssemblies (List<AssemblyName> userAssemblyNames)
+		void RegisterUserAssemblies (SoftDebuggerStartInfo dsi)
 		{
-			if (Options.ProjectAssembliesOnly && userAssemblyNames != null) {
+			if (Options.ProjectAssembliesOnly && dsi.UserAssemblyNames != null) {
 				assemblyFilters = new List<AssemblyMirror> ();
-				this.userAssemblyNames = userAssemblyNames.Select (x => x.ToString ()).ToList ();
+				userAssemblyNames = dsi.UserAssemblyNames.Select (x => x.ToString ()).ToList ();
 			}
+			
+			assemblyPathMap = dsi.AssemblyPathMap;
+			if (assemblyPathMap == null)
+				assemblyPathMap = new Dictionary<string, string> ();
 		}
 		
 		protected bool SetSocketTimeouts (int send_timeout, int receive_timeout, int keepalive_interval)
@@ -800,7 +809,7 @@ namespace Mono.Debugging.Soft
 							sourceFileList[originalCount + i] = char.ToLower (n[0]) + n.Substring (1);
 						}
 					}
-						     
+					
 					if (typeLoadReq == null) {
 						typeLoadReq = vm.CreateTypeLoadRequest ();
 					}
@@ -877,8 +886,8 @@ namespace Mono.Debugging.Soft
 			EventRequest request;
 			
 			request = vm.CreateExceptionRequest (excType, true, true);
+			request.Count = cp.HitCount; // Note: need to set HitCount *before* enabling
 			request.Enabled = cp.Enabled;
-			request.Count = cp.HitCount;
 			
 			bi.Requests.Add (request);
 		}
@@ -907,6 +916,11 @@ namespace Mono.Debugging.Soft
 			return i == paramTypes.Length;
 		}
 		
+		bool IsGenericMethod (MethodMirror method)
+		{
+			return vm.Version.AtLeast (2, 12) && method.IsGenericMethod;
+		}
+		
 		Location FindLocationByFunction (string function, string[] paramTypes, int line, out bool genericTypeOrMethod)
 		{
 			genericTypeOrMethod = false;
@@ -931,7 +945,7 @@ namespace Mono.Debugging.Soft
 						
 						Location location = GetLocFromMethod (method);
 						if (location != null) {
-							genericTypeOrMethod = type.IsGenericType || method.IsGenericMethod;
+							genericTypeOrMethod = type.IsGenericType || IsGenericMethod (method);
 							return location;
 						}
 					}
@@ -1025,6 +1039,7 @@ namespace Mono.Debugging.Soft
 					var req = vm.CreateStepRequest (current_thread);
 					req.Depth = depth;
 					req.Size = size;
+					req.Filter = StepFilter.StaticCtor;
 					if (assemblyFilters != null && assemblyFilters.Count > 0)
 						req.AssemblyFilter = assemblyFilters;
 					req.Enabled = true;
@@ -1120,12 +1135,32 @@ namespace Mono.Debugging.Soft
 			}
 		}
 		
+		static bool IsStepIntoRequest (StepEventRequest stepRequest)
+		{
+			return stepRequest.Depth == StepDepth.Into;
+		}
+		
+		static bool IsStepOutRequest (StepEventRequest stepRequest)
+		{
+			return stepRequest.Depth == StepDepth.Out;
+		}
+		
+		static bool IsPropertyOrOperatorMethod (MDB.MethodMirror method)
+		{
+			string name = method.Name;
+			
+			return method.IsSpecialName && name.StartsWith ("get_") || name.StartsWith ("set_") || name.StartsWith ("op_");
+		}
+		
 		void HandleBreakEventSet (Event[] es, bool dequeuing)
 		{
 			if (dequeuing && exited)
 				return;
 			
 			bool resume = true;
+			bool steppedOut = false;
+			bool steppedInto = false;
+			bool redoCurrentStep = false;
 			ObjectMirror exception = null;
 			TargetEventType etype = TargetEventType.TargetStopped;
 			BreakEvent breakEvent = null;
@@ -1146,20 +1181,33 @@ namespace Mono.Debugging.Soft
 			else {
 				//always need to evaluate all breakpoints, some might be tracepoints or conditional bps with counters
 				foreach (Event e in es) {
-					var be = e as BreakpointEvent;
-					if (be != null) {
+					if (e.EventType == EventType.Breakpoint) {
+						var be = e as BreakpointEvent;
+						BreakInfo binfo;
+						
 						if (!HandleBreakpoint (e.Thread, be.Request)) {
 							etype = TargetEventType.TargetHitBreakpoint;
-							BreakInfo binfo;
-							if (breakpoints.TryGetValue (be.Request, out binfo))
-								breakEvent = binfo.BreakEvent;
+							autoStepInto = false;
 							resume = false;
 						}
+						
+						if (breakpoints.TryGetValue (be.Request, out binfo)) {
+							if (currentStepRequest != null &&
+							    binfo.Location.ILOffset == currentAddress && 
+							    e.Thread.Id == currentStepRequest.Thread.Id)
+								redoCurrentStep = true;
+							
+							breakEvent = binfo.BreakEvent;
+						}
 					} else if (e.EventType == EventType.Step) {
+						var stepRequest = e.Request as StepEventRequest;
+						steppedInto = IsStepIntoRequest (stepRequest);
+						steppedOut = IsStepOutRequest (stepRequest);
 						etype = TargetEventType.TargetStopped;
 						resume = false;
 					} else if (e.EventType == EventType.UserBreak) {
 						etype = TargetEventType.TargetStopped;
+						autoStepInto = false;
 						resume = false;
 					} else {
 						throw new Exception ("Break eventset had unexpected event type " + e.GetType ());
@@ -1167,7 +1215,16 @@ namespace Mono.Debugging.Soft
 				}
 			}
 			
-			if (resume) {
+			if (redoCurrentStep) {
+				StepDepth depth = currentStepRequest.Depth;
+				StepSize size = currentStepRequest.Size;
+				
+				current_thread = recent_thread = es[0].Thread;
+				currentStepRequest.Enabled = false;
+				currentStepRequest = null;
+				
+				Step (depth, size);
+			} else if (resume) {
 				//all breakpoints were conditional and evaluated as false
 				vm.Resume ();
 				DequeueEventsForFirstThread ();
@@ -1176,17 +1233,39 @@ namespace Mono.Debugging.Soft
 					currentStepRequest.Enabled = false;
 					currentStepRequest = null;
 				}
+				
 				current_thread = recent_thread = es[0].Thread;
-				var args = new TargetEventArgs (etype);
-				args.Process = OnGetProcesses () [0];
-				args.Thread = GetThread (args.Process, current_thread);
-				args.Backtrace = GetThreadBacktrace (current_thread);
-				args.BreakEvent = breakEvent;
 				
 				if (exception != null)
 					activeExceptionsByThread [current_thread.ThreadId] = exception;
 				
-				OnTargetEvent (args);
+				var backtrace = GetThreadBacktrace (current_thread);
+				bool stepOut = false;
+				
+				if (backtrace.FrameCount > 0) {
+					var frame = backtrace.GetFrame (0) as SoftDebuggerStackFrame;
+					currentAddress = frame != null ? frame.Address : -1;
+					
+					if (steppedInto && Options.StepOverPropertiesAndOperators)
+						stepOut = frame != null && IsPropertyOrOperatorMethod (frame.StackFrame.Method);
+				}
+				
+				if (stepOut) {
+					// We will want to call StepInto once StepOut returns...
+					autoStepInto = true;
+					Step (StepDepth.Out, StepSize.Min);
+				} else if (steppedOut && autoStepInto) {
+					autoStepInto = false;
+					Step (StepDepth.Into, StepSize.Min);
+				} else {
+					var args = new TargetEventArgs (etype);
+					args.Process = OnGetProcesses () [0];
+					args.Thread = GetThread (args.Process, current_thread);
+					args.Backtrace = backtrace;
+					args.BreakEvent = breakEvent;
+					
+					OnTargetEvent (args);
+				}
 			}
 		}
 		
@@ -1557,7 +1636,7 @@ namespace Mono.Debugging.Soft
 								ResolvePendingBreakpoint (bi, loc);
 								
 								// Note: if the type or method is generic, there may be more instances so don't assume we are done resolving the breakpoint
-								if (!type.IsGenericType && !method.IsGenericMethod)
+								if (!type.IsGenericType && !IsGenericMethod (method))
 									resolved.Add (bi);
 								break;
 							}
@@ -1580,7 +1659,7 @@ namespace Mono.Debugging.Soft
 								ResolvePendingBreakpoint (bi, loc);
 								
 								// Note: if the type or method is generic, there may be more instances so don't assume we are done resolving the breakpoint
-								if (!type.IsGenericType && !method.IsGenericMethod)
+								if (!type.IsGenericType /* && !IsGenericMethod (method)*/)
 									resolved.Add (bi);
 								break;
 							}
@@ -1604,7 +1683,7 @@ namespace Mono.Debugging.Soft
 						loc = GetLocFromType (type, s, bp.Line, out genericMethod, out insideLoadedRange);
 						if (loc != null) {
 							OnDebuggerOutput (false, string.Format ("Resolved pending breakpoint at '{0}:{1}' to {2} [0x{3:x5}].\n",
-							                                        s, loc.LineNumber, loc.Method.FullName, loc.ILOffset));
+							                                        s, bp.Line, loc.Method.FullName, loc.ILOffset));
 							ResolvePendingBreakpoint (bi, loc);
 							
 							// Note: if the type or method is generic, there may be more instances so don't assume we are done resolving the breakpoint
@@ -1663,51 +1742,134 @@ namespace Mono.Debugging.Soft
 			return method.Locations.Count > 0 ? method.Locations[0] : null;
 		}
 		
+		
+		Dictionary<string, MonoSymbolFile> symbolFiles = new Dictionary<string, MonoSymbolFile> ();
+		
+		bool CheckBetterMatch (TypeMirror type, string file, int line, Location found)
+		{
+			if (type.Assembly == null)
+				return false;
+			
+			string assemblyFileName;
+			if (!assemblyPathMap.TryGetValue (type.Assembly.GetName ().FullName, out assemblyFileName))
+				assemblyFileName = type.Assembly.Location;
+			
+			if (assemblyFileName == null)
+				return false;
+			
+			string mdbFileName = assemblyFileName + ".mdb";
+			int foundDelta = found.LineNumber - line;
+			MonoSymbolFile mdb;
+			int fileId = -1;
+			
+			try {
+				if (!symbolFiles.TryGetValue (mdbFileName, out mdb)) {
+					if (!File.Exists (mdbFileName))
+						return false;
+					
+					mdb = MonoSymbolFile.ReadSymbolFile (mdbFileName);
+					symbolFiles.Add (mdbFileName, mdb);
+				}
+				
+				foreach (var src in mdb.Sources) {
+					if (src.FileName == file) {
+						fileId = src.Index;
+						break;
+					}
+				}
+				
+				if (fileId == -1)
+					return false;
+				
+				foreach (var method in mdb.Methods) {
+					var table = method.GetLineNumberTable ();
+					foreach (var entry in table.LineNumbers) {
+						if (entry.File != fileId)
+							continue;
+						
+						if (entry.Row >= line && (entry.Row - line) < foundDelta)
+							return true;
+					}
+				}
+			} catch {
+			}
+			
+			return false;
+		}
+		
 		Location GetLocFromType (TypeMirror type, string file, int line, out bool genericMethod, out bool insideTypeRange)
 		{
 			Location target_loc = null;
+			bool fuzzy = true;
 			
 			insideTypeRange = false;
 			genericMethod = false;
 			
+			//Console.WriteLine ("Trying to resolve {0}:{1} in type {2}", file, line, type.Name);
 			foreach (MethodMirror method in type.GetMethods ()) {
-				int rangeFirstLine = -1;
+				int rangeFirstLine = int.MaxValue;
 				int rangeLastLine = -1;
 				
 				foreach (Location location in method.Locations) {
 					string srcFile = location.SourceFile;
 					
+					//Console.WriteLine ("\tExamining {0}:{1}...", srcFile, location.LineNumber);
+					
 					if (srcFile != null && PathComparer.Compare (PathToFileName (NormalizePath (srcFile)), file) == 0) {
+						if (location.LineNumber < rangeFirstLine)
+							rangeFirstLine = location.LineNumber;
+						
+						if (location.LineNumber > rangeLastLine)
+							rangeLastLine = location.LineNumber;
+						
+						if (line >= rangeFirstLine && line <= rangeLastLine)
+							insideTypeRange = true;
+						
 						// If we are inserting a breakpoint in line L, but L+1 has the same IL offset as L,
 						// pick the L+1 location, since that's where the debugger is going to stop.
-						if (location.LineNumber == line) {
-							if (target_loc == null)
+						if (location.LineNumber >= line && line >= rangeFirstLine) {
+							if (target_loc != null) {
+								if (location.LineNumber > line) {
+									if (target_loc.LineNumber - line > location.LineNumber - line) {
+										// Grab the location closest to the requested line
+										//Console.WriteLine ("\t\tLocation is closest match");
+										target_loc = location;
+									} else if (location.ILOffset == target_loc.ILOffset) {
+										// Grab the last location with the same ILOffset
+										//Console.WriteLine ("\t\tLocation has same ILOffset");
+										target_loc = location;
+									}
+								} else {
+									// Line number matches exactly
+									//Console.WriteLine ("\t\tLocation matches exactly.");
+									target_loc = location;
+									fuzzy = false;
+								}
+							} else {
+								//Console.WriteLine ("\t\tLocation is first possible match");
+								fuzzy = location.LineNumber != line;
 								target_loc = location;
+							}
 						}
-						else if (target_loc != null) {
-							if (target_loc.ILOffset == location.ILOffset)
-								target_loc = location;
-							else
-								break;
-						}
-						rangeLastLine = location.LineNumber;
-						if (rangeFirstLine == -1)
-							rangeFirstLine = location.LineNumber;
 					} else {
-						if (rangeFirstLine != -1 && line >= rangeFirstLine && line <= rangeLastLine)
-							insideTypeRange = true;
-						rangeFirstLine = -1;
+						rangeFirstLine = int.MaxValue;
+						rangeLastLine = -1;
 					}
 				}
 				
 				if (target_loc != null) {
-					genericMethod = method.IsGenericMethod;
-					break;
+					genericMethod = IsGenericMethod (method);
+					
+					// If we got a fuzzy match, then we need to make sure that there isn't a better
+					// match in another method (e.g. code might have been extracted out into another
+					// method by the compiler.
+					if (!fuzzy)
+						return target_loc;
 				}
-				
-				if (rangeFirstLine != -1 && line >= rangeFirstLine && line <= rangeLastLine)
-					insideTypeRange = true;
 			}
+			
+			if (target_loc != null && fuzzy && CheckBetterMatch (type, file, line, target_loc))
+				return null;
 			
 			return target_loc;
 		}

@@ -82,12 +82,47 @@ namespace MonoDevelop.MacDev.XcodeSyncing
 			context.SetSyncTime (targetRelative, mtime);
 		}
 		
+		bool ExistsInLocalizedDir (XcodeSyncContext context)
+		{
+			// We only check interface definition files.
+			if (!isInterfaceDefinition)
+				return false;
+			
+			var dirs = Directory.GetDirectories (context.ProjectDir);
+			if (dirs == null)
+				return false;
+			
+			string fileName = targetRelative.FileName;
+			
+			foreach (var lproj in dirs) {
+				if (!lproj.EndsWith (".lproj"))
+					continue;
+				
+				if (File.Exists (Path.Combine (lproj, fileName)))
+					return true;
+			}
+			
+			return false;
+		}
+		
 		public override bool NeedsSyncBack (IProgressMonitor monitor, XcodeSyncContext context)
 		{
 			if (!isInterfaceDefinition)
 				return false;
 			
 			string target = context.ProjectDir.Combine (targetRelative);
+			
+			if (!File.Exists (target)) {
+				// Note: We only return true IF AND ONLY IF the file was *moved* by Xcode into a *.lproj/ dir.
+				//       We DO NOT wan't to echo other deleted file changes back to MonoDevelop.
+				if (ExistsInLocalizedDir (context)) {
+					monitor.Log.WriteLine ("{0} has been localized.", targetRelative);
+					return true;
+				}
+				
+				monitor.Log.WriteLine ("{0} has been removed since last sync.", targetRelative);
+				return false;
+			}
 			
 			if (File.GetLastWriteTime (target) > context.GetSyncTime (targetRelative)) {
 				monitor.Log.WriteLine ("{0} has changed since last sync.", targetRelative);
@@ -101,7 +136,15 @@ namespace MonoDevelop.MacDev.XcodeSyncing
 		{
 			monitor.Log.WriteLine ("Queueing sync-back of changes made to '{0}' from Xcode.", targetRelative);
 			
-			context.FileSyncJobs.Add (new XcodeSyncFileBackJob (source, targetRelative, false));
+			string target = context.ProjectDir.Combine (targetRelative);
+			XcodeSyncFileStatus status;
+			
+			if (File.Exists (target))
+				status = XcodeSyncFileStatus.Modified;
+			else
+				status = XcodeSyncFileStatus.Removed;
+			
+			context.FileSyncJobs.Add (new XcodeSyncFileBackJob (source, targetRelative, status));
 		}
 		
 		public override void AddToProject (XcodeProject project, FilePath syncProjectDir)

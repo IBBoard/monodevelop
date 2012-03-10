@@ -1,20 +1,21 @@
-// CustomCommandTargetAttribute.cs
-//
+// 
+// SpecificStatus.cs
+//  
 // Author:
-//   Lluis Sanchez Gual <lluis@novell.com>
-//
-// Copyright (c) 2008 Novell, Inc (http://www.novell.com)
-//
+//       Alan McGovern <alan@xamarin.com>
+// 
+// Copyright (c) 2012 Xamarin Inc.
+// 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-//
+// 
 // The above copyright notice and this permission notice shall be included in
 // all copies or substantial portions of the Software.
-//
+// 
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -22,54 +23,58 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-//
-//
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
-namespace MonoDevelop.Components.Commands
+using NGit;
+using NGit.Treewalk;
+using NGit.Treewalk.Filter;
+
+namespace MonoDevelop.VersionControl.Git
 {
-	public class CustomCommandTargetAttribute: Attribute, ICommandTargetHandler, ICommandArrayTargetHandler
+	class FilteredStatus : NGit.Api.StatusCommand
 	{
-		ICommandTargetHandler next;
-		ICommandArrayTargetHandler nextArray;
-		
-		void ICommandArrayTargetHandler.Run (object target, Command cmd, object data)
-		{
-			Run (target, cmd, data);
-		}
-		
-		void ICommandTargetHandler.Run (object target, Command cmd)
-		{
-			Run (target, cmd);
-		}
+		WorkingTreeIterator iter;
 
-		protected virtual void Run (object target, Command cmd, object data)
-		{
-			nextArray.Run (target, cmd, data);
+		IEnumerable<string> Files {
+			get; set;
 		}
 		
-		protected virtual void Run (object target, Command cmd)
+		public FilteredStatus (NGit.Repository repository)
+			: base (repository)
 		{
-			next.Run (target, cmd);
-		}
-
-		ICommandTargetHandler ICommandTargetHandler.Next {
-			get {
-				return next;
-			}
-			set {
-				next = value;
-			}
+			
 		}
 		
-		ICommandArrayTargetHandler ICommandArrayTargetHandler.Next {
-			get {
-				return nextArray;
+		public FilteredStatus (NGit.Repository repository, IEnumerable<string> files)
+			: base (repository)
+		{
+			Files = files;
+		}
+		
+		public override NGit.Api.StatusCommand SetWorkingTreeIt (WorkingTreeIterator workingTreeIt)
+		{
+			iter = workingTreeIt;
+			return this;
+		}
+		
+		public override NGit.Api.Status Call ()
+		{
+			if (iter == null)
+				iter = new FileTreeIterator(repo);
+			
+			IndexDiff diff = new IndexDiff(repo, Constants.HEAD, iter);
+			if (Files != null) {
+				var filters = Files.Where (f => f != ".").ToArray ();
+				if (filters.Length > 0)
+					diff.SetFilter (PathFilterGroup.CreateFromStrings (filters));
 			}
-			set {
-				nextArray = value;
-			}
+			
+			diff.Diff ();
+			return new NGit.Api.Status(diff);
 		}
 	}
 }
+

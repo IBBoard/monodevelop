@@ -69,7 +69,9 @@ namespace MonoDevelop.Debugger
 		static DebuggerSession session;
 		static Backtrace currentBacktrace;
 		static int currentFrame;
-
+		
+		static ExceptionCaughtDialog exceptionDialog;
+		
 		static BusyEvaluatorDialog busyDialog;
 		static bool isBusy;
 		static StatusBarIcon busyStatusIcon;
@@ -284,10 +286,13 @@ namespace MonoDevelop.Debugger
 			
 			ExceptionInfo val = CurrentFrame.GetException (ops);
 			if (val != null) {
-				ExceptionCaughtDialog dlg = new ExceptionCaughtDialog (val);
-				dlg.TransientFor = IdeApp.Workbench.RootWindow;
-				MessageService.PlaceDialog (dlg, IdeApp.Workbench.RootWindow);
-				dlg.Show ();
+				exceptionDialog = new ExceptionCaughtDialog (val);
+				exceptionDialog.TransientFor = IdeApp.Workbench.RootWindow;
+				MessageService.PlaceDialog (exceptionDialog, IdeApp.Workbench.RootWindow);
+				exceptionDialog.Destroyed += (o, args) => {
+					exceptionDialog = null;
+				};
+				exceptionDialog.Show ();
 			}
 		}
 
@@ -338,7 +343,12 @@ namespace MonoDevelop.Debugger
 			
 			if (!IsDebugging)
 				return;
-
+			
+			if (exceptionDialog != null) {
+				exceptionDialog.Destroy ();
+				exceptionDialog = null;
+			}
+			
 			if (busyStatusIcon != null) {
 				busyStatusIcon.Dispose ();
 				busyStatusIcon = null;
@@ -435,23 +445,26 @@ namespace MonoDevelop.Debugger
 		
 		public static DebuggerSessionOptions GetUserOptions ()
 		{
-			EvaluationOptions eops = EvaluationOptions.DefaultOptions;
-			eops.AllowTargetInvoke = PropertyService.Get ("MonoDevelop.Debugger.DebuggingService.AllowTargetInvoke", true);
-			eops.AllowToStringCalls = PropertyService.Get ("MonoDevelop.Debugger.DebuggingService.AllowToStringCalls", true);
-			eops.EvaluationTimeout = PropertyService.Get ("MonoDevelop.Debugger.DebuggingService.EvaluationTimeout", 2500);
-			eops.FlattenHierarchy = PropertyService.Get ("MonoDevelop.Debugger.DebuggingService.FlattenHierarchy", false);
-			eops.GroupPrivateMembers = PropertyService.Get ("MonoDevelop.Debugger.DebuggingService.GroupPrivateMembers", true);
-			eops.GroupStaticMembers = PropertyService.Get ("MonoDevelop.Debugger.DebuggingService.GroupStaticMembers", true);
-			eops.MemberEvaluationTimeout = eops.EvaluationTimeout * 2;
+			EvaluationOptions eval = EvaluationOptions.DefaultOptions;
+			eval.AllowTargetInvoke = PropertyService.Get ("MonoDevelop.Debugger.DebuggingService.AllowTargetInvoke", true);
+			eval.AllowToStringCalls = PropertyService.Get ("MonoDevelop.Debugger.DebuggingService.AllowToStringCalls", true);
+			eval.EvaluationTimeout = PropertyService.Get ("MonoDevelop.Debugger.DebuggingService.EvaluationTimeout", 2500);
+			eval.FlattenHierarchy = PropertyService.Get ("MonoDevelop.Debugger.DebuggingService.FlattenHierarchy", false);
+			eval.GroupPrivateMembers = PropertyService.Get ("MonoDevelop.Debugger.DebuggingService.GroupPrivateMembers", true);
+			eval.GroupStaticMembers = PropertyService.Get ("MonoDevelop.Debugger.DebuggingService.GroupStaticMembers", true);
+			eval.MemberEvaluationTimeout = eval.EvaluationTimeout * 2;
 			return new DebuggerSessionOptions () {
+				StepOverPropertiesAndOperators = PropertyService.Get ("MonoDevelop.Debugger.DebuggingService.StepOverPropertiesAndOperators", true),
 				ProjectAssembliesOnly = PropertyService.Get ("MonoDevelop.Debugger.DebuggingService.ProjectAssembliesOnly", true),
-				EvaluationOptions = eops,
+				EvaluationOptions = eval,
 			};
 		}
 		
 		public static void SetUserOptions (DebuggerSessionOptions options)
 		{
+			PropertyService.Set ("MonoDevelop.Debugger.DebuggingService.StepOverPropertiesAndOperators", options.StepOverPropertiesAndOperators);
 			PropertyService.Set ("MonoDevelop.Debugger.DebuggingService.ProjectAssembliesOnly", options.ProjectAssembliesOnly);
+			
 			PropertyService.Set ("MonoDevelop.Debugger.DebuggingService.AllowTargetInvoke", options.EvaluationOptions.AllowTargetInvoke);
 			PropertyService.Set ("MonoDevelop.Debugger.DebuggingService.AllowToStringCalls", options.EvaluationOptions.AllowToStringCalls);
 			PropertyService.Set ("MonoDevelop.Debugger.DebuggingService.EvaluationTimeout", options.EvaluationOptions.EvaluationTimeout);

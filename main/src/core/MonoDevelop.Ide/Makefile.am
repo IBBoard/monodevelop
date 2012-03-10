@@ -146,6 +146,7 @@ FILES =  \
 	MonoDevelop.Components.Commands/CommandToolbar.cs \
 	MonoDevelop.Components.Commands/CommandToolButton.cs \
 	MonoDevelop.Components.Commands/CustomCommand.cs \
+	MonoDevelop.Components.Commands/CustomCommandTargetAttribute.cs \
 	MonoDevelop.Components.Commands/CustomCommandUpdaterAttribute.cs \
 	MonoDevelop.Components.Commands/CustomItem.cs \
 	MonoDevelop.Components.Commands/CustomMenuItem.cs \
@@ -372,6 +373,7 @@ FILES =  \
 	MonoDevelop.Ide.Extensions/MimeTypeOptionsPanelNode.cs \
 	MonoDevelop.Ide.Extensions/OptionsDialogSection.cs \
 	MonoDevelop.Ide.Extensions/OptionsPanelNode.cs \
+	MonoDevelop.Ide.Extensions/ServiceUrlExtensionNode.cs \
 	MonoDevelop.Ide.Extensions/StartupHandlerExtensionAttribute.cs \
 	MonoDevelop.Ide.Extensions/StockIconCodon.cs \
 	MonoDevelop.Ide.Extensions/TextEditorExtensionNode.cs \
@@ -395,7 +397,6 @@ FILES =  \
 	MonoDevelop.Ide.Fonts/FontDescriptionCodon.cs \
 	MonoDevelop.Ide.Fonts/FontService.cs \
 	MonoDevelop.Ide.Gui.Components/CellRendererPixbuf.cs \
-	MonoDevelop.Ide.Gui.Components/CustomCommandTargetAttribute.cs \
 	MonoDevelop.Ide.Gui.Components/DragOperation.cs \
 	MonoDevelop.Ide.Gui.Components/EnvVarList.cs \
 	MonoDevelop.Ide.Gui.Components/ExecutionModeComboBox.cs \
@@ -705,6 +706,7 @@ FILES =  \
 	MonoDevelop.Ide/ImageService.cs \
 	MonoDevelop.Ide/LogReportingStartup.cs \
 	MonoDevelop.Ide/MessageService.cs \
+	MonoDevelop.Ide/ProjectCreatedEventArgs.cs \
 	MonoDevelop.Ide/ProjectOperations.cs \
 	MonoDevelop.Ide/RootWorkspace.cs \
 	MonoDevelop.Ide/Services.cs \

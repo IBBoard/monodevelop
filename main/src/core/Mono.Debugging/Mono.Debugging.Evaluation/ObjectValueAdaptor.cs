@@ -72,7 +72,7 @@ namespace Mono.Debugging.Evaluation
 		
 		public virtual string GetDisplayTypeName (string typeName)
 		{
-			return GetDisplayTypeName (typeName.Replace ('+','.'), 0, typeName.Length);
+			return GetDisplayTypeName (typeName.Replace ('+', '.'), 0, typeName.Length);
 		}
 		
 		public string GetDisplayTypeName (EvaluationContext ctx, object type)
@@ -91,6 +91,7 @@ namespace Mono.Debugging.Evaluation
 			int genericEndIndex = -1;
 			int typeEndIndex;
 			
+		retry:
 			if (tokenIndex == -1) // Simple type
 				return GetShortTypeName (typeName.Substring (startIndex, endIndex - startIndex));
 			
@@ -102,7 +103,15 @@ namespace Mono.Debugging.Evaluation
 			
 			// decode generic args first, if this is a generic type
 			if (typeName[tokenIndex] == '`') {
-				genericEndIndex = tokenIndex = typeName.IndexOf ('[', tokenIndex, endIndex - tokenIndex);
+				genericEndIndex = typeName.IndexOf ('[', tokenIndex, endIndex - tokenIndex);
+				if (genericEndIndex == -1) {
+					// Mono's compiler seems to generate non-generic types with '`'s in the name
+					// e.g. __EventHandler`1_FileCopyEventArgs_DelegateFactory_2
+					tokenIndex = typeName.IndexOfAny (new char [] { '[', ',' }, tokenIndex, endIndex - tokenIndex);
+					goto retry;
+				}
+				
+				tokenIndex = genericEndIndex;
 				genericArgs = GetGenericArguments (typeName, ref tokenIndex, endIndex);
 			}
 			
@@ -157,7 +166,7 @@ namespace Mono.Debugging.Evaluation
 				// Append the next generic type component
 				sb.Append (typeName.Substring (i, next - i));
 				
-				i = next;
+				i = next + 1;
 			}
 			
 			return sb.ToString ();
@@ -730,7 +739,7 @@ namespace Mono.Debugging.Evaluation
 			
 			if (ctx.Options.ChunkRawStrings && IsString (ctx, obj)) {
 				IStringAdaptor adaptor = CreateStringAdaptor (ctx, obj);
-				return new RawValueString (new RemoteRawValueString (ctx, source, adaptor, obj));
+				return new RawValueString (new RemoteRawValueString (adaptor, obj));
 			}
 			
 			if (IsPrimitive (ctx, obj))
@@ -851,7 +860,7 @@ namespace Mono.Debugging.Evaluation
 				if (ctx.Options.AllowToStringCalls) {
 					string res = CallToString (ctx, obj);
 					
-					if (string.IsNullOrEmpty (res))
+					if (res == null)
 						return new EvaluationResult ("null");
 					
 					return new EvaluationResult ("{" + res + "}");

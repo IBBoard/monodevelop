@@ -395,7 +395,6 @@ namespace Mono.TextEditor
 					preeditLayout.GetSize (out w, out h);
 					var calcHeight = System.Math.Ceiling (h / Pango.Scale.PangoScale);
 					if (LineHeight != calcHeight) {
-						int line = OffsetToLineNumber (preeditOffset);
 						textEditorData.heightTree.SetLineHeight (preeditLine, calcHeight);
 						preeditHeightChange = true;
 						QueueDraw ();
@@ -879,9 +878,8 @@ namespace Mono.TextEditor
 			Gdk.ModifierType mod;
 			KeyboardShortcut[] accels;
 			GtkWorkarounds.MapKeys (evt, out key, out mod, out accels);
-			
 			//HACK: we never call base.OnKeyPressEvent, so implement the popup key manually
-			if ((key == Gdk.Key.Menu && mod == ModifierType.None) || (key == Gdk.Key.F10 && mod == ModifierType.ShiftMask)) {
+			if (key == Gdk.Key.Menu || (key == Gdk.Key.F10 && mod.HasFlag (ModifierType.ShiftMask))) {
 				OnPopupMenu ();
 				return true;
 			}
@@ -1156,27 +1154,31 @@ namespace Mono.TextEditor
 		
 		protected override bool OnMotionNotifyEvent (Gdk.EventMotion e)
 		{
-			RemoveScrollWindowTimer ();
-			double x = e.X;
-			double y = e.Y;
-			Gdk.ModifierType mod = e.State;
-			double startPos;
-			Margin margin = GetMarginAtX (x, out startPos);
-			if (textViewMargin.inDrag && margin == this.textViewMargin && Gtk.Drag.CheckThreshold (this, (int)pressPositionX, (int)pressPositionY, (int)x, (int)y)) {
-				dragContents = new ClipboardActions.CopyOperation ();
-				dragContents.CopyData (textEditorData);
-				DragContext context = Gtk.Drag.Begin (this, ClipboardActions.CopyOperation.targetList, DragAction.Move | DragAction.Copy, 1, e);
-				if (!Platform.IsMac) {
-					CodeSegmentPreviewWindow window = new CodeSegmentPreviewWindow (this, true, textEditorData.SelectionRange, 300, 300);
-					Gtk.Drag.SetIconWidget (context, window, 0, 0);
+			try {
+				RemoveScrollWindowTimer ();
+				double x = e.X;
+				double y = e.Y;
+				Gdk.ModifierType mod = e.State;
+				double startPos;
+				Margin margin = GetMarginAtX (x, out startPos);
+				if (textViewMargin.inDrag && margin == this.textViewMargin && Gtk.Drag.CheckThreshold (this, (int)pressPositionX, (int)pressPositionY, (int)x, (int)y)) {
+					dragContents = new ClipboardActions.CopyOperation ();
+					dragContents.CopyData (textEditorData);
+					DragContext context = Gtk.Drag.Begin (this, ClipboardActions.CopyOperation.targetList, DragAction.Move | DragAction.Copy, 1, e);
+					if (!Platform.IsMac) {
+						CodeSegmentPreviewWindow window = new CodeSegmentPreviewWindow (this, true, textEditorData.SelectionRange, 300, 300);
+						Gtk.Drag.SetIconWidget (context, window, 0, 0);
+					}
+					selection = Selection.Clone (MainSelection);
+					textViewMargin.inDrag = false;
+				} else {
+					FireMotionEvent (x, y, mod);
+					if (mouseButtonPressed != 0) {
+						UpdateScrollWindowTimer (x, y, mod);
+					}
 				}
-				selection = Selection.Clone (MainSelection);
-				textViewMargin.inDrag = false;
-			} else {
-				FireMotionEvent (x, y, mod);
-				if (mouseButtonPressed != 0) {
-					UpdateScrollWindowTimer (x, y, mod);
-				}
+			} catch (Exception ex) {
+				GLib.ExceptionManager.RaiseUnhandledException (ex, false);
 			}
 			return base.OnMotionNotifyEvent (e);
 		}
@@ -2503,14 +2505,14 @@ namespace Mono.TextEditor
 			x -= (int) ((double) w * xalign);
 			y += 10;
 			
-			if (x + w >= geometry.Right)
-				x = geometry.Right - w;
+			if (x + w >= geometry.X + geometry.Width)
+				x = geometry.X + geometry.Width - w;
 			if (x < geometry.Left)
 				x = geometry.Left;
 			
 			int h = tipWindow.SizeRequest ().Height;
-			if (y + h >= geometry.Bottom)
-				y = geometry.Bottom - h;
+			if (y + h >= geometry.Y + geometry.Height)
+				y = geometry.Y + geometry.Height - h;
 			if (y < geometry.Top)
 				y = geometry.Top;
 			
