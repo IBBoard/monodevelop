@@ -48,7 +48,7 @@ namespace MonoDevelop.DesignerSupport
 		MonoDevelop.Components.InvisibleFrame frame;
 		bool customWidget;
 		IPadWindow container;
-		DockToolbarProvider toolbarProvider;
+		DockToolbarProvider toolbarProvider = new DockToolbarProvider ();
 		
 		public PropertyPad ()
 		{
@@ -57,16 +57,15 @@ namespace MonoDevelop.DesignerSupport
 			frame.Add (grid);
 			
 			frame.ShowAll ();
-			DesignerSupport.Service.SetPad (this);
 		}
 		
 		public override void Initialize (IPadWindow container)
 		{
 			base.Initialize (container);
-			toolbarProvider = new DockToolbarProvider ();
 			toolbarProvider.Attach (container.GetToolbar (Gtk.PositionType.Top));
 			grid.SetToolbarProvider (toolbarProvider);
 			this.container = container;
+			DesignerSupport.Service.SetPad (this);
 		}
 		
 		internal IPadWindow PadWindow {

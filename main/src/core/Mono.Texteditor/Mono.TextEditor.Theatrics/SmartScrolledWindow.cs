@@ -61,12 +61,10 @@ namespace Mono.TextEditor.Theatrics
 			QueueDraw ();
 		}
 		
-		protected SmartScrolledWindow (IntPtr ptr) : base (ptr)
-		{
-		}
-		
 		public SmartScrolledWindow (Gtk.Widget vScrollBar = null)
 		{
+			GtkWorkarounds.FixContainerLeak (this);
+			
 			vAdjustment = new Adjustment (0, 0, 0, 0, 0, 0);
 			vAdjustment.Changed += HandleAdjustmentChanged;
 			
@@ -84,8 +82,10 @@ namespace Mono.TextEditor.Theatrics
 		
 		public void ReplaceVScrollBar (Gtk.Widget widget)
 		{
-			vScrollBar.Unparent ();
-			vScrollBar.Destroy ();
+			if (vScrollBar != null) {
+				vScrollBar.Unparent ();
+				vScrollBar.Destroy ();
+			}
 			this.vScrollBar = widget;
 			this.vScrollBar.Parent = this;
 			this.vScrollBar.Show ();
@@ -104,6 +104,14 @@ namespace Mono.TextEditor.Theatrics
 				hAdjustment.Changed -= HandleAdjustmentChanged;
 				hAdjustment.Destroy ();
 				hAdjustment = null;
+			}
+			if (vScrollBar != null) {
+				vScrollBar.Destroy ();
+				vScrollBar = null;
+			}
+			if (hScrollBar != null) {
+				hScrollBar.Destroy ();
+				hScrollBar = null;
 			}
 			foreach (var c in children) {
 				c.Child.Destroy ();
@@ -162,6 +170,14 @@ namespace Mono.TextEditor.Theatrics
 					children.Remove (info);
 					return;
 				}
+			}
+			if (widget == vScrollBar) {
+				vScrollBar = null;
+				return;
+			}
+			if (widget == hScrollBar) {
+				vScrollBar = null;
+				return;
 			}
 			base.OnRemoved (widget);
 		}
@@ -238,7 +254,7 @@ namespace Mono.TextEditor.Theatrics
 				cr.SharpLineY (alloc.X, alloc.Y, right, alloc.Y);
 				cr.SharpLineY (alloc.X, bottom, right, bottom);
 				
-				cr.Color = Mono.TextEditor.Highlighting.ColorSheme.ToCairoColor (Style.Dark (State));
+				cr.Color = Mono.TextEditor.Highlighting.ColorScheme.ToCairoColor (Style.Dark (State));
 				cr.Stroke ();
 			}
 			return base.OnExposeEvent (evnt);
