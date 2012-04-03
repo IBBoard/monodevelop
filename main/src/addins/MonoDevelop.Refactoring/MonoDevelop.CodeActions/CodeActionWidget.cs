@@ -41,7 +41,7 @@ using MonoDevelop.CodeActions;
 
 namespace MonoDevelop.CodeActions
 {
-	public class CodeActionWidget : Gtk.EventBox
+	class CodeActionWidget : Gtk.EventBox
 	{
 //		CodeActionEditorExtension ext;
 		MonoDevelop.Ide.Gui.Document document;
@@ -204,7 +204,6 @@ namespace MonoDevelop.CodeActions
 			menuPushed = true;
 			menu.Destroyed += delegate {
 				menuPushed = false;
-				QueueDraw ();
 			};
 			var container = (TextEditorContainer)document.Editor.Parent.Parent;
 			var child = (TextEditorContainer.EditorContainerChild)container [this];
@@ -226,14 +225,10 @@ namespace MonoDevelop.CodeActions
 			
 			public void Run (object sender, EventArgs e)
 			{
-				// ensure that the Ast is recent.
-				document.UpdateParseDocument ();
 				act.Run (document, loc);
-
-				document.Editor.Document.CommitUpdateAll ();
 			}
 		}
-//		
+		
 		protected override bool OnButtonPressEvent (Gdk.EventButton evnt)
 		{
 			if (!evnt.TriggersContextMenu () && evnt.Button == 1)

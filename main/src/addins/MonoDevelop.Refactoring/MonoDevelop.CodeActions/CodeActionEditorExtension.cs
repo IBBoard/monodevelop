@@ -36,7 +36,7 @@ using ICSharpCode.NRefactory;
 
 namespace MonoDevelop.CodeActions
 {
-	public class CodeActionEditorExtension : TextEditorExtension 
+	class CodeActionEditorExtension : TextEditorExtension 
 	{
 		CodeActionWidget widget;
 		uint quickFixTimeout;
@@ -46,7 +46,7 @@ namespace MonoDevelop.CodeActions
 			private set;
 		}
 		
-		public void RemoveWidget ()
+		void RemoveWidget ()
 		{
 			if (widget == null)
 				return;
@@ -56,6 +56,7 @@ namespace MonoDevelop.CodeActions
 		public override void Dispose ()
 		{
 			CancelQuickFixTimer ();
+			document.Editor.SelectionChanged -= HandleSelectionChanged;
 			document.DocumentParsed -= HandleDocumentDocumentParsed;
 			if (widget != null) {
 				widget.Destroy ();
@@ -64,14 +65,18 @@ namespace MonoDevelop.CodeActions
 			base.Dispose ();
 		}
 		
-		public void CreateWidget (IEnumerable<CodeAction> fixes, TextLocation loc)
+		void CreateWidget (IEnumerable<CodeAction> fixes, TextLocation loc)
 		{
 			Fixes = fixes;
 			if (!QuickTaskStrip.EnableFancyFeatures)
 				return;
+			var editor = document.Editor;
+			if (editor == null || editor.Parent == null || !editor.Parent.IsRealized)
+				return;
+
 			if (!fixes.Any ()) {
 				ICSharpCode.NRefactory.TypeSystem.DomRegion region;
-				var resolveResult = document.GetLanguageItem (document.Editor.Caret.Offset, out region);
+				var resolveResult = document.GetLanguageItem (editor.Caret.Offset, out region);
 				if (resolveResult != null) {
 					var possibleNamespaces = ResolveCommandHandler.GetPossibleNamespaces (document, resolveResult);
 					if (!possibleNamespaces.Any ())
@@ -79,21 +84,18 @@ namespace MonoDevelop.CodeActions
 				} else
 					return;
 			}
-			var editor = Document.Editor.Parent;
-			if (!editor.IsRealized)
-				return;
-			var container = Document.Editor.Parent.Parent as TextEditorContainer;
+			var container = editor.Parent.Parent as TextEditorContainer;
 			if (container == null) 
 				return;
 			if (widget == null) {
 				widget = new CodeActionWidget (this, Document);
 				container.AddTopLevelWidget (widget,
-					2 + (int)Document.Editor.Parent.TextViewMargin.XOffset,
-					-2 + (int)document.Editor.Parent.LineToY (document.Editor.Caret.Line));
+					2 + (int)editor.Parent.TextViewMargin.XOffset,
+					-2 + (int)editor.Parent.LineToY (document.Editor.Caret.Line));
 			} else {
 				container.MoveTopLevelWidget (widget,
-					2 + (int)Document.Editor.Parent.TextViewMargin.XOffset,
-					-2 + (int)document.Editor.Parent.LineToY (document.Editor.Caret.Line));
+					2 + (int)editor.Parent.TextViewMargin.XOffset,
+					-2 + (int)editor.Parent.LineToY (document.Editor.Caret.Line));
 			}
 			widget.Show ();
 			widget.SetFixes (fixes, loc);
@@ -132,12 +134,23 @@ namespace MonoDevelop.CodeActions
 		{
 			base.Initialize ();
 			document.DocumentParsed += HandleDocumentDocumentParsed;
-			document.Editor.SelectionChanged += (sender, e) => CursorPositionChanged ();
+			document.Editor.SelectionChanged += HandleSelectionChanged;
+		}
+
+		void HandleSelectionChanged (object sender, EventArgs e)
+		{
+			CursorPositionChanged ();
 		}
 		
 		void HandleDocumentDocumentParsed (object sender, EventArgs e)
 		{
 			CursorPositionChanged ();
+		}
+		
+		[CommandUpdateHandler(RefactoryCommands.QuickFix)]
+		public void UpdateQuickFixCommand (CommandInfo ci)
+		{
+			ci.Enabled = widget != null && widget.Visible;
 		}
 		
 		[CommandHandler(RefactoryCommands.QuickFix)]

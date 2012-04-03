@@ -59,7 +59,7 @@ namespace MonoDevelop.SourceEditor
 		ICustomFilteringToolboxConsumer, IZoomable, ITextEditorResolver, Mono.TextEditor.ITextEditorDataProvider,
 		ICodeTemplateHandler, ICodeTemplateContextProvider, ISupportsProjectReload, IPrintable
 	{
-		SourceEditorWidget widget;
+		readonly SourceEditorWidget widget;
 		bool isDisposed = false;
 		DateTime lastSaveTime;
 		string loadedMimeType;
@@ -700,16 +700,11 @@ namespace MonoDevelop.SourceEditor
 			
 			ClipbardRingUpdated -= UpdateClipboardRing;
 
-			if (widget != null) {
-				widget.TextEditor.Document.TextReplacing -= OnTextReplacing;
-				widget.TextEditor.Document.TextReplacing -= OnTextReplaced;
-				widget.TextEditor.Document.ReadOnlyCheckDelegate = null;
-				widget.TextEditor.Options.Changed -= HandleWidgetTextEditorOptionsChanged;
-				// widget is destroyed with it's parent.
-				// widget.Destroy ();
-				widget = null;
-			}
-			
+			widget.TextEditor.Document.TextReplacing -= OnTextReplacing;
+			widget.TextEditor.Document.TextReplacing -= OnTextReplaced;
+			widget.TextEditor.Document.ReadOnlyCheckDelegate = null;
+			widget.TextEditor.Options.Changed -= HandleWidgetTextEditorOptionsChanged;
+
 			DebuggingService.DebugSessionStarted -= OnDebugSessionStarted;
 			DebuggingService.CurrentFrameChanged -= currentFrameChanged;
 			DebuggingService.StoppedEvent -= currentFrameChanged;
@@ -1159,9 +1154,9 @@ namespace MonoDevelop.SourceEditor
 			}
 			set {
 				TextEditor.DeleteSelectedText ();
-				int length = TextEditor.Insert (TextEditor.Caret.Offset, value);
-				TextEditor.SelectionRange = new TextSegment (TextEditor.Caret.Offset, length);
-				TextEditor.Caret.Offset += length; 
+				var offset = TextEditor.Caret.Offset;
+				int length = TextEditor.Insert (offset, value);
+				TextEditor.SelectionRange = new TextSegment (offset, length);
 			}
 		}
 

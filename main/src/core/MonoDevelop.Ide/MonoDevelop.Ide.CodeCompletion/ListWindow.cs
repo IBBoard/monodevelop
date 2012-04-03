@@ -122,8 +122,9 @@ namespace MonoDevelop.Ide.CodeCompletion
 		/// This method is used to set the completion window to it's inital state.
 		/// This is required for re-using the window object.
 		/// </summary>
-		protected void ResetState ()
+		protected virtual void ResetState ()
 		{
+			HideWhenWordDeleted = false;
 			endOffset = -1;
 			list.ResetState ();
 		}
@@ -235,12 +236,7 @@ namespace MonoDevelop.Ide.CodeCompletion
 
 		public bool IsUniqueMatch {
 			get {
-/*				int pos = list.Selection + 1;
-				if (DataProvider.ItemCount > pos && 
-					DataProvider.GetText (pos).ToLower ().StartsWith (CurrentPartialWord.ToLower ()) || 
-					!(DataProvider.GetText (list.Selection).ToLower ().StartsWith (CurrentPartialWord.ToLower ())))
-					return false;
-				*/
+				list.FilterWords ();
 				return list.filteredItems.Count == 1;
 			}
 		}

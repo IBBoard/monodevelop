@@ -52,17 +52,13 @@ namespace MonoDevelop.CSharp.Refactoring
 			return new ICSharpCode.NRefactory.CSharp.TextEditorOptions () {
 				TabsToSpaces = doc.Options.TabsToSpaces,
 				TabSize = doc.Options.TabSize,
-				IndentSize = doc.Options.TabSize,
-				ContinuationIndent = doc.Options.TabSize,
-				LabelIndent = -doc.Options.TabSize,
+				IndentSize = doc.Options.IndentationSize,
+				ContinuationIndent = doc.Options.IndentationSize,
+				LabelIndent = -doc.Options.IndentationSize,
 				EolMarker = doc.EolMarker,
 				IndentBlankLines = doc.Options.IndentStyle != IndentStyle.Virtual
 			};
 		}
-
-
-
-
 
 		public static void RemoveNode (this TextEditorData editor, AstNode n)
 		{

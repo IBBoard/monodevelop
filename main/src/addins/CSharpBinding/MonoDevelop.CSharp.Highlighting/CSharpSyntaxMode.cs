@@ -126,7 +126,9 @@ namespace MonoDevelop.CSharp.Highlighting
 		
 		void HandleDocumentParsed (object sender, EventArgs e)
 		{
-			if (guiDocument != null) {
+			if (src != null)
+				src.Cancel ();
+			if (guiDocument != null && MonoDevelop.Core.PropertyService.Get ("EnableSemanticHighlighting", true)) {
 				var parsedDocument = guiDocument.ParsedDocument;
 				if (parsedDocument != null) {
 					if (!parsedDocument.HasErrors)
@@ -137,9 +139,6 @@ namespace MonoDevelop.CSharp.Highlighting
 					resolver = new CSharpAstResolver (compilation, unit, parsedFile);
 					
 					if (guiDocument.Project != null) {
-						if (src != null) {
-							src.Cancel ();
-						}
 						src = new CancellationTokenSource ();
 						var cancellationToken = src.Token;
 						System.Threading.Tasks.Task.Factory.StartNew (delegate {
@@ -147,8 +146,19 @@ namespace MonoDevelop.CSharp.Highlighting
 							unit.AcceptVisitor (visitor);
 							if (!cancellationToken.IsCancellationRequested) {
 								Gtk.Application.Invoke (delegate {
+									if (cancellationToken.IsCancellationRequested)
+										return;
+									var editorData = guiDocument.Editor;
+									if (editorData == null)
+										return;
 									quickTasks = visitor.QuickTasks;
 									OnTasksUpdated (EventArgs.Empty);
+									var textEditor = editorData.Parent;
+									if (textEditor != null) {
+										var margin = textEditor.TextViewMargin;
+										margin.PurgeLayoutCache ();
+										textEditor.QueueDraw ();
+									}
 								});
 							}
 						}, cancellationToken);
@@ -263,6 +273,10 @@ namespace MonoDevelop.CSharp.Highlighting
 				guiDocument = null;
 			}
 			if (guiDocument != null) {
+				guiDocument.Closed += delegate {
+					if (src != null)
+						src.Cancel ();
+				};
 				guiDocument.DocumentParsed += HandleDocumentParsed;
 				highlightedSegmentCache = new HighlightingSegmentTree ();
 				highlightedSegmentCache.InstallListener (guiDocument.Editor.Document);
@@ -377,7 +391,7 @@ namespace MonoDevelop.CSharp.Highlighting
 				
 				public void Resolved (AstNode node, ResolveResult result)
 				{
-					
+
 				}
 				
 				public ResolveVisitorNavigationMode Scan (AstNode node)
@@ -401,7 +415,10 @@ namespace MonoDevelop.CSharp.Highlighting
 					tags.Add (tag.Tag);
 				}
 			}
-			
+
+
+
+
 			#region IResolveVisitorNavigator implementation
 			ResolveVisitorNavigationMode IResolveVisitorNavigator.Scan(AstNode node)
 			{

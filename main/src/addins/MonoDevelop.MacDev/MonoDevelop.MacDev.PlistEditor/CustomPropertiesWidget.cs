@@ -302,9 +302,10 @@ namespace MonoDevelop.MacDev.PlistEditor
 			
 			treeview.AppendColumn (GettextCatalog.GetString ("Type"), comboRenderer, delegate(TreeViewColumn tree_column, CellRenderer cell, TreeModel tree_model, TreeIter iter) {
 				var renderer = (CellRendererCombo)cell;
+				var value = (string) tree_model.GetValue (iter, 0);
 				var obj   = (PObject)tree_model.GetValue (iter, 1);
 				var key   = (PListScheme.SchemaItem)tree_model.GetValue (iter, 2);
-				renderer.Editable = key == null;
+				renderer.Editable = key == null && !AddKeyNode.Equals (value);
 				renderer.ForegroundGdk = Style.Text (renderer.Editable ? StateType.Normal : StateType.Insensitive);
 				renderer.Text = obj == null ? "" : obj.TypeString;
 			});
@@ -320,18 +321,9 @@ namespace MonoDevelop.MacDev.PlistEditor
 				if (!treeStore.GetIterFromString (out iter, args.Path)) 
 					return;
 				
-				var actualObj = (PObject) treeStore.GetValue (iter, 1);
-				
-				if (actualObj.Parent is PArray || actualObj.Parent is PDictionary)
-					treeStore.IterParent (out iter, iter);
-				
 				var obj = (PObject) treeStore.GetValue (iter, 1);
 				var values = PListScheme.AvailableValues (obj, CurrentTree);
 				if (values != null) {
-					// Always include the current item in the dropdown so the user can select
-					// the value that's already there.
-					values.Add (CurrentTree [actualObj]);
-					
 					var descr = new List<string> (values.Select (v => ShowDescriptions ? v.Description : v.Identifier));
 					descr.Sort ();
 					foreach (var val in descr) {
@@ -359,7 +351,6 @@ namespace MonoDevelop.MacDev.PlistEditor
 			treeview.AppendColumn (GettextCatalog.GetString ("Value"), propRenderer, delegate(TreeViewColumn tree_column, CellRenderer cell, TreeModel tree_model, TreeIter iter) {
 				var renderer = (CellRendererCombo)cell;
 				var obj      = (PObject)tree_model.GetValue (iter, 1);
-				var key      = (PListScheme.SchemaItem) tree_model.GetValue (iter, 2) ?? PListScheme.Key.Empty;
 
 				renderer.Sensitive = obj != null && !(obj is PDictionary || obj is PArray || obj is PData);
 				renderer.Editable = renderer.Sensitive;
@@ -369,8 +360,9 @@ namespace MonoDevelop.MacDev.PlistEditor
 				}
 				
 				if (ShowDescriptions) {
-					var value = (string) tree_model.GetValue (iter, 0);
-					var item = key.Values.FirstOrDefault (v => v.Identifier == value);
+					var identifier = (string) tree_model.GetValue (iter, 0);
+					var values = PListScheme.AvailableValues (obj, CurrentTree);
+					var item = values == null ? null : values.FirstOrDefault (v => v.Identifier == identifier);
 					if (item != null) {
 						renderer.Text = item.Description ?? item.Identifier;
 						return;
@@ -436,7 +428,7 @@ namespace MonoDevelop.MacDev.PlistEditor
 		
 		void AddNewArrayElement (PArray array)
 		{
-			var values = PListScheme.AvailableValues (array, CurrentTree);
+			var values = PListScheme.AvailableKeys (array, CurrentTree);
 			if (values == null) {
 				array.Add (PObject.Create (DefaultNewObjectType));
 			} else if (values.Any ()) {
@@ -446,7 +438,7 @@ namespace MonoDevelop.MacDev.PlistEditor
 		
 		void AddNewDictionaryElement (PDictionary dict)
 		{
-			var values = PListScheme.AvailableValues (dict, CurrentTree);
+			var values = PListScheme.AvailableKeys (dict, CurrentTree);
 			if (values == null) {
 				string name = "newProperty";
 				while (dict.ContainsKey (name))
@@ -523,21 +515,21 @@ namespace MonoDevelop.MacDev.PlistEditor
 				var currentObj = (PObject) treeStore.GetValue (iter, 1);
 				if (treeStore.IterParent (out iter, iter)) {
 					var obj = (PObject) treeStore.GetValue (iter, 1);
-					var k = PListScheme.AvailableValues (obj, CurrentTree);
-					k.Add (CurrentTree [currentObj]);
-					keys = k;
+					keys = PListScheme.AvailableKeys (obj, CurrentTree);
 				}
 			}
 			
 			keyStore.Clear ();
-			var sortedKeys = new List<PListScheme.SchemaItem> (keys);
-			if (ShowDescriptions)
-				sortedKeys.Sort ((x, y) => StringComparer.CurrentCulture.Compare (x.Description, y.Description));
-			else
-				sortedKeys.Sort ((x, y) => StringComparer.CurrentCulture.Compare (x.Identifier, y.Identifier));
-			
-			foreach (var key in sortedKeys)
-				keyStore.AppendValues (ShowDescriptions ? key.Description : key.Identifier, key);
+			if (keys != null) {
+				var sortedKeys = new List<PListScheme.SchemaItem> (keys);
+				if (ShowDescriptions)
+					sortedKeys.Sort ((x, y) => StringComparer.CurrentCulture.Compare (x.Description, y.Description));
+				else
+					sortedKeys.Sort ((x, y) => StringComparer.CurrentCulture.Compare (x.Identifier, y.Identifier));
+				
+				foreach (var key in sortedKeys)
+					keyStore.AppendValues (ShowDescriptions ? key.Description : key.Identifier, key);
+			}
 		}
 
 		void RefreshTree ()

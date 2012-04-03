@@ -410,7 +410,7 @@ namespace MonoDevelop.Ide.Gui
 				if (openFileInfo.NewContent != null) {
 					Counters.OpenDocumentTimer.Trace ("Wrapping document");
 					Document doc = WrapDocument (openFileInfo.NewContent.WorkbenchWindow);
-					if (options.HasFlag (OpenDocumentOptions.BringToFront)) {
+					if (doc != null && options.HasFlag (OpenDocumentOptions.BringToFront)) {
 						Present ();
 						doc.RunWhenLoaded (() => {
 							if (doc.Window != null)
@@ -880,7 +880,11 @@ namespace MonoDevelop.Ide.Gui
 				Document doc = WrapDocument (view.WorkbenchWindow);
 				if (view == currentView) {
 					Present ();
-					doc.RunWhenLoaded (() => doc.Window.SelectWindow ());
+					doc.RunWhenLoaded (() => {
+						var window = doc.Window;
+						if (window != null)
+							window.SelectWindow ();
+					});
 				}
 			}
 			
