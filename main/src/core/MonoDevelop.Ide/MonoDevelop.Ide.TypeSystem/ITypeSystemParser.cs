@@ -1,5 +1,5 @@
 // 
-// ProjectContentEventArgs.cs
+// ITypeSystemParser.cs
 //  
 // Author:
 //       Mike Krüger <mkrueger@novell.com>
@@ -24,28 +24,22 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 using System;
+using System.IO;
 using ICSharpCode.NRefactory.TypeSystem;
 using MonoDevelop.Projects;
 
-namespace MonoDevelop.TypeSystem
+namespace MonoDevelop.Ide.TypeSystem
 {
-	[Serializable]
-	public sealed class ProjectContentEventArgs : EventArgs
+	public interface ITypeSystemParser
 	{
-		public Project Project {
-			get;
-			private set;
-		}
-		
-		public IProjectContent Content {
-			get; 
-			private set;
-		}
-		
-		public ProjectContentEventArgs (Project project, IProjectContent content)
+		ParsedDocument Parse (bool storeAst, string fileName, TextReader content, Project project = null);
+	}
+	
+	public abstract class AbstractTypeSystemParser : ITypeSystemParser
+	{
+		public virtual ParsedDocument Parse (bool storeAst, string fileName, TextReader content, Project project = null)
 		{
-			this.Project = project;
-			this.Content = content;
+			return null;
 		}
 	}
 }

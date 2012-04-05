@@ -42,7 +42,7 @@ using MonoDevelop.Ide.CodeTemplates;
 using MonoDevelop.CSharp.Resolver;
 using ICSharpCode.NRefactory.TypeSystem;
 using ICSharpCode.NRefactory.CSharp;
-using MonoDevelop.TypeSystem;
+using MonoDevelop.Ide.TypeSystem;
 using ICSharpCode.NRefactory;
 
 namespace MonoDevelop.CSharp.Formatting
@@ -65,14 +65,14 @@ namespace MonoDevelop.CSharp.Formatting
 
 			// Get context to the end of the line w/o changing the main engine's state
 			var ctx = (CSharpIndentEngine)stateTracker.Engine.Clone ();
-			for (int max = offset; max < line.Offset + line.EditableLength; max++) {
+			for (int max = offset; max < line.Offset + line.Length; max++) {
 				ctx.Push (data.Document.GetCharAt (max));
 			}
 //			int pos = line.Offset;
 			string curIndent = line.GetIndentation (data.Document);
 			int nlwsp = curIndent.Length;
 //			int o = offset > pos + nlwsp ? offset - (pos + nlwsp) : 0;
-			if (!stateTracker.Engine.LineBeganInsideMultiLineComment || (nlwsp < line.Length && data.Document.GetCharAt (line.Offset + nlwsp) == '*')) {
+			if (!stateTracker.Engine.LineBeganInsideMultiLineComment || (nlwsp < line.LengthIncludingDelimiter && data.Document.GetCharAt (line.Offset + nlwsp) == '*')) {
 				return ctx.ThisLineIndent;
 			}
 			return curIndent;
@@ -92,7 +92,7 @@ namespace MonoDevelop.CSharp.Formatting
 			var line = data.GetLine (lineNumber);
 			if (line == null)
 				return "";
-			int offset = line.Offset + Math.Min (line.EditableLength, column - 1);
+			int offset = line.Offset + Math.Min (line.Length, column - 1);
  
 			stateTracker.UpdateEngine (offset);
 			return stateTracker.Engine.NewLineIndent;

@@ -36,7 +36,7 @@ using MonoDevelop.Ide.Gui;
 using MonoDevelop.Ide.Gui.Content;
 using ICSharpCode.NRefactory.CSharp;
 using Mono.TextEditor;
-using MonoDevelop.TypeSystem;
+using MonoDevelop.Ide.TypeSystem;
 using ICSharpCode.NRefactory.TypeSystem;
 using MonoDevelop.Projects;
 using ICSharpCode.NRefactory.Completion;
@@ -160,7 +160,7 @@ namespace MonoDevelop.CSharp.Completion
 				var line = Editor.GetLine (Editor.Caret.Line);
 				var method = (IMethod)Entity;
 				var start = window.CodeCompletionContext.TriggerOffset + partialWord.Length + 2;
-				var end = line.Offset + line.EditableLength;
+				var end = line.Offset + line.Length;
 				string textToEnd = start < end ? Editor.GetTextBetween (start, end) : "";
 				if (Policy.BeforeMethodCallParentheses)
 					text += " ";

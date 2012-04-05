@@ -28,7 +28,7 @@ using Mono.Addins;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace MonoDevelop.TypeSystem
+namespace MonoDevelop.Ide.TypeSystem
 {
 	public class TypeSystemParserNode : TypeExtensionNode
 	{

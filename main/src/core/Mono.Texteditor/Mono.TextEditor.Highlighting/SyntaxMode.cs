@@ -125,7 +125,7 @@ namespace Mono.TextEditor.Highlighting
 		{
 			SpanParser spanParser = CreateSpanParser (line, null);
 			ChunkParser chunkParser = CreateChunkParser (spanParser, style, line);
-			Chunk result = chunkParser.GetChunks (chunkParser.lineOffset, line.EditableLength);
+			Chunk result = chunkParser.GetChunks (chunkParser.lineOffset, line.Length);
 			if (SemanticRules != null) {
 				foreach (SemanticRule sematicRule in SemanticRules) {
 					sematicRule.Analyze (doc, line, result, offset, offset + length);
@@ -143,7 +143,7 @@ namespace Mono.TextEditor.Highlighting
 					}
 				}
 
-				if (result != null && offset + length != chunkParser.lineOffset + line.EditableLength) {
+				if (result != null && offset + length != chunkParser.lineOffset + line.Length) {
 					// crop to end
 					Chunk cur = result;
 					while (cur != null && cur.EndOffset < offset + length) {
@@ -177,7 +177,7 @@ namespace Mono.TextEditor.Highlighting
 				} else {
 					skipFirstLine = false;
 				}
-				curOffset = line.EndOffset + 1;
+				curOffset = line.EndOffsetIncludingDelimiter + 1;
 			}
 			return indentLength == int.MaxValue ? 0 : indentLength;
 		}
@@ -549,11 +549,11 @@ namespace Mono.TextEditor.Highlighting
 
 				curChunk.Offset = offset;
 				curChunk.Length = length;
-				curChunk.Style  = span.TagColor ?? GetChunkStyle (span);
+				curChunk.Style = span.TagColor ?? GetChunkStyle (span);
 				curChunk.SpanStack.Push (span);
 				AddChunk (ref curChunk, 0, curChunk.Style);
 				foreach (SemanticRule semanticRule in spanRule.SemanticRules) {
-					semanticRule.Analyze (this.doc, line, curChunk, offset, line.EndOffset);
+					semanticRule.Analyze (this.doc, line, curChunk, offset, line.EndOffsetIncludingDelimiter);
 				}
 			}
 

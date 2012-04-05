@@ -48,9 +48,9 @@ namespace Mono.TextEditor
 			}
 		}
 
-		public int EditableLength {
+		public int Length {
 			get {
-				return Length - DelimiterLength;
+				return LengthIncludingDelimiter - DelimiterLength;
 			}
 		}
 
@@ -79,7 +79,7 @@ namespace Mono.TextEditor
 
 		public abstract int Offset { get; set; }
 
-		public int Length {
+		public int LengthIncludingDelimiter {
 			get;
 			set;
 		}
@@ -90,9 +90,21 @@ namespace Mono.TextEditor
 			}
 		}
 
+		public TextSegment SegmentIncludingDelimiter {
+			get {
+				return new TextSegment (Offset, LengthIncludingDelimiter);
+			}
+		}
+
 		public int EndOffset {
 			get {
 				return Offset + Length;
+			}
+		}
+
+		public int EndOffsetIncludingDelimiter {
+			get {
+				return Offset + LengthIncludingDelimiter;
 			}
 		}
 
@@ -115,7 +127,7 @@ namespace Mono.TextEditor
 
 		protected LineSegment (int length, int delimiterLength)
 		{
-			Length          = length;
+			LengthIncludingDelimiter          = length;
 			DelimiterLength = delimiterLength;
 		}
 
@@ -175,7 +187,7 @@ namespace Mono.TextEditor
 		{
 			var result = new StringBuilder ();
 			int offset = Offset;
-			int max = System.Math.Min (offset + Length, doc.TextLength);
+			int max = System.Math.Min (offset + LengthIncludingDelimiter, doc.TextLength);
 			for (int i = offset; i < max; i++) {
 				char ch = doc.GetCharAt (i);
 				if (ch != ' ' && ch != '\t')
@@ -189,7 +201,7 @@ namespace Mono.TextEditor
 		{
 			int curVisualColumn = 1;
 			int offset = Offset;
-			int max = offset + EditableLength;
+			int max = offset + Length;
 			for (int i = offset; i < max; i++) {
 				if (i < editor.Document.TextLength && editor.Document.GetCharAt (i) == '\t') {
 					curVisualColumn = TextViewMargin.GetNextTabstop (editor, curVisualColumn);
@@ -199,14 +211,14 @@ namespace Mono.TextEditor
 				if (curVisualColumn > visualColumn)
 					return i - offset + 1;
 			}
-			return EditableLength + (visualColumn - curVisualColumn) + 1;
+			return Length + (visualColumn - curVisualColumn) + 1;
 		}
 
 		public int GetVisualColumn (TextEditorData editor, int logicalColumn)
 		{
 			int result = 1;
 			int offset = Offset;
-			if (editor.Options.IndentStyle == IndentStyle.Virtual && EditableLength == 0 && logicalColumn > DocumentLocation.MinColumn) {
+			if (editor.Options.IndentStyle == IndentStyle.Virtual && Length == 0 && logicalColumn > DocumentLocation.MinColumn) {
 				foreach (char ch in editor.GetIndentationString (Offset)) {
 					if (ch == '\t') {
 						result += editor.Options.TabSize;
@@ -217,7 +229,7 @@ namespace Mono.TextEditor
 				return result;
 			}
 			for (int i = 0; i < logicalColumn - 1; i++) {
-				if (i < EditableLength && editor.Document.GetCharAt (offset + i) == '\t') {
+				if (i < Length && editor.Document.GetCharAt (offset + i) == '\t') {
 					result = TextViewMargin.GetNextTabstop (editor, result);
 				} else {
 					result++;
@@ -229,34 +241,28 @@ namespace Mono.TextEditor
 		public bool Contains (int offset)
 		{
 			int o = Offset;
-			return o <= offset && offset < o + Length;
+			return o <= offset && offset < o + LengthIncludingDelimiter;
 		}
 
 		public bool Contains (TextSegment segment)
 		{
-			return Offset <= segment.Offset && segment.EndOffset <= EndOffset;
+			return Offset <= segment.Offset && segment.EndOffset <= EndOffsetIncludingDelimiter;
 		}
 
 		public static implicit operator TextSegment (LineSegment line)
 		{
-			return new TextSegment (line.Offset, line.Length);
+			return new TextSegment (line.Offset, line.LengthIncludingDelimiter);
 		}
 
 		public override string ToString ()
 		{
-			return String.Format ("[LineSegment: Offset={0}, Length={1}, DelimiterLength={2}, StartSpan={3}]", Offset, Length, DelimiterLength, StartSpan == null ? "null" : StartSpan.Count.ToString());
+			return String.Format ("[LineSegment: Offset={0}, Length={1}, DelimiterLength={2}, StartSpan={3}]", Offset, LengthIncludingDelimiter, DelimiterLength, StartSpan == null ? "null" : StartSpan.Count.ToString());
 		}
 
 		#region IDocumentLine implementation
 		int ICSharpCode.NRefactory.Editor.IDocumentLine.TotalLength {
 			get {
-				return Length;
-			}
-		}
-
-		int ICSharpCode.NRefactory.Editor.IDocumentLine.DelimiterLength {
-			get {
-				return DelimiterLength;
+				return LengthIncludingDelimiter;
 			}
 		}
 
@@ -277,30 +283,10 @@ namespace Mono.TextEditor
 				throw new NotImplementedException ();
 			}
 		}
-		
+
 		bool ICSharpCode.NRefactory.Editor.IDocumentLine.IsDeleted {
 			get {
 				return false;
-			} 
-		}
-		#endregion
-
-		#region TextSegment implementation
-		int ICSharpCode.NRefactory.Editor.ISegment.Offset {
-			get {
-				return Offset;
-			}
-		}
-
-		int ICSharpCode.NRefactory.Editor.ISegment.Length {
-			get {
-				return EditableLength;
-			}
-		}
-
-		int ICSharpCode.NRefactory.Editor.ISegment.EndOffset {
-			get {
-				return Offset + EditableLength;
 			}
 		}
 		#endregion

@@ -9,6 +9,7 @@ FILES =  \
 	MonoDevelop.Core.AddIns/AssemblyExtensionNode.cs \
 	MonoDevelop.Core.AddIns/ExecutionModeNode.cs \
 	MonoDevelop.Core.AddIns/ExecutionModeSetNode.cs \
+	MonoDevelop.Core.AddIns/FilePathExtensionNode.cs \
 	MonoDevelop.Core.AddIns/ITargetRuntimeFactory.cs \
 	MonoDevelop.Core.AddIns/MimeTypeExtensionNode.cs \
 	MonoDevelop.Core.AddIns/PackageExtensionNode.cs \
@@ -20,6 +21,7 @@ FILES =  \
 	MonoDevelop.Core.Assemblies/ComposedAssemblyContext.cs \
 	MonoDevelop.Core.Assemblies/CustomRuntimeExecutionModeSet.cs \
 	MonoDevelop.Core.Assemblies/DirectoryAssemblyContext.cs \
+	MonoDevelop.Core.Assemblies/Framework.cs \
 	MonoDevelop.Core.Assemblies/IAssemblyContext.cs \
 	MonoDevelop.Core.Assemblies/LibraryPcFileCache.cs \
 	MonoDevelop.Core.Assemblies/MonoFrameworkBackend.cs \
@@ -315,6 +317,7 @@ FILES =  \
 	MonoDevelop.Projects/ItemConfigurationSelector.cs \
 	MonoDevelop.Projects/IWorkspaceObject.cs \
 	MonoDevelop.Projects/LanguageBindingService.cs \
+	MonoDevelop.Projects/PortableDotNetProject.cs \
 	MonoDevelop.Projects/Project.cs \
 	MonoDevelop.Projects/ProjectConfiguration.cs \
 	MonoDevelop.Projects/ProjectConvertTool.cs \

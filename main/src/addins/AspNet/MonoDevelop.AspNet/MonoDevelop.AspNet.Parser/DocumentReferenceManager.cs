@@ -42,7 +42,7 @@ using System.IO;
 using System.Linq;
 using Mono.TextEditor;
 using ICSharpCode.NRefactory.TypeSystem;
-using MonoDevelop.TypeSystem;
+using MonoDevelop.Ide.TypeSystem;
 
 namespace MonoDevelop.AspNet.Parser
 {
@@ -364,7 +364,7 @@ namespace MonoDevelop.AspNet.Parser
 			Doc.Info.RegisteredTags.Add (directive);
 			
 			var line = Math.Max (node.Location.EndLine, node.Location.BeginLine);
-			var pos = editor.Document.LocationToOffset (line, editor.Document.GetLine (line - 1).EditableLength);
+			var pos = editor.Document.LocationToOffset (line, editor.Document.GetLine (line - 1).Length);
 			if (pos < 0)
 				return;
 			

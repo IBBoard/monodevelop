@@ -58,14 +58,14 @@ namespace MonoDevelop.CSharp.Formatting
 			var textPolicy = policyParent.Get<TextStylePolicy> (mimeTypeChain);
 			var tracker = new DocumentStateTracker<CSharpIndentEngine> (new CSharpIndentEngine (policy, textPolicy), data);
 			tracker.UpdateEngine (lineSegment.Offset);
-			for (int i = lineSegment.Offset; i < lineSegment.Offset + lineSegment.EditableLength; i++) {
+			for (int i = lineSegment.Offset; i < lineSegment.Offset + lineSegment.Length; i++) {
 				tracker.Engine.Push (data.Document.GetCharAt (i));
 			}
 
 			string curIndent = lineSegment.GetIndentation (data.Document);
 
 			int nlwsp = curIndent.Length;
-			if (!tracker.Engine.LineBeganInsideMultiLineComment || (nlwsp < lineSegment.Length && data.Document.GetCharAt (lineSegment.Offset + nlwsp) == '*')) {
+			if (!tracker.Engine.LineBeganInsideMultiLineComment || (nlwsp < lineSegment.LengthIncludingDelimiter && data.Document.GetCharAt (lineSegment.Offset + nlwsp) == '*')) {
 				// Possibly replace the indent
 				string newIndent = tracker.Engine.ThisLineIndent;
 				if (newIndent != curIndent) 
@@ -90,7 +90,7 @@ namespace MonoDevelop.CSharp.Formatting
 				data.Options.TabsToSpaces = textPolicy.TabsToSpaces;
 				data.Options.TabSize = textPolicy.TabWidth;
 				data.Options.IndentationSize = textPolicy.IndentWidth;
-				data.Options.IndentStyle = textPolicy.IndentStyle;
+				data.Options.IndentStyle = textPolicy.RemoveTrailingWhitespace ? IndentStyle.Virtual : IndentStyle.Smart;
 			}
 			data.Text = input;
 
@@ -115,7 +115,12 @@ namespace MonoDevelop.CSharp.Formatting
 				HadErrors = hadErrors
 			};
 			compilationUnit.AcceptVisitor (formattingVisitor);
-			formattingVisitor.ApplyChanges (startOffset, endOffset - startOffset);
+			try {
+				formattingVisitor.ApplyChanges (startOffset, endOffset - startOffset);
+			} catch (Exception e) {
+				LoggingService.LogError ("Error in code formatter", e);
+				return input.Substring (startOffset, Math.Max (0, Math.Min (endOffset, input.Length) - startOffset));
+			}
 
 			// check if the formatter has produced errors
 			parser = new CSharpParser ();

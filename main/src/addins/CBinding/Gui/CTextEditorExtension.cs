@@ -45,7 +45,7 @@ using MonoDevelop.Components.Commands;
 
 using CBinding.Parser;
 using Mono.TextEditor;
-using MonoDevelop.TypeSystem;
+using MonoDevelop.Ide.TypeSystem;
 using ICSharpCode.NRefactory.TypeSystem;
 using ICSharpCode.NRefactory.Completion;
 
@@ -164,7 +164,7 @@ namespace CBinding
 						int braceOpeningLine;
 						if(GetClosingBraceForLine(Editor, line, out braceOpeningLine) >= 0)
 						{
-							Editor.Replace (line.Offset, line.EditableLength, GetIndent(Editor, braceOpeningLine, 0) + "}" + lineText.Substring(lineCursorIndex));
+							Editor.Replace (line.Offset, line.Length, GetIndent(Editor, braceOpeningLine, 0) + "}" + lineText.Substring(lineCursorIndex));
 							Editor.Document.CommitLineUpdate (line);
 							return false;
 						}

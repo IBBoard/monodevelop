@@ -101,7 +101,7 @@ namespace Mono.TextEditor.Tests
 			document.Remove (0, document.TextLength);
 			LineSegment line = document.GetLine (1);
 			Assert.AreEqual (0, line.Offset);
-			Assert.AreEqual (0, line.Length);
+			Assert.AreEqual (0, line.LengthIncludingDelimiter);
 			Assert.AreEqual (0, document.TextLength);
 			Assert.AreEqual (1, document.LineCount);
 		}
@@ -114,13 +114,13 @@ namespace Mono.TextEditor.Tests
 			string top    = "1234567890";
 			document.Text = top;
 			
-			Assert.AreEqual (document.GetLine (1).Length, document.TextLength);
+			Assert.AreEqual (document.GetLine (1).LengthIncludingDelimiter, document.TextLength);
 			
 			document.Remove(0, document.TextLength);
 			
 			LineSegment line = document.GetLine (1);
 			Assert.AreEqual(0, line.Offset);
-			Assert.AreEqual(0, line.Length);
+			Assert.AreEqual(0, line.LengthIncludingDelimiter);
 			Assert.AreEqual(0, document.TextLength);
 			Assert.AreEqual(1, document.LineCount);
 		}
@@ -140,7 +140,7 @@ namespace Mono.TextEditor.Tests
 			LineSegment line = document.GetLine (document.LineCount);
 			
 			Assert.AreEqual (top.Length - 1, line.Offset);
-			Assert.AreEqual (testText.Length + 1, line.Length);
+			Assert.AreEqual (testText.Length + 1, line.LengthIncludingDelimiter);
 		}
 		
 		[Test]
@@ -153,13 +153,13 @@ namespace Mono.TextEditor.Tests
 			Assert.AreEqual (101, document.LineCount);
 			for (int i = 0; i < 100; i++) {
 				LineSegment line = document.GetLine (i + 1 );
-				Assert.AreEqual (99 - i, line.EditableLength);
+				Assert.AreEqual (99 - i, line.Length);
 				Assert.AreEqual (Environment.NewLine.Length, line.DelimiterLength);
 			}
 			
 			for (int i = 0; i < 100; i++) {
 				LineSegment line = document.GetLine (1);
-				document.Remove (line.EditableLength, line.DelimiterLength);
+				document.Remove (line.Length, line.DelimiterLength);
 			}
 			Assert.AreEqual (1, document.LineCount);
 		}

@@ -4,6 +4,6 @@
 	<IndentWidth>4</IndentWidth>
 	<TabsToSpaces>True</TabsToSpaces>
 	<NoTabsAfterNonTabs>False</NoTabsAfterNonTabs>
-	<IndentStyle>Virtual</IndentStyle>
+	<RemoveTrailingWhitespace>True</RemoveTrailingWhitespace>
 	<EolMarker>Native</EolMarker>
 </TextStylePolicy>

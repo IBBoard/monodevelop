@@ -328,7 +328,7 @@ namespace MonoDevelop.Ide.CodeTemplates
 		{
 			for (int i = 1; i < data.LineCount; i++) {
 				var line = data.GetLine (i + 1);
-				if (line.EditableLength > 0)
+				if (line.Length > 0)
 					data.Insert (line.Offset, lineIndent);
 			}
 		}
@@ -356,7 +356,7 @@ namespace MonoDevelop.Ide.CodeTemplates
 			foreach (LineSegment line in doc.Lines) {
 				string curLineIndent = line.GetIndentation (doc);
 				int offset = Math.Min (curLineIndent.Length, indent.Length);
-				result.Append (doc.GetTextBetween (line.Offset + offset, line.EndOffset));
+				result.Append (doc.GetTextBetween (line.Offset + offset, line.EndOffsetIncludingDelimiter));
 			}
 			return result.ToString ();
 		}

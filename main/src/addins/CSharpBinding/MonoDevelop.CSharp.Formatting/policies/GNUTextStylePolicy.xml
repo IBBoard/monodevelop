@@ -32,6 +32,6 @@ THE SOFTWARE.
 	<IndentWidth>2</IndentWidth>
 	<TabsToSpaces>True</TabsToSpaces>
 	<NoTabsAfterNonTabs>False</NoTabsAfterNonTabs>
-	<IndentStyle>Virtual</IndentStyle>
+	<RemoveTrailingWhitespace>True</RemoveTrailingWhitespace>
 	<EolMarker>Unix</EolMarker>
 </TextStylePolicy>

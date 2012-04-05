@@ -266,7 +266,7 @@ namespace MonoDevelop.Ide.Gui
 		protected void OnUppercaseSelection (CommandInfo info)
 		{
 			IEditableTextBuffer buffer = GetContent <IEditableTextBuffer> ();
-			info.Enabled = buffer != null && buffer.CursorPosition < buffer.Length;
+			info.Enabled = buffer != null;
 		}
 		
 		[CommandHandler (EditCommands.LowercaseSelection)]
@@ -307,7 +307,7 @@ namespace MonoDevelop.Ide.Gui
 		protected void OnLowercaseSelection (CommandInfo info)
 		{
 			IEditableTextBuffer buffer = GetContent <IEditableTextBuffer> ();
-			info.Enabled = buffer != null && buffer.CursorPosition < buffer.Length;
+			info.Enabled = buffer != null;
 		}
 		
 
@@ -399,7 +399,7 @@ namespace MonoDevelop.Ide.Gui
 		protected void OnDeleteLine ()
 		{
 			var line = doc.Editor.Document.GetLine (doc.Editor.Caret.Line);
-			doc.Editor.Remove (line.Offset, line.Length);
+			doc.Editor.Remove (line.Offset, line.LengthIncludingDelimiter);
 		}
 		
 		struct RemoveInfo

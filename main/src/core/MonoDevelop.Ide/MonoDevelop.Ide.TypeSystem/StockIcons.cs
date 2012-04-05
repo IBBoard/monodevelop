@@ -28,7 +28,7 @@ using MonoDevelop.Core;
 using ICSharpCode.NRefactory.TypeSystem;
 using Mono.Cecil;
 
-namespace MonoDevelop.TypeSystem
+namespace MonoDevelop.Ide.TypeSystem
 {
 	public static class Stock
 	{
@@ -98,7 +98,7 @@ namespace MonoDevelop.TypeSystem
 				return 3;
 			return 0;
 		}
-		
+
 		public static string GetStockIcon (this INamedElement element)
 		{
 			if (element is IType)

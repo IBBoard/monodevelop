@@ -111,6 +111,8 @@ FILES =  \
 	MonoDevelop.CSharp.Resolver/HelperMethods.cs \
 	MonoDevelop.CSharp.Resolver/TextEditorResolverProvider.cs \
 	MonoDevelop.CSharp.Tooltips/LanguageItemTooltipProvider.cs \
+	MonoDevelop.CSharp/AstAmbience.cs \
+	MonoDevelop.CSharp/AstStockIcons.cs \
 	MonoDevelop.CSharp/CSharpAmbience.cs \
 	MonoDevelop.CSharp/CSharpBindingCompilerManager.cs \
 	MonoDevelop.CSharp/CSharpEnhancedCodeProvider.cs \
@@ -141,7 +143,13 @@ RES =  \
 	templates/EmptyCSharpFile.xft.xml \
 	templates/EmptyProject.xpt.xml \
 	templates/GtkSharp2Project.xpt.xml \
-	templates/Library.xpt.xml
+	templates/Library.xpt.xml \
+	templates/PortableLibrary.xpt.xml
+
+DATA_FILES = \
+	MSBuild/Microsoft/Portable/v4.0/Microsoft.Portable.CSharp.targets
+
+DATA_FILE_BUILD = $(addprefix $(ADDIN_BUILD)/, $(DATA_FILES))
 
 TESTFILES =  \
 	CSharpAmbience.cs \
@@ -183,7 +191,7 @@ TESTDLLS = \
 
 TESTASSEMBLY = $(top_builddir)/build/bin/CSharpBinding.Test.dll
 
-all: $(ASSEMBLY) $(ASSEMBLY).mdb
+all: $(ASSEMBLY) $(ASSEMBLY).mdb $(DATA_FILE_BUILD)
 
 $(ASSEMBLY): $(build_sources) $(build_resources) $(DEPS)
 	mkdir -p $(ADDIN_BUILD)
@@ -191,6 +199,10 @@ $(ASSEMBLY): $(build_sources) $(build_resources) $(DEPS)
 		$(build_resources:%=/resource:%) $(build_sources)
 
 $(ASSEMBLY).mdb: $(ASSEMBLY)
+
+$(DATA_FILE_BUILD): $(ADDIN_BUILD)/% : $(srcdir)/%
+	mkdir -p $(dir $@)
+	cp $^ $@
 
 #check: all $(TESTASSEMBLY)
 #	MONO_PATH=$(top_builddir)/build/AddIns nunit-console $(TESTASSEMBLY)
@@ -211,9 +223,20 @@ run-parse-test: $(PARSE)
 csharpbindinglibdir = $(MD_ADDIN_DIR)/BackendBindings
 csharpbindinglib_DATA = $(ASSEMBLY) $(ASSEMBLY).mdb
 
-CLEANFILES = $(ASSEMBLY) $(ASSEMBLY).mdb $(PARSE) $(PARSE).mdb
+install-data-hook:
+	for F in $(DATA_FILES); do \
+		mkdir -p "$(DESTDIR)$(csharpbindinglibdir)/$$(dirname $$F)/"; \
+		$(INSTALL) -c -m 0644 $(srcdir)/$$F "$(DESTDIR)$(csharpbindinglibdir)/$$(dirname $$F)/"; \
+	done
 
-EXTRA_DIST = $(FILES) $(RES)
+uninstall-hook:
+	for F in $(DATA_FILES); do \
+		rm -f "$(DESTDIR)$(csharpbindinglibdir)/$$F"; \
+	done
+
+
+CLEANFILES = $(ASSEMBLY) $(ASSEMBLY).mdb $(PARSE) $(PARSE).mdb $(DATA_FILE_BUILD)
+EXTRA_DIST = $(FILES) $(RES) $(DATA_FILES)
 
 include $(top_srcdir)/Makefile.include
 

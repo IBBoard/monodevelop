@@ -48,7 +48,7 @@ using MonoDevelop.AspNet.StateEngine;
 using System.Text;
 using System.Text.RegularExpressions;
 using ICSharpCode.NRefactory.TypeSystem;
-using MonoDevelop.TypeSystem;
+using MonoDevelop.Ide.TypeSystem;
 using ICSharpCode.NRefactory.CSharp;
 using ICSharpCode.NRefactory;
 using ICSharpCode.NRefactory.Completion;
@@ -903,7 +903,10 @@ namespace MonoDevelop.AspNet.Gui
 			if (n is TagNode) {
 				TagNode tn = (TagNode) n;
 				name = tn.TagName;
-				string att = tn.Attributes["id"] as string;
+				string att = null;
+				if (tn.Attributes != null) {
+					att = tn.Attributes["id"] as string;
+				}
 				if (att != null)
 					name = "<" + name + "#" + att + ">";
 				else

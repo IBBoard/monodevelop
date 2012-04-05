@@ -27,7 +27,6 @@
 using System;
 using MonoDevelop.Core.Serialization;
 using MonoDevelop.Projects.Policies;
-using Mono.TextEditor;
 
 namespace MonoDevelop.Ide.Gui.Content
 {
@@ -41,14 +40,14 @@ namespace MonoDevelop.Ide.Gui.Content
 	[PolicyType ("Text file formatting")]
 	public sealed class TextStylePolicy : IEquatable<TextStylePolicy>
 	{
-		public TextStylePolicy (int fileWidth, int tabWidth, int indentWidth, bool tabsToSpaces, bool noTabsAfterNonTabs, IndentStyle indentStyle, EolMarker eolMarker)
+		public TextStylePolicy (int fileWidth, int tabWidth, int indentWidth, bool tabsToSpaces, bool noTabsAfterNonTabs, bool removeTrailingWhitespace, EolMarker eolMarker)
 		{
 			FileWidth = fileWidth;
 			TabWidth = tabWidth;
 			IndentWidth = indentWidth;
 			TabsToSpaces = tabsToSpaces;
 			NoTabsAfterNonTabs = noTabsAfterNonTabs;
-			IndentStyle = indentStyle;
+			RemoveTrailingWhitespace = removeTrailingWhitespace;
 			EolMarker = eolMarker;
 		}
 		
@@ -78,16 +77,8 @@ namespace MonoDevelop.Ide.Gui.Content
 			}
 		}
 		
-		IndentStyle indentStyle;
 		[ItemProperty]
-		public IndentStyle IndentStyle {
-			get {
-				return indentStyle;
-			}
-			private set {
-				indentStyle = value;
-			}
-		}
+		public bool RemoveTrailingWhitespace { get; private set; }
 		
 		[ItemProperty]
 		public bool NoTabsAfterNonTabs { get; private set; }
@@ -107,17 +98,19 @@ namespace MonoDevelop.Ide.Gui.Content
 			}
 			return Environment.NewLine;
 		}
-		
+
+	
 		public string GetEolMarker ()
 		{
 			return GetEolMarker (EolMarker);
 		}
-		
+
+	
 		public bool Equals (TextStylePolicy other)
 		{
 			return other != null && other.FileWidth == FileWidth && other.TabWidth == TabWidth
 				&& other.TabsToSpaces == TabsToSpaces && other.NoTabsAfterNonTabs == NoTabsAfterNonTabs
-				&& other.IndentStyle == IndentStyle && other.IndentWidth == IndentWidth && other.EolMarker == EolMarker;
+				&& other.RemoveTrailingWhitespace == RemoveTrailingWhitespace && other.EolMarker == EolMarker && other.IndentWidth == IndentWidth;
 		}
 	}
 }

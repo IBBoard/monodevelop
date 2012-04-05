@@ -128,10 +128,6 @@ namespace Mono.TextEditor
 
 			document.TextSet += HandleDocTextSet;
 			document.Folded += HandleTextEditorDataDocumentFolded;
-			document.FoldTreeUpdated += HandleTextEditorDataDocumentFoldTreeUpdated;
-
-			document.Splitter.LineInserted += HandleDocumentsplitterhandleLineInserted;
-			document.Splitter.LineRemoved += HandleDocumentsplitterhandleLineRemoved;
 
 			SearchEngine = new BasicSearchEngine ();
 
@@ -178,16 +174,6 @@ namespace Mono.TextEditor
 		}
 
 
-		void HandleDocumentsplitterhandleLineRemoved (object sender, LineEventArgs e)
-		{
-			HeightTree.RemoveLine (OffsetToLineNumber (e.Line.Offset));
-		}
-
-		void HandleDocumentsplitterhandleLineInserted (object sender, LineEventArgs e)
-		{
-			HeightTree.InsertLine (OffsetToLineNumber (e.Line.Offset));
-		}
-
 		/// <value>
 		/// The eol mark used in this document - it's taken from the first line in the document,
 		/// if no eol mark is found it's using the default (Environment.NewLine).
@@ -201,7 +187,7 @@ namespace Mono.TextEditor
 				if (Document.LineCount > 0) {
 					LineSegment line = Document.GetLine (DocumentLocation.MinLine);
 					if (line.DelimiterLength > 0) 
-						eol = Document.GetTextAt (line.EditableLength, line.DelimiterLength);
+						eol = Document.GetTextAt (line.Length, line.DelimiterLength);
 				}
 				return !String.IsNullOrEmpty (eol) ? eol : Options.DefaultEolMarker;
 			}
@@ -242,7 +228,7 @@ namespace Mono.TextEditor
 			StringBuilder result = new StringBuilder ();
 			while (curOffset < offset + length && curOffset < Document.TextLength) {
 				LineSegment line = Document.GetLineByOffset (curOffset);
-				int toOffset = System.Math.Min (line.Offset + line.EditableLength, offset + length);
+				int toOffset = System.Math.Min (line.Offset + line.Length, offset + length);
 				Stack<ChunkStyle> styleStack = new Stack<ChunkStyle> ();
 				foreach (var chunk in mode.GetChunks (ColorStyle, line, curOffset, toOffset - curOffset)) {
 
@@ -301,11 +287,11 @@ namespace Mono.TextEditor
 					}
 				}
 				while (styleStack.Count > 0) {
-					result.Append("</span>");
+					result.Append ("</span>");
 					styleStack.Pop ();
 				}
 
-				curOffset = line.EndOffset;
+				curOffset = line.EndOffsetIncludingDelimiter;
 				if (removeIndent)
 					curOffset += indentLength;
 				if (result.Length > 0 && curOffset < offset + length)
@@ -400,27 +386,24 @@ namespace Mono.TextEditor
 						var lineSegment = GetLine (lineNumber);
 						int insertOffset = lineSegment.GetLogicalColumn (this, visualInsertLocation.Column) - 1;
 						string textToInsert;
-						if (lineSegment.EditableLength < insertOffset) {
-							int visualLastColumn = lineSegment.GetVisualColumn (this, lineSegment.EditableLength + 1);
+						if (lineSegment.Length < insertOffset) {
+							int visualLastColumn = lineSegment.GetVisualColumn (this, lineSegment.Length + 1);
 							int charsToInsert = visualInsertLocation.Column - visualLastColumn;
 							int spaceCount = charsToInsert % Options.TabSize;
 							textToInsert = new string ('\t', (charsToInsert - spaceCount) / Options.TabSize) + new string (' ', spaceCount) + text;
-							insertOffset = lineSegment.EditableLength;
+							insertOffset = lineSegment.Length;
 						} else {
 							textToInsert = text;
 						}
 						Insert (lineSegment.Offset + insertOffset, textToInsert);
 					}
 					Caret.PreserveSelection = true;
-					Caret.Column += text.Length;
 					MainSelection.Lead = new DocumentLocation (MainSelection.Lead.Line, Caret.Column);
 					MainSelection.Anchor = new DocumentLocation (MainSelection.Anchor.Line, Caret.Column);
 					Document.CommitMultipleLineUpdate (MainSelection.MinLine, MainSelection.MaxLine);
 				} else {
 					EnsureCaretIsNotVirtual ();
-					int offset = Caret.Offset;
-					int length = Insert (offset, text);
-					Caret.Offset = offset + length;
+					Insert (Caret.Offset, text);
 				}
 			}
 		}
@@ -436,10 +419,6 @@ namespace Mono.TextEditor
 			
 			document.TextSet -= HandleDocTextSet;
 			document.Folded -= HandleTextEditorDataDocumentFolded;
-			document.FoldTreeUpdated -= HandleTextEditorDataDocumentFoldTreeUpdated;
-			
-			document.Splitter.LineInserted -= HandleDocumentsplitterhandleLineInserted;
-			document.Splitter.LineRemoved -= HandleDocumentsplitterhandleLineRemoved;
 		}
 
 		public void Dispose ()
@@ -448,7 +427,7 @@ namespace Mono.TextEditor
 				return;
 			IsDisposed = true;
 			options = options.Kill ();
-
+			HeightTree.Dispose ();
 			DetachDocument ();
 		}
 
@@ -461,14 +440,23 @@ namespace Mono.TextEditor
 			if (!HasIndentationTracker || Options.IndentStyle != IndentStyle.Virtual)
 				return;
 			var line = Document.GetLine (Caret.Line);
-			if (line != null && line.EditableLength > 0 && GetIndentationString (Caret.Location) == Document.GetTextAt (line.Offset, line.EditableLength))
-				Remove (line.Offset, line.EditableLength);
+			if (line != null && line.Length > 0 && GetIndentationString (Caret.Location) == Document.GetTextAt (line.Offset, line.Length))
+				Remove (line.Offset, line.Length);
+		}
+
+		public void FixVirtualIndentation (int lineNumber)
+		{
+			if (!HasIndentationTracker || Options.IndentStyle != IndentStyle.Virtual)
+				return;
+			var line = Document.GetLine (lineNumber);
+			if (line != null && line.Length > 0 && GetIndentationString (lineNumber, line.Length + 1) == Document.GetTextAt (line.Offset, line.Length))
+				Remove (line.Offset, line.Length);
 		}
 
 		void CaretPositionChanged (object sender, DocumentLocationEventArgs args)
 		{
 			if (!caret.PreserveSelection)
-				ClearSelection ();
+				this.ClearSelection ();
 		}
 		
 		public bool CanEdit (int line)
@@ -800,7 +788,7 @@ namespace Mono.TextEditor
 		public void SetSelectLines (int from, int to)
 		{
 			MainSelection = new Selection (document.OffsetToLocation (Document.GetLine (from).Offset), 
-			                               document.OffsetToLocation (Document.GetLine (to).EndOffset));
+			                               document.OffsetToLocation (Document.GetLine (to).EndOffsetIncludingDelimiter));
 		}
 
 		internal void DeleteSelection (Selection selection)
@@ -826,7 +814,7 @@ namespace Mono.TextEditor
 				for (int lineNr = selection.MinLine; lineNr <= selection.MaxLine; lineNr++) {
 					LineSegment curLine = Document.GetLine (lineNr);
 					int col1 = curLine.GetLogicalColumn (this, startCol) - 1;
-					int col2 = System.Math.Min (curLine.GetLogicalColumn (this, endCol) - 1, curLine.EditableLength);
+					int col2 = System.Math.Min (curLine.GetLogicalColumn (this, endCol) - 1, curLine.Length);
 					if (col1 >= col2)
 						continue;
 					Remove (curLine.Offset + col1, col2 - col1);
@@ -1074,12 +1062,12 @@ namespace Mono.TextEditor
 			LineSegment line = Document.GetLine (Caret.Line);
 			if (line == null)
 				return 0;
-			if (Caret.Column > line.EditableLength + 1) {
+			if (Caret.Column > line.Length + 1) {
 				string virtualSpace;
-				if (HasIndentationTracker && line.EditableLength == 0) {
+				if (HasIndentationTracker && line.Length == 0) {
 					virtualSpace = GetIndentationString (Caret.Location);
 				} else {
-					virtualSpace = new string (' ', Caret.Column - 1 - line.EditableLength);
+					virtualSpace = new string (' ', Caret.Column - 1 - line.Length);
 				}
 				var oldPreserve = Caret.PreserveSelection;
 				Caret.PreserveSelection = true;
@@ -1178,6 +1166,16 @@ namespace Mono.TextEditor
 			return document.GetCharAt (offset);
 		}
 		
+		public char GetCharAt (DocumentLocation location)
+		{
+			return document.GetCharAt (location);
+		}
+
+		public char GetCharAt (int line, int column)
+		{
+			return document.GetCharAt (line, column);
+		}
+
 		public string GetLineText (int line)
 		{
 			return Document.GetLineText (line);
@@ -1341,7 +1339,7 @@ namespace Mono.TextEditor
 			}
 		}
 		
-		internal HeightTree HeightTree;
+		internal readonly HeightTree HeightTree;
 		
 		public DocumentLocation LogicalToVisualLocation (DocumentLocation location)
 		{
@@ -1366,10 +1364,6 @@ namespace Mono.TextEditor
 			return HeightTree.VisualToLogicalLine (visualLineNumber);
 		}
 		
-		void HandleTextEditorDataDocumentFoldTreeUpdated (object sender, EventArgs e)
-		{
-			HeightTree.Rebuild ();
-		}
 
 		void HandleTextEditorDataDocumentFolded (object sender, FoldSegmentEventArgs e)
 		{

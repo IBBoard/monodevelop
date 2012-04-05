@@ -31,7 +31,7 @@ using System.Collections.Generic;
 using System.Linq;
 using MonoDevelop.Ide;
 using ICSharpCode.NRefactory.TypeSystem;
-using MonoDevelop.TypeSystem;
+using MonoDevelop.Ide.TypeSystem;
 using ICSharpCode.NRefactory.CSharp.Resolver;
 using ICSharpCode.NRefactory;
 using Mono.TextEditor;
@@ -755,7 +755,7 @@ namespace MonoDevelop.CSharp.Refactoring
 		{
 			int result = 0;
 			LineSegment line;
-			while ((line = doc.Editor.GetLine (startLine + result)) != null && doc.Editor.GetLineIndent (line).Length == line.EditableLength) {
+			while ((line = doc.Editor.GetLine (startLine + result)) != null && doc.Editor.GetLineIndent (line).Length == line.Length) {
 				result++;
 			}
 		

@@ -37,7 +37,7 @@ using MonoDevelop.Projects;
 using MonoDevelop.Ide;
 using MonoDevelop.Ide.Gui;
 using MonoDevelop.Projects.Text;
-using MonoDevelop.TypeSystem;
+using MonoDevelop.Ide.TypeSystem;
 using ICSharpCode.NRefactory.TypeSystem;
 using System.Linq;
 
@@ -102,7 +102,7 @@ namespace MonoDevelop.Ide.Tasks
 			view = new MonoDevelop.Ide.Gui.Components.PadTreeView (store);
 			view.RulesHint = true;
 			view.SearchColumn = (int)Columns.Description;
-			view.DoPopupMenu = (evt) => IdeApp.CommandService.ShowContextMenu (view, evt, menu);
+			view.DoPopupMenu = (evt) => IdeApp.CommandService.ShowContextMenu (view, evt, CreateMenu ());
 			view.RowActivated += new RowActivatedHandler (OnRowActivated);
 
 			TreeViewColumn col;
@@ -479,7 +479,7 @@ namespace MonoDevelop.Ide.Tasks
 							doc.Editor.SetCaretTo (task.Line, task.Column);
 							line = line.Substring (0, index);
 							var ls = doc.Editor.Document.GetLine (task.Line);
-							doc.Editor.Replace (ls.Offset, ls.EditableLength, line);
+							doc.Editor.Replace (ls.Offset, ls.Length, line);
 							comments.Remove (task);
 						}
 					}

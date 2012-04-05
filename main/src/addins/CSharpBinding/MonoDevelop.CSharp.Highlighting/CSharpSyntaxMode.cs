@@ -39,7 +39,7 @@ using MonoDevelop.Ide;
 using MonoDevelop.Ide.Tasks;
 using ICSharpCode.NRefactory.CSharp;
 using ICSharpCode.NRefactory.TypeSystem;
-using MonoDevelop.TypeSystem;
+using MonoDevelop.Ide.TypeSystem;
 using ICSharpCode.NRefactory.CSharp.Resolver;
 using System.IO;
 using ICSharpCode.NRefactory.Semantics;
@@ -128,21 +128,19 @@ namespace MonoDevelop.CSharp.Highlighting
 		{
 			if (src != null)
 				src.Cancel ();
+			resolver = null;
 			if (guiDocument != null && MonoDevelop.Core.PropertyService.Get ("EnableSemanticHighlighting", true)) {
 				var parsedDocument = guiDocument.ParsedDocument;
 				if (parsedDocument != null) {
-					if (!parsedDocument.HasErrors)
-						highlightedSegmentCache.Clear ();
 					unit = parsedDocument.GetAst<CompilationUnit> ();
 					parsedFile = parsedDocument.ParsedFile as CSharpParsedFile;
 					compilation = guiDocument.Compilation;
-					resolver = new CSharpAstResolver (compilation, unit, parsedFile);
-					
 					if (guiDocument.Project != null) {
 						src = new CancellationTokenSource ();
 						var cancellationToken = src.Token;
 						System.Threading.Tasks.Task.Factory.StartNew (delegate {
-							var visitor = new QuickTaskVisitor (resolver, cancellationToken);
+							var newResolver = new CSharpAstResolver (compilation, unit, parsedFile);
+							var visitor = new QuickTaskVisitor (newResolver, cancellationToken);
 							unit.AcceptVisitor (visitor);
 							if (!cancellationToken.IsCancellationRequested) {
 								Gtk.Application.Invoke (delegate {
@@ -151,11 +149,14 @@ namespace MonoDevelop.CSharp.Highlighting
 									var editorData = guiDocument.Editor;
 									if (editorData == null)
 										return;
+									resolver = newResolver;
 									quickTasks = visitor.QuickTasks;
 									OnTasksUpdated (EventArgs.Empty);
 									var textEditor = editorData.Parent;
 									if (textEditor != null) {
 										var margin = textEditor.TextViewMargin;
+										if (!parsedDocument.HasErrors)
+											highlightedSegmentCache.Clear ();
 										margin.PurgeLayoutCache ();
 										textEditor.QueueDraw ();
 									}
@@ -280,6 +281,8 @@ namespace MonoDevelop.CSharp.Highlighting
 				guiDocument.DocumentParsed += HandleDocumentParsed;
 				highlightedSegmentCache = new HighlightingSegmentTree ();
 				highlightedSegmentCache.InstallListener (guiDocument.Editor.Document);
+				if (guiDocument.ParsedDocument != null)
+					HandleDocumentParsed (this, EventArgs.Empty);
 			}
 		}
 		
@@ -416,9 +419,6 @@ namespace MonoDevelop.CSharp.Highlighting
 				}
 			}
 
-
-
-
 			#region IResolveVisitorNavigator implementation
 			ResolveVisitorNavigationMode IResolveVisitorNavigator.Scan(AstNode node)
 			{
@@ -543,8 +543,20 @@ namespace MonoDevelop.CSharp.Highlighting
 							endOffset = chunk.Offset + ((Identifier)node).Name.Length;
 							return "keyword.semantic.type";
 						}
-						
-						if (node.Parent is VariableInitializer && node.Parent.Parent is FieldDeclaration || node.Parent is FixedVariableInitializer /*|| node.Parent is EnumMemberDeclaration*/) {
+
+						if (node.Parent is PropertyDeclaration) {
+							endOffset = chunk.Offset + ((Identifier)node).Name.Length;
+							return "keyword.semantic.property";
+						}
+
+						if (node.Parent is VariableInitializer && node.Parent.Parent is FieldDeclaration) {
+							var field = node.Parent.Parent as FieldDeclaration;
+							if (field.Modifiers.HasFlag (Modifiers.Const) || field.Modifiers.HasFlag (Modifiers.Static | Modifiers.Readonly))
+								return null;
+							endOffset = chunk.Offset + ((Identifier)node).Name.Length;
+							return "keyword.semantic.field";
+						}
+						if (node.Parent is FixedVariableInitializer /*|| node.Parent is EnumMemberDeclaration*/) {
 							endOffset = chunk.Offset + ((Identifier)node).Name.Length;
 							return "keyword.semantic.field";
 						}
@@ -560,9 +572,16 @@ namespace MonoDevelop.CSharp.Highlighting
 						
 						if (result is MemberResolveResult) {
 							var member = ((MemberResolveResult)result).Member;
-							if (member is IField && !member.IsStatic && !((IField)member).IsConst) {
+							if (member is IField) {
+								var field = member as IField;
+								if (field.IsConst || field.IsStatic && field.IsReadOnly)
+									return null;
 								endOffset = chunk.Offset + id.Identifier.Length;
 								return "keyword.semantic.field";
+							}
+							if (member is IProperty) {
+								endOffset = chunk.Offset + id.Identifier.Length;
+								return "keyword.semantic.property";
 							}
 						}
 						if (result is TypeResolveResult) {
@@ -835,7 +854,7 @@ namespace MonoDevelop.CSharp.Highlighting
 			void ScanPreProcessorElseIf (ref int i)
 			{
 				LineSegment line = doc.GetLineByOffset (i);
-				int length = line.Offset + line.EditableLength - i;
+				int length = line.Offset + line.Length - i;
 				string parameter = doc.GetTextAt (i + 5, length - 5);
 					
 				AstNode expr;

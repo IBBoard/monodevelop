@@ -41,13 +41,13 @@ using MonoDevelop.Core.Collections;
 using System.Xml;
 using ICSharpCode.NRefactory.Utils;
 using ICSharpCode.NRefactory;
-using ICSharpCode.NRefactory.CSharp;
 using MonoDevelop.Core.AddIns;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using ICSharpCode.NRefactory.Documentation;
+using ICSharpCode.NRefactory.CSharp;
 
-namespace MonoDevelop.TypeSystem
+namespace MonoDevelop.Ide.TypeSystem
 {
 	public static class TypeSystemServiceExt
 	{
@@ -158,6 +158,23 @@ namespace MonoDevelop.TypeSystem
 					break;
 				}
 			});
+			FileService.FileChanged += delegate(object sender, FileEventArgs e) {
+				if (!TrackFileChanges)
+					return;
+				foreach (var file in e) {
+					// Open documents are handled by the Document class itself.
+					if (IdeApp.Workbench.GetDocument (file.FileName) != null)
+						continue;
+					//
+					lock (projectWrapperUpdateLock) {
+						foreach (var wrapper in projectContents.Values) {
+							var projectFile = wrapper.Project.Files.GetFile (file.FileName);
+							if (projectFile != null)
+								QueueParseJob (wrapper, new [] { projectFile });
+						}
+					}
+				}
+			};
 		}
 		
 		static ITypeSystemParser GetParser (string mimeType)
@@ -303,22 +320,20 @@ namespace MonoDevelop.TypeSystem
 			string result;
 			var nameNoExtension = Path.GetFileNameWithoutExtension (filename);
 			var derivedDataPath = UserProfile.Current.CacheDir.Combine ("DerivedData");
-		
 			try {
 				// First try to access what we think could be the correct file directly
 				if (CheckCacheDirectoryIsCorrect (filename, derivedDataPath.Combine (nameNoExtension), out result))
 					return result;
-
+				
 				if (Directory.Exists (derivedDataPath)) {
 					var subDirs = Directory.GetDirectories (derivedDataPath);
 					// next check any directory which contains the filename
 					foreach (var subDir in subDirs.Where (s=> s.Contains (nameNoExtension)))
-						if (CheckCacheDirectoryIsCorrect (filename, derivedDataPath.Combine (subDir), out result))
+						if (CheckCacheDirectoryIsCorrect (filename, subDir, out result))
 							return result;
-
 					// Finally check every remaining directory
 					foreach (var subDir in subDirs.Where (s=> !s.Contains (nameNoExtension)))
-						if (CheckCacheDirectoryIsCorrect (filename, derivedDataPath.Combine (subDir), out result))
+						if (CheckCacheDirectoryIsCorrect (filename, subDir, out result))
 							return result;
 				}
 			} catch (Exception e) {
@@ -334,8 +349,7 @@ namespace MonoDevelop.TypeSystem
 			
 			try {
 				if (!File.Exists (dataPath))
-				    return false;
-				    
+					return false;
 				using (var reader = XmlReader.Create (dataPath)) {
 					while (reader.Read ()) {
 						if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "File") {
@@ -374,7 +388,7 @@ namespace MonoDevelop.TypeSystem
 				string cacheDir = GetName (baseName, i);
 				
 				Directory.CreateDirectory (cacheDir);
-				
+
 				System.IO.File.WriteAllText (Path.Combine (cacheDir, "data.xml"), string.Format ("<DerivedData><File name=\"{0}\"/></DerivedData>", fileName));
 				return cacheDir;
 			} catch (Exception e) {
@@ -467,8 +481,9 @@ namespace MonoDevelop.TypeSystem
 		static void LoadProjectCache (Project project)
 		{
 			string cacheDir = GetCacheDirectory (project.FileName);
-			if (cacheDir == null)
+			if (cacheDir == null) {
 				return;
+			}
 			
 			TouchCache (cacheDir);
 			var cache = DeserializeObject<IProjectContent> (Path.Combine (cacheDir, "completion.cache"));
@@ -524,6 +539,7 @@ namespace MonoDevelop.TypeSystem
 				Parallel.ForEach (solution.GetAllProjects (), project => LoadProject (project));
 				Task.Factory.StartNew (delegate {
 					ReloadAllReferences ();
+					CheckModifiedFiles ();
 				});
 
 				solution.SolutionItemAdded += OnSolutionItemAdded;
@@ -1073,7 +1089,7 @@ namespace MonoDevelop.TypeSystem
 		class AssemblyContext : IUnresolvedAssembly
 		{
 			public string FileName;
-			public DateTime LastWriteTime;
+			public DateTime LastWriteTimeUtc;
 			
 			[NonSerialized]
 			internal LazyAssemblyLoader CtxLoader;
@@ -1136,9 +1152,11 @@ namespace MonoDevelop.TypeSystem
 			
 			public IUnresolvedAssembly Assembly {
 				get {
-					if (assembly != null)
-						return assembly;
-					return assembly = LoadAssembly () ?? new DefaultUnresolvedAssembly (fileName);
+					lock (this) {
+						if (assembly != null)
+							return assembly;
+						return assembly = LoadAssembly () ?? new DefaultUnresolvedAssembly (fileName);
+					}
 				}
 			}
 			
@@ -1154,12 +1172,15 @@ namespace MonoDevelop.TypeSystem
 				try {
 					if (File.Exists (assemblyPath)) {
 						var deserializedAssembly = DeserializeObject <IUnresolvedAssembly> (assemblyPath);
-						if (deserializedAssembly != null)
+						if (deserializedAssembly != null) {
+							var provider = deserializedAssembly as IDocumentationProviderContainer;
+							if (provider != null)
+								provider.DocumentationProvider = new CombinedDocumentationProvider (fileName);
 							return deserializedAssembly;
+						}
 					}
 				} catch (Exception) {
 				}
-
 				var asm = ReadAssembly (fileName);
 				if (asm == null)
 					return null;
@@ -1167,6 +1188,7 @@ namespace MonoDevelop.TypeSystem
 				IUnresolvedAssembly assembly;
 				try {
 					var loader = new CecilLoader ();
+					loader.DocumentationProvider = new CombinedDocumentationProvider (fileName);
 					assembly = loader.LoadAssembly (asm);
 					assembly.Location = fileName;
 				} catch (Exception e) {
@@ -1238,14 +1260,13 @@ namespace MonoDevelop.TypeSystem
 				} else {
 					RemoveCache (cache);
 				}
-			} else {
-				cache = CreateCacheDirectory (fileName);
 			}
-			
+			cache = CreateCacheDirectory (fileName);
+
 			try {
 				var result = new AssemblyContext () {
 					FileName = fileName,
-					LastWriteTime = File.GetLastWriteTime (fileName)
+					LastWriteTimeUtc = File.GetLastWriteTimeUtc (fileName)
 				};
 				SerializeObject (Path.Combine (cache, "assembly.descriptor"), result);
 				
@@ -1506,9 +1527,9 @@ namespace MonoDevelop.TypeSystem
 		{
 			try {
 				while (trackingFileChanges) {
-					if (!WaitForParseJob (5000))
-						CheckModifiedFiles ();
-					else if (trackingFileChanges)
+					WaitForParseJob (5000);
+//						CheckModifiedFiles ();
+					if (trackingFileChanges)
 						ConsumeParsingQueue ();
 				}
 			} catch (Exception ex) {
@@ -1525,7 +1546,7 @@ namespace MonoDevelop.TypeSystem
 		{
 			if (parsedFile == null)
 				return true;
-			return System.IO.File.GetLastWriteTime (file.FilePath) > parsedFile.LastWriteTime;
+			return System.IO.File.GetLastWriteTimeUtc (file.FilePath) > parsedFile.LastWriteTime;
 		}
 
 		static void CheckModifiedFiles (Project project, ProjectContentWrapper content)
@@ -1563,10 +1584,10 @@ namespace MonoDevelop.TypeSystem
 		static void CheckModifiedFile (AssemblyContext context)
 		{
 			try {
-				var writeTime = File.GetLastWriteTime (context.FileName);
-				if (writeTime != context.LastWriteTime) {
+				var writeTime = File.GetLastWriteTimeUtc (context.FileName);
+				if (writeTime != context.LastWriteTimeUtc) {
 					string cache = GetCacheDirectory (context.FileName);
-					context.LastWriteTime = writeTime;
+					context.LastWriteTimeUtc = writeTime;
 					if (cache != null) {
 						SerializeObject (Path.Combine (cache, "assembly.descriptor"), context);
 						context.CtxLoader = new LazyAssemblyLoader (context.FileName, cache);

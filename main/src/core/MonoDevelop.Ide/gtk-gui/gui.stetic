@@ -4674,7 +4674,7 @@ Large</property>
                 <child>
                   <widget class="Gtk.Table" id="table1">
                     <property name="MemberName" />
-                    <property name="NRows">3</property>
+                    <property name="NRows">2</property>
                     <property name="NColumns">3</property>
                     <property name="RowSpacing">6</property>
                     <property name="ColumnSpacing">6</property>
@@ -4683,32 +4683,6 @@ Large</property>
                     </child>
                     <child>
                       <placeholder />
-                    </child>
-                    <child>
-                      <placeholder />
-                    </child>
-                    <child>
-                      <widget class="Gtk.ComboBox" id="indentationCombobox">
-                        <property name="MemberName" />
-                        <property name="IsTextCombo">True</property>
-                        <property name="Items" translatable="yes" />
-                        <signal name="Changed" handler="UpdateState" />
-                      </widget>
-                      <packing>
-                        <property name="TopAttach">2</property>
-                        <property name="BottomAttach">3</property>
-                        <property name="LeftAttach">1</property>
-                        <property name="RightAttach">2</property>
-                        <property name="AutoSize">True</property>
-                        <property name="XOptions">Fill</property>
-                        <property name="YOptions">Fill</property>
-                        <property name="XExpand">False</property>
-                        <property name="XFill">True</property>
-                        <property name="XShrink">False</property>
-                        <property name="YExpand">False</property>
-                        <property name="YFill">True</property>
-                        <property name="YShrink">False</property>
-                      </packing>
                     </child>
                     <child>
                       <widget class="Gtk.SpinButton" id="indentWidthSpin">
@@ -4742,7 +4716,6 @@ Large</property>
                     <child>
                       <widget class="Gtk.Label" id="label7">
                         <property name="MemberName" />
-                        <property name="Xalign">1</property>
                         <property name="LabelProp" translatable="yes">_Tab width:</property>
                         <property name="UseUnderline">True</property>
                         <property name="MnemonicWidget">tabWidthSpin</property>
@@ -4760,9 +4733,8 @@ Large</property>
                       </packing>
                     </child>
                     <child>
-                      <widget class="Gtk.Label" id="label8">
+                      <widget class="Gtk.Label" id="label9">
                         <property name="MemberName" />
-                        <property name="Xalign">1</property>
                         <property name="LabelProp" translatable="yes">_Indent width:</property>
                         <property name="UseUnderline">True</property>
                         <property name="MnemonicWidget">tabWidthSpin</property>
@@ -4770,27 +4742,6 @@ Large</property>
                       <packing>
                         <property name="TopAttach">1</property>
                         <property name="BottomAttach">2</property>
-                        <property name="AutoSize">True</property>
-                        <property name="XOptions">Fill</property>
-                        <property name="YOptions">Fill</property>
-                        <property name="XExpand">False</property>
-                        <property name="XFill">True</property>
-                        <property name="XShrink">False</property>
-                        <property name="YExpand">False</property>
-                        <property name="YFill">True</property>
-                        <property name="YShrink">False</property>
-                      </packing>
-                    </child>
-                    <child>
-                      <widget class="Gtk.Label" id="label9">
-                        <property name="MemberName" />
-                        <property name="Xalign">1</property>
-                        <property name="LabelProp" translatable="yes">_Indentation mode:</property>
-                        <property name="UseUnderline">True</property>
-                      </widget>
-                      <packing>
-                        <property name="TopAttach">2</property>
-                        <property name="BottomAttach">3</property>
                         <property name="AutoSize">True</property>
                         <property name="XOptions">Fill</property>
                         <property name="YOptions">Fill</property>
@@ -4838,13 +4789,27 @@ Large</property>
                   </packing>
                 </child>
                 <child>
-                  <placeholder />
-                </child>
-                <child>
                   <widget class="Gtk.CheckButton" id="tabsToSpaceCheck">
                     <property name="MemberName" />
                     <property name="CanFocus">True</property>
                     <property name="Label" translatable="yes">_Convert tabs to spaces</property>
+                    <property name="DrawIndicator">True</property>
+                    <property name="HasLabel">True</property>
+                    <property name="UseUnderline">True</property>
+                    <signal name="Toggled" handler="UpdateState" />
+                  </widget>
+                  <packing>
+                    <property name="Position">1</property>
+                    <property name="AutoSize">True</property>
+                    <property name="Expand">False</property>
+                    <property name="Fill">False</property>
+                  </packing>
+                </child>
+                <child>
+                  <widget class="Gtk.CheckButton" id="tabsAfterNonTabsCheck">
+                    <property name="MemberName" />
+                    <property name="CanFocus">True</property>
+                    <property name="Label" translatable="yes">_Allow tabs after non-tabs</property>
                     <property name="DrawIndicator">True</property>
                     <property name="HasLabel">True</property>
                     <property name="UseUnderline">True</property>
@@ -4858,10 +4823,10 @@ Large</property>
                   </packing>
                 </child>
                 <child>
-                  <widget class="Gtk.CheckButton" id="tabsAfterNonTabsCheck">
+                  <widget class="Gtk.CheckButton" id="removeTrailingWhitespaceCheck">
                     <property name="MemberName" />
                     <property name="CanFocus">True</property>
-                    <property name="Label" translatable="yes">_Allow tabs after non-tabs</property>
+                    <property name="Label" translatable="yes">_Remove trailing whitespace</property>
                     <property name="DrawIndicator">True</property>
                     <property name="HasLabel">True</property>
                     <property name="UseUnderline">True</property>
@@ -4880,6 +4845,8 @@ Large</property>
           <packing>
             <property name="Position">3</property>
             <property name="AutoSize">True</property>
+            <property name="Expand">False</property>
+            <property name="Fill">False</property>
           </packing>
         </child>
         <child>
@@ -12512,6 +12479,32 @@ Visual Studio generates a default ID for embedded resources, instead of simply u
             <property name="Expand">False</property>
             <property name="Fill">False</property>
           </packing>
+        </child>
+      </widget>
+    </child>
+  </widget>
+  <widget class="Gtk.Bin" id="MonoDevelop.Ide.Projects.OptionPanels.PortableRuntimeOptionsPanelWidget" design-size="300 300">
+    <property name="MemberName" />
+    <property name="Visible">False</property>
+    <child>
+      <widget class="Gtk.VBox" id="vbox1">
+        <property name="MemberName" />
+        <property name="Spacing">6</property>
+        <child>
+          <widget class="Gtk.Label" id="labelTargetFrameworks">
+            <property name="MemberName" />
+            <property name="Xalign">0</property>
+            <property name="LabelProp" translatable="yes">Target Frameworks:</property>
+          </widget>
+          <packing>
+            <property name="Position">0</property>
+            <property name="AutoSize">True</property>
+            <property name="Expand">False</property>
+            <property name="Fill">False</property>
+          </packing>
+        </child>
+        <child>
+          <placeholder />
         </child>
       </widget>
     </child>

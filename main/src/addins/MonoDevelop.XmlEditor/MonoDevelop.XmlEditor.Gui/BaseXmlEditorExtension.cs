@@ -43,7 +43,7 @@ using Gtk;
 using System.Linq;
 using System.Text;
 using ICSharpCode.NRefactory.TypeSystem;
-using MonoDevelop.TypeSystem;
+using MonoDevelop.Ide.TypeSystem;
 using ICSharpCode.NRefactory;
 using Mono.TextEditor;
 
@@ -430,7 +430,7 @@ namespace MonoDevelop.XmlEditor.Gui
 			var attributeDepth = GetAttributeIndentDepth (Tracker.Engine.Nodes);
 			
 			//update the tracker to the end of the line 
-			Tracker.UpdateEngine (seg.Offset + seg.EditableLength);
+			Tracker.UpdateEngine (seg.Offset + seg.Length);
 			
 			//if end depth is less than start depth, then reduce start depth
 			//because that means there are closing tags on the line, and they de-indent the line they're on

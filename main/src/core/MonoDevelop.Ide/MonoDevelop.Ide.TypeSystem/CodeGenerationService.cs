@@ -35,12 +35,11 @@ using MonoDevelop.Projects;
 using System.CodeDom.Compiler;
 using ICSharpCode.NRefactory.TypeSystem;
 using ICSharpCode.NRefactory;
-using MonoDevelop.TypeSystem;
+using MonoDevelop.Ide.TypeSystem;
 using MonoDevelop.Ide;
-using ICSharpCode.NRefactory.CSharp;
 using ICSharpCode.NRefactory.CSharp.TypeSystem;
 
-namespace MonoDevelop.TypeSystem
+namespace MonoDevelop.Ide.TypeSystem
 {
 	public static class CodeGenerationService
 	{
@@ -219,7 +218,7 @@ namespace MonoDevelop.TypeSystem
 					LineSegment lineSegment = data.GetLine (member.Region.BeginLine);
 					if (lineSegment == null)
 						continue;
-					domLocation = new TextLocation (member.Region.BeginLine, lineSegment.EditableLength + 1);
+					domLocation = new TextLocation (member.Region.BeginLine, lineSegment.Length + 1);
 				}
 				result.Add (GetInsertionPosition (data.Document, domLocation.Line, domLocation.Column));
 			}
@@ -229,16 +228,18 @@ namespace MonoDevelop.TypeSystem
 				result.RemoveAt (result.Count - 1); 
 				NewLineInsertion insertLine;
 				var lineBefore = data.GetLine (type.BodyRegion.EndLine - 1);
-				if (lineBefore != null && lineBefore.EditableLength == lineBefore.GetIndentation (data.Document).Length) {
+				if (lineBefore != null && lineBefore.Length == lineBefore.GetIndentation (data.Document).Length) {
 					insertLine = NewLineInsertion.None;
 				} else {
 					insertLine = NewLineInsertion.Eol;
 				}
 				// search for line start
-				var line = data.GetLine (type.BodyRegion.EndLine);
 				int col = type.BodyRegion.EndColumn - 1;
-				while (col > 1 && char.IsWhiteSpace (data.GetCharAt (line.Offset + col - 2)))
-					col--;
+				var line = data.GetLine (type.BodyRegion.EndLine);
+				if (line != null) {
+					while (col > 1 && char.IsWhiteSpace (data.GetCharAt (line.Offset + col - 2)))
+						col--;
+				}
 				result.Add (new InsertionPoint (new DocumentLocation (type.BodyRegion.EndLine, col), insertLine, NewLineInsertion.Eol));
 				CheckEndPoint (data.Document, result [result.Count - 1], result.Count == 1);
 			}
@@ -260,7 +261,7 @@ namespace MonoDevelop.TypeSystem
 			
 			if (doc.GetLineIndent (line).Length + 1 < point.Location.Column)
 				point.LineBefore = NewLineInsertion.BlankLine;
-			if (point.Location.Column < line.EditableLength + 1)
+			if (point.Location.Column < line.Length + 1)
 				point.LineAfter = NewLineInsertion.Eol;
 		}
 		
@@ -271,7 +272,7 @@ namespace MonoDevelop.TypeSystem
 				return;
 			if (doc.GetLineIndent (line).Length + 1 == point.Location.Column) {
 				int lineNr = point.Location.Line;
-				while (lineNr > 1 && doc.GetLineIndent (lineNr - 1).Length == doc.GetLine (lineNr - 1).EditableLength) {
+				while (lineNr > 1 && doc.GetLineIndent (lineNr - 1).Length == doc.GetLine (lineNr - 1).Length) {
 					lineNr--;
 				}
 				line = doc.GetLine (lineNr);
@@ -280,7 +281,7 @@ namespace MonoDevelop.TypeSystem
 			
 			if (doc.GetLineIndent (line).Length + 1 < point.Location.Column)
 				point.LineBefore = NewLineInsertion.Eol;
-			if (point.Location.Column < line.EditableLength + 1)
+			if (point.Location.Column < line.Length + 1)
 				point.LineAfter = isEndPoint ? NewLineInsertion.Eol : NewLineInsertion.BlankLine;
 		}
 		
@@ -289,7 +290,7 @@ namespace MonoDevelop.TypeSystem
 			int bodyEndOffset = doc.LocationToOffset (line, column) + 1;
 			LineSegment curLine = doc.GetLine (line);
 			if (curLine != null) {
-				if (bodyEndOffset < curLine.Offset + curLine.EditableLength) {
+				if (bodyEndOffset < curLine.Offset + curLine.Length) {
 					// case1: positition is somewhere inside the start line
 					return new InsertionPoint (new DocumentLocation (line, column + 1), NewLineInsertion.Eol, NewLineInsertion.BlankLine);
 				}
@@ -300,7 +301,7 @@ namespace MonoDevelop.TypeSystem
 			if (nextLine == null) // check for 1 line case.
 				return new InsertionPoint (new DocumentLocation (line, column + 1), NewLineInsertion.BlankLine, NewLineInsertion.BlankLine);
 			
-			for (int i = nextLine.Offset; i < nextLine.Offset + nextLine.EditableLength; i++) {
+			for (int i = nextLine.Offset; i < nextLine.Offset + nextLine.Length; i++) {
 				char ch = doc.GetCharAt (i);
 				if (!char.IsWhiteSpace (ch)) {
 					// case2: next line contains non ws chars.

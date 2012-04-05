@@ -174,18 +174,27 @@ namespace Mono.TextEditor
 			get;
 			set;
 		}
-		
+
 		public TextEditorData TextEditorData {
 			get;
 			private set;
 		}
-		
+
+		/// <summary>
+		/// Gets or sets a value indicating whether this <see cref="T:Mono.TextEditor.Caret"/> will listen to text chagne events to update the caret position.
+		/// </summary>
+		public bool AutoUpdatePosition {
+			get;
+			set;
+		}
+
 		public Caret (TextEditorData editor)
 		{
 			TextEditorData = editor;
 			IsVisible = true;
 			AllowCaretBehindLineEnd = false;
 			DesiredColumn = DocumentLocation.MinColumn;
+			AutoUpdatePosition = true;
 		}
 
 		/// <summary>
@@ -208,7 +217,7 @@ namespace Mono.TextEditor
 		{
 			var curLine = TextEditorData.Document.GetLine (Line);
 
-			if (TextEditorData.HasIndentationTracker && TextEditorData.Options.IndentStyle == IndentStyle.Virtual && curLine.EditableLength == 0) {
+			if (TextEditorData.HasIndentationTracker && TextEditorData.Options.IndentStyle == IndentStyle.Virtual && curLine.Length == 0) {
 				if (column > DocumentLocation.MinColumn) {
 					var indentColumn = TextEditorData.GetVirtualIndentationColumn (Location);
 					if (column < indentColumn) {
@@ -222,7 +231,7 @@ namespace Mono.TextEditor
 			}
 
 			if (!AllowCaretBehindLineEnd) {
-				var max = curLine.EditableLength + 1;
+				var max = curLine.Length + 1;
 				if (column > max) {
 					column = max;
 					UpdateCaretOffset ();
@@ -237,7 +246,7 @@ namespace Mono.TextEditor
 			int desiredLineNumber = TextEditorData.Document.OffsetToLineNumber (desiredOffset);
 			var desiredLine = TextEditorData.Document.GetLine (desiredLineNumber);
 			int newColumn = desiredOffset - desiredLine.Offset + 1;
-			if (desiredLine.EditableLength + 1 < Column && newColumn == 1) {
+			if (desiredLine.Length + 1 < Column && newColumn == 1) {
 				if (TextEditorData.HasIndentationTracker && TextEditorData.Options.IndentStyle == IndentStyle.Virtual)
 					newColumn = TextEditorData.GetVirtualIndentationColumn (desiredLineNumber, 1);
 			}
@@ -247,7 +256,7 @@ namespace Mono.TextEditor
 
 			var logicalDesiredColumn = desiredLine.GetLogicalColumn (TextEditorData, DesiredColumn);
 
-			if (logicalDesiredColumn <= desiredLine.EditableLength) {
+			if (logicalDesiredColumn <= desiredLine.Length) {
 				int possibleOffset = TextEditorData.LocationToOffset (desiredLineNumber, logicalDesiredColumn);
 				if (!TextEditorData.Document.GetFoldingsFromOffset (possibleOffset).Any (f => f.IsFolded))
 					column = logicalDesiredColumn;
@@ -275,8 +284,8 @@ namespace Mono.TextEditor
 			if (TextEditorData.HasIndentationTracker && TextEditorData.Options.IndentStyle == IndentStyle.Virtual && curLine.GetVisualColumn (TextEditorData, column) < DesiredColumn) {
 				column = TextEditorData.GetVirtualIndentationColumn (Line, column);
 			} else {
-				if (!AllowCaretBehindLineEnd && Column > curLine.EditableLength + 1)
-					column = System.Math.Min (curLine.EditableLength + 1, column);
+				if (!AllowCaretBehindLineEnd && Column > curLine.Length + 1)
+					column = System.Math.Min (curLine.Length + 1, column);
 			}
 		}
 		
@@ -334,7 +343,7 @@ namespace Mono.TextEditor
 				LineSegment line = doc.GetLine (Line);
 				if (line != null) {
 					result = line.Offset;
-					result += System.Math.Min (Column - 1, line.EditableLength);
+					result += System.Math.Min (Column - 1, line.Length);
 				}
 			}
 			caretOffset = result;
@@ -350,23 +359,21 @@ namespace Mono.TextEditor
 			}
 			var newOffset = offsetVersion.MoveOffsetTo (curVersion, caretOffset);
 			offsetVersion = curVersion;
-			if (newOffset == caretOffset)
+			if (newOffset == caretOffset || !AutoUpdatePosition)
 				return;
-
 			DocumentLocation old = Location;
 			var newLocation = TextEditorData.OffsetToLocation (newOffset);
 			int newColumn = newLocation.Column;
 			
 			var curLine = TextEditorData.GetLine (newLocation.Line);
-
-			if (TextEditorData.HasIndentationTracker && TextEditorData.Options.IndentStyle == IndentStyle.Virtual && curLine.EditableLength == 0) {
+			if (TextEditorData.HasIndentationTracker && TextEditorData.Options.IndentStyle == IndentStyle.Virtual && curLine.Length == 0) {
 				if (column > DocumentLocation.MinColumn) {
 					var indentColumn = TextEditorData.GetVirtualIndentationColumn (Location);
 					newColumn = indentColumn;
 				}
 			}
 			if (AllowCaretBehindLineEnd) {
-				if (column > curLine.EditableLength)
+				if (curLine != null && column > curLine.Length)
 					newColumn = column;
 			}
 

@@ -29,7 +29,7 @@ using MonoDevelop.Ide.Gui.Content;
 using Mono.TextEditor;
 using System.Text;
 using ICSharpCode.NRefactory.TypeSystem;
-using MonoDevelop.TypeSystem;
+using MonoDevelop.Ide.TypeSystem;
 using ICSharpCode.NRefactory.CSharp;
 using ICSharpCode.NRefactory;
 using ICSharpCode.NRefactory.CSharp.TypeSystem;
@@ -66,7 +66,7 @@ namespace MonoDevelop.DocFood
 				return base.KeyPress (key, keyChar, modifier);
 			
 			LineSegment line = textEditorData.Document.GetLine (textEditorData.Caret.Line);
-			string text = textEditorData.Document.GetTextAt (line.Offset, line.EditableLength);
+			string text = textEditorData.Document.GetTextAt (line.Offset, line.Length);
 			
 			if (!text.EndsWith ("//"))
 				return base.KeyPress (key, keyChar, modifier);
@@ -99,7 +99,7 @@ namespace MonoDevelop.DocFood
 				LineSegment lineSegment = textEditorData.GetLine (i);
 				if (lineSegment == null)
 					break;
-				if (lineSegment.EditableLength != textEditorData.GetLineIndent (lineSegment).Length)
+				if (lineSegment.Length != textEditorData.GetLineIndent (lineSegment).Length)
 					return false;
 				
 			}
