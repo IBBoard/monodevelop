@@ -48,6 +48,7 @@ using MonoDevelop.Projects;
 using ICSharpCode.NRefactory.TypeSystem.Implementation;
 using Mono.TextEditor.Theatrics;
 using MonoDevelop.SourceEditor;
+using XmlDocIdLib;
 
 namespace MonoDevelop.AssemblyBrowser
 {
@@ -55,14 +56,15 @@ namespace MonoDevelop.AssemblyBrowser
 	[System.ComponentModel.ToolboxItem(true)]
 	partial class AssemblyBrowserWidget : Gtk.Bin
 	{
-		public ExtensibleTreeView TreeView {
+		public AssemblyBrowserTreeView TreeView {
 			get;
 			private set;
 		}
 		
 		public bool PublicApiOnly {
-			get;
-			private set;
+			get {
+				return TreeView.PublicApiOnly;
+			}
 		}
 		
 		Ambience ambience = AmbienceService.GetAmbience ("text/x-csharp");
@@ -73,13 +75,35 @@ namespace MonoDevelop.AssemblyBrowser
 		DocumentationPanel documentationPanel = new DocumentationPanel ();
 		TextEditorContainer textEditorContainer;
 		readonly TextEditor inspectEditor;
-		
+
+		public class AssemblyBrowserTreeView : ExtensibleTreeView
+		{
+			bool publicApiOnly = true;
+
+			public bool PublicApiOnly {
+				get {
+					return publicApiOnly;
+				}
+				set {
+					if (publicApiOnly == value)
+						return;
+					publicApiOnly = value;
+					GetRootNode ().Options ["PublicApiOnly"] = publicApiOnly;
+					RefreshTree ();
+				}
+			}
+
+			public AssemblyBrowserTreeView (NodeBuilder[] builders, TreePadOption[] options) : base (builders, options)
+			{
+			}
+		}
+
 		public AssemblyBrowserWidget ()
 		{
 			this.Build ();
 			loader = new CecilLoader (true);
 			loader.IncludeInternalMembers = true;
-			TreeView = new ExtensibleTreeView (new NodeBuilder[] { 
+			TreeView = new AssemblyBrowserTreeView (new NodeBuilder[] { 
 				new ErrorNodeBuilder (),
 				new ProjectNodeBuilder (this),
 				new AssemblyNodeBuilder (this),
@@ -130,38 +154,36 @@ namespace MonoDevelop.AssemblyBrowser
 				var referencedSegment = ReferencedSegments != null ? ReferencedSegments.FirstOrDefault (seg => seg.Segment.Contains (offset)) : null;
 				if (referencedSegment == null)
 					return null;
-				return null;
-// TODO: Type system conversion.
-//				if (referencedSegment.Reference is TypeDefinition)
-//					return new DomCecilType ((TypeDefinition)referencedSegment.Reference).HelpUrl;
-//				
-//				if (referencedSegment.Reference is MethodDefinition)
-//					return new DomCecilMethod ((MethodDefinition)referencedSegment.Reference).HelpUrl;
-//				
-//				if (referencedSegment.Reference is PropertyDefinition)
-//					return new DomCecilProperty ((PropertyDefinition)referencedSegment.Reference).HelpUrl;
-//				
-//				if (referencedSegment.Reference is FieldDefinition)
-//					return new DomCecilField ((FieldDefinition)referencedSegment.Reference).HelpUrl;
-//				
-//				if (referencedSegment.Reference is EventDefinition)
-//					return new DomCecilEvent ((EventDefinition)referencedSegment.Reference).HelpUrl;
-//				
-//				if (referencedSegment.Reference is FieldDefinition)
-//					return new DomCecilField ((FieldDefinition)referencedSegment.Reference).HelpUrl;
-//				
-//				if (referencedSegment.Reference is TypeReference) {
-//					var returnType = DomCecilMethod.GetReturnType ((TypeReference)referencedSegment.Reference);
-//					if (returnType.GenericArguments.Count == 0)
-//						return "T:" + returnType.FullName;
-//					return "T:" + returnType.FullName + "`" + returnType.GenericArguments.Count;
-//				}
-//				return referencedSegment.Reference.ToString ();
+				if (referencedSegment.Reference is TypeDefinition)
+					return new XmlDocIdGenerator ().GetXmlDocPath ((TypeDefinition)referencedSegment.Reference);
+				
+				if (referencedSegment.Reference is MethodDefinition)
+					return new XmlDocIdGenerator ().GetXmlDocPath ((MethodDefinition)referencedSegment.Reference);
+				
+				if (referencedSegment.Reference is PropertyDefinition)
+					return new XmlDocIdGenerator ().GetXmlDocPath ((PropertyDefinition)referencedSegment.Reference);
+				
+				if (referencedSegment.Reference is FieldDefinition)
+					return new XmlDocIdGenerator ().GetXmlDocPath ((FieldDefinition)referencedSegment.Reference);
+				
+				if (referencedSegment.Reference is EventDefinition)
+					return new XmlDocIdGenerator ().GetXmlDocPath ((EventDefinition)referencedSegment.Reference);
+				
+				if (referencedSegment.Reference is FieldDefinition)
+					return new XmlDocIdGenerator ().GetXmlDocPath ((FieldDefinition)referencedSegment.Reference);
+
+				if (referencedSegment.Reference is TypeReference) {
+					return new XmlDocIdGenerator ().GetXmlDocPath ((TypeReference)referencedSegment.Reference);
+				}
+				return referencedSegment.Reference.ToString ();
 			};
 			this.inspectEditor.LinkRequest += InspectEditorhandleLinkRequest;
+			var scrolledWindow = new SmartScrolledWindow ();
+			scrolledWindow.Show ();
 			textEditorContainer = new TextEditorContainer (inspectEditor);
-			notebookInspection.Add (textEditorContainer);
-			var notebookChild = ((Notebook.NotebookChild)(notebookInspection [textEditorContainer]));
+			scrolledWindow.Child = textEditorContainer;
+			notebookInspection.Add (scrolledWindow);
+			var notebookChild = ((Notebook.NotebookChild)(notebookInspection [scrolledWindow]));
 			notebookChild.Position = 1;
 
 //			this.inspectLabel.ModifyBg (Gtk.StateType.Normal, new Gdk.Color (255, 255, 250));
@@ -206,8 +228,8 @@ namespace MonoDevelop.AssemblyBrowser
 			comboboxVisibilty.InsertText (1, GettextCatalog.GetString ("All members"));
 			comboboxVisibilty.Active = 0;
 			comboboxVisibilty.Changed += delegate {
-				PublicApiOnly = comboboxVisibilty.Active == 0;
-				this.TreeView.GetRootNode ().Options ["PublicApiOnly"] = PublicApiOnly;
+				TreeView.PublicApiOnly = comboboxVisibilty.Active == 0;
+
 				FillInspectLabel ();
 			};
 			/*
@@ -425,7 +447,27 @@ namespace MonoDevelop.AssemblyBrowser
 			}
 			return "unknown entity: " + member;
 		}
-		
+
+		static string GetIdString (MethodDefinition methodDefinition)
+		{
+			var sb = new StringBuilder ();
+			sb.Append ("M:");
+			sb.Append (methodDefinition.FullName);
+			if (methodDefinition.HasGenericParameters) {
+				sb.Append ("`");
+				sb.Append (methodDefinition.GenericParameters.Count);
+			}
+//			AppendHelpParameterList (sb, method.Parameters);
+			return sb.ToString ();
+		}
+
+		static string GetIdString (TypeDefinition typeDefinition)
+		{
+			if (!typeDefinition.HasGenericParameters)
+				return "T:" + typeDefinition.FullName;
+			return "T:" + typeDefinition.FullName + "`" + typeDefinition.GenericParameters.Count;
+		}		
+
 		bool IsMatch (ITreeNavigator nav, string helpUrl, bool searchType)
 		{
 			var member = nav.DataItem as IUnresolvedEntity;
@@ -489,7 +531,7 @@ namespace MonoDevelop.AssemblyBrowser
 					}
 					try {
 						if (nav.DataItem is TypeDefinition && nav.Options ["PublicApiOnly"]) {
-							nav.Options ["PublicApiOnly"] = false;
+							nav.Options ["PublicApiOnly"] = PublicApiOnly;
 							nav.MoveToFirstChild ();
 							result = SearchMember (nav, helpUrl);
 							if (result != null)
@@ -959,7 +1001,7 @@ namespace MonoDevelop.AssemblyBrowser
 			if (ReferencedSegments == null)
 				return;
 			foreach (var seg in refs) {
-				LineSegment line = inspectEditor.GetLineByOffset (seg.Offset);
+				DocumentLine line = inspectEditor.GetLineByOffset (seg.Offset);
 				if (line == null)
 					continue;
 				// FIXME: ILSpy sometimes gives reference segments for punctuation. See http://bugzilla.xamarin.com/show_bug.cgi?id=2918
@@ -1000,7 +1042,7 @@ namespace MonoDevelop.AssemblyBrowser
 			case 2:
 				inspectEditor.Options.ShowFoldMargin = true;
 				this.inspectEditor.Document.MimeType = "text/x-csharp";
-				SetReferencedSegments (builder.Decompile (inspectEditor.GetTextEditorData (), nav));
+				SetReferencedSegments (builder.Decompile (inspectEditor.GetTextEditorData (), nav, PublicApiOnly));
 				break;
 			default:
 				inspectEditor.Options.ShowFoldMargin = false;

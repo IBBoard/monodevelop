@@ -83,6 +83,7 @@ FILES =  \
 	Mono.TextEditor/Caret.cs \
 	Mono.TextEditor/Document/BufferedTextReader.cs \
 	Mono.TextEditor/Document/DocumentChangeEventArgs.cs \
+	Mono.TextEditor/Document/DocumentLine.cs \
 	Mono.TextEditor/Document/DocumentLocation.cs \
 	Mono.TextEditor/Document/DocumentRegion.cs \
 	Mono.TextEditor/Document/DocumentUpdateRequest.cs \
@@ -94,7 +95,6 @@ FILES =  \
 	Mono.TextEditor/Document/ILineSplitter.cs \
 	Mono.TextEditor/Document/IWordFindStrategy.cs \
 	Mono.TextEditor/Document/LineEventArgs.cs \
-	Mono.TextEditor/Document/LineSegment.cs \
 	Mono.TextEditor/Document/LineSplitter.cs \
 	Mono.TextEditor/Document/PrimitiveLineSplitter.cs \
 	Mono.TextEditor/Document/SegmentTree.cs \
@@ -137,6 +137,14 @@ FILES =  \
 	Mono.TextEditor/SearchResult.cs \
 	Mono.TextEditor/Selection.cs \
 	Mono.TextEditor/SimpleEditMode.cs \
+	Mono.TextEditor/Standalone/IDocument.cs \
+	Mono.TextEditor/Standalone/IDocumentLine.cs \
+	Mono.TextEditor/Standalone/ISegment.cs \
+	Mono.TextEditor/Standalone/ITextAnchor.cs \
+	Mono.TextEditor/Standalone/ITextSource.cs \
+	Mono.TextEditor/Standalone/TextChangeEventArgs.cs \
+	Mono.TextEditor/Standalone/TextLocation.cs \
+	Mono.TextEditor/Standalone/TextSourceVersionProvider.cs \
 	Mono.TextEditor/TextEditorData.cs \
 	Mono.TextEditor/TextEditorOptions.cs \
 	Mono.TextEditor/TextLinkEditMode.cs \

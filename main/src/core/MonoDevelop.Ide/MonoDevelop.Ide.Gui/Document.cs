@@ -616,6 +616,8 @@ namespace MonoDevelop.Ide.Gui
 		
 		internal void SetProject (Project project)
 		{
+			if (Window.ViewContent.Project == project)
+				return;
 			while (editorExtension != null) {
 				try {
 					editorExtension.Dispose ();
@@ -670,6 +672,8 @@ namespace MonoDevelop.Ide.Gui
 					singleFileContext = new ICSharpCode.NRefactory.CSharp.CSharpProjectContent ();
 					singleFileContext = singleFileContext.AddAssemblyReferences (new [] { Mscorlib, SystemCore });
 				}
+				if (parsedDocument != null)
+					return singleFileContext.UpdateProjectContent (null, parsedDocument.ParsedFile);
 				return singleFileContext;
 			}
 			

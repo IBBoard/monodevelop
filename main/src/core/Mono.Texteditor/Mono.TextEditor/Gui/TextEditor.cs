@@ -56,7 +56,7 @@ namespace Mono.TextEditor
 		protected FoldMarkerMargin foldMarkerMargin;
 		protected TextViewMargin   textViewMargin;
 		
-		LineSegment longestLine      = null;
+		DocumentLine longestLine      = null;
 		double      longestLineWidth = -1;
 		
 		List<Margin> margins = new List<Margin> ();
@@ -696,7 +696,8 @@ namespace Mono.TextEditor
 		{
 			if (popupWindow != null)
 				popupWindow.Destroy ();
-			
+
+			HideTooltip ();
 			Document.EndUndo -= HandleDocumenthandleEndUndo;
 			Document.TextReplaced -= OnDocumentStateChanged;
 			Document.TextSet -= OnTextSet;
@@ -790,12 +791,11 @@ namespace Mono.TextEditor
 		
 		internal void RedrawLine (int logicalLine)
 		{
-			if (isDisposed)
+			if (isDisposed || logicalLine > LineCount || logicalLine < DocumentLocation.MinLine)
 				return;
-			
 			double y = LineToY (logicalLine) - this.textEditorData.VAdjustment.Value;
 			double h = GetLineHeight (logicalLine);
-			
+
 			if (y + h > 0)
 				QueueDrawArea (0, (int)y, this.Allocation.Width, (int)h);
 		}
@@ -1783,7 +1783,7 @@ namespace Mono.TextEditor
 			}
 		}
 		
-		public IEnumerable<LineSegment> SelectedLines {
+		public IEnumerable<DocumentLine> SelectedLines {
 			get {
 				return this.textEditorData.SelectedLines;
 			}
@@ -1965,7 +1965,7 @@ namespace Mono.TextEditor
 			return Document.GetCharAt (offset);
 		}
 		
-		public IEnumerable<LineSegment> Lines {
+		public IEnumerable<DocumentLine> Lines {
 			get {
 				return Document.Lines;
 			}
@@ -1997,17 +1997,17 @@ namespace Mono.TextEditor
 			return Document.GetLineIndent (lineNumber);
 		}
 		
-		public string GetLineIndent (LineSegment segment)
+		public string GetLineIndent (DocumentLine segment)
 		{
 			return Document.GetLineIndent (segment);
 		}
 		
-		public LineSegment GetLine (int lineNumber)
+		public DocumentLine GetLine (int lineNumber)
 		{
 			return Document.GetLine (lineNumber);
 		}
 		
-		public LineSegment GetLineByOffset (int offset)
+		public DocumentLine GetLineByOffset (int offset)
 		{
 			return Document.GetLineByOffset (offset);
 		}
@@ -2340,7 +2340,7 @@ namespace Mono.TextEditor
 			
 			protected override Rectangle CalculateInitialBounds ()
 			{
-				LineSegment line = Editor.Document.GetLineByOffset (Result.Offset);
+				DocumentLine line = Editor.Document.GetLineByOffset (Result.Offset);
 				int lineNr = Editor.Document.OffsetToLineNumber (Result.Offset);
 				ISyntaxMode mode = Editor.Document.SyntaxMode != null && Editor.Options.EnableSyntaxHighlighting ? Editor.Document.SyntaxMode : new SyntaxMode (Editor.Document);
 				int logicalRulerColumn = line.GetLogicalColumn (Editor.GetTextEditorData (), Editor.Options.RulerColumn);
@@ -2663,8 +2663,8 @@ namespace Mono.TextEditor
 		
 		void OnTextSet (object sender, EventArgs e)
 		{
-			LineSegment longest = longestLine;
-			foreach (LineSegment line in Document.Lines) {
+			DocumentLine longest = longestLine;
+			foreach (DocumentLine line in Document.Lines) {
 				if (longest == null || line.Length > longest.Length)
 					longest = line;
 			}
@@ -2715,7 +2715,7 @@ namespace Mono.TextEditor
 			return TextViewMargin.LocationToPoint (loc, useAbsoluteCoordinates);
 		}
 
-		public double ColumnToX (LineSegment line, int column)
+		public double ColumnToX (DocumentLine line, int column)
 		{
 			return TextViewMargin.ColumnToX (line, column);
 		}
@@ -2733,7 +2733,7 @@ namespace Mono.TextEditor
 			return TextViewMargin.LineToY (logicalLine);
 		}
 		
-		public double GetLineHeight (LineSegment line)
+		public double GetLineHeight (DocumentLine line)
 		{
 			return TextViewMargin.GetLineHeight (line);
 		}

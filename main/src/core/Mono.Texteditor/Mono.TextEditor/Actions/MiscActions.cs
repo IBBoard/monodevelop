@@ -45,13 +45,14 @@ namespace Mono.TextEditor
 				data.Caret.Offset = matchingBracketOffset;
 		}
 		
-		public static int RemoveTabInLine (TextEditorData data, LineSegment line)
+		public static int RemoveTabInLine (TextEditorData data, DocumentLine line)
 		{
 			if (line.LengthIncludingDelimiter == 0)
 				return 0;
 			char ch = data.Document.GetCharAt (line.Offset); 
 			if (ch == '\t') {
 				data.Remove (line.Offset, 1);
+				data.Document.CommitLineUpdate (line);
 				return 1;
 			} else if (ch == ' ') {
 				int removeCount = 0;
@@ -60,7 +61,7 @@ namespace Mono.TextEditor
 					if (ch == ' ') {
 						removeCount ++;
 						i++;
-					} else  if (ch == '\t') {
+					} else if (ch == '\t') {
 						removeCount ++;
 						i += data.Options.TabSize;
 					} else {
@@ -68,6 +69,7 @@ namespace Mono.TextEditor
 					}
 				}
 				data.Remove (line.Offset, removeCount);
+				data.Document.CommitLineUpdate (line);
 				return removeCount;
 			}
 			return 0;
@@ -75,7 +77,8 @@ namespace Mono.TextEditor
 		
 		public static void RemoveIndentSelection (TextEditorData data)
 		{
-			Debug.Assert (data.IsSomethingSelected);
+			if (!data.IsSomethingSelected)
+				return;
 			int startLineNr, endLineNr;
 			GetSelectedLines (data, out startLineNr, out endLineNr);
 			
@@ -117,28 +120,14 @@ namespace Mono.TextEditor
 		
 		public static void RemoveTab (TextEditorData data)
 		{
-			if (!data.CanEditSelection)
+			if (data.IsSomethingSelected) {
+				if (data.CanEditSelection)
+					RemoveIndentSelection (data);
 				return;
-//			if (data.IsMultiLineSelection) {
-				RemoveIndentSelection (data);
-/*				return;
-			} else {
-				LineSegment line = data.Document.GetLine (data.Caret.Line);
-				int visibleColumn = 0;
-						for (int i = i < data.Caret.Column; ++i)
-					visibleColumn += data.Document.GetCharAt (line.Offset + i) == '\t' ? data.Options.TabSize : 1;
-				
-				int newColumn = ((visibleColumn / data.Options.IndentationSize) - 1) * data.Options.IndentationSize;
-				
-				visibleColumn = 0;
-				for (int i = 0; i < data.Caret.Column; ++i) {
-					visibleColumn += data.Document.GetCharAt (line.Offset + i) == '\t' ? data.Options.TabSize : 1;
-					if (visibleColumn >= newColumn) {
-						data.Caret.Column = i;
-						break;
-					}
-				}
-			}*/
+			}
+			var line = data.Document.GetLine (data.Caret.Line);
+			if (line != null)
+				RemoveTabInLine (data, line);
 		}
 		
 		public static void GetSelectedLines (TextEditorData data, out int startLineNr, out int endLineNr)
@@ -164,12 +153,14 @@ namespace Mono.TextEditor
 
 		public static void IndentSelection (TextEditorData data)
 		{
+			if (!data.IsSomethingSelected)
+				return;
 			int startLineNr, endLineNr;
 			GetSelectedLines (data, out startLineNr, out endLineNr);
 			var anchor = data.MainSelection.Anchor;
 			var lead = data.MainSelection.Lead;
 			using (var undo = data.OpenUndoGroup ()) {
-				foreach (LineSegment line in data.SelectedLines) {
+				foreach (DocumentLine line in data.SelectedLines) {
 					data.Insert (line.Offset, data.Options.IndentationString);
 				}
 			}
@@ -229,7 +220,7 @@ namespace Mono.TextEditor
 		{
 			if (!data.CanEditSelection)
 				return;
-			LineSegment line = data.Document.GetLine (data.Caret.Line);
+			DocumentLine line = data.Document.GetLine (data.Caret.Line);
 			data.Caret.Column = line.Length + 1;
 			InsertNewLine (data);
 		}
@@ -344,14 +335,14 @@ namespace Mono.TextEditor
 				//Mono.TextEditor.LineSegment startLine = data.Document.GetLine (lineStart);
 				//int relCaretOffset = data.Caret.Offset - startLine.Offset;
 				
-				Mono.TextEditor.LineSegment prevLine = data.Document.GetLine (lineStart - 1);
+				Mono.TextEditor.DocumentLine prevLine = data.Document.GetLine (lineStart - 1);
 				string text = data.Document.GetTextAt (prevLine.Offset, prevLine.Length);
 				List<TextMarker> prevLineMarkers = new List<TextMarker> (prevLine.Markers);
 				prevLine.ClearMarker ();
 				var loc = data.Caret.Location;
 				for (int i = lineStart - 1; i <= lineEnd; i++) {
-					LineSegment cur = data.Document.GetLine (i);
-					LineSegment next = data.Document.GetLine (i + 1);
+					DocumentLine cur = data.Document.GetLine (i);
+					DocumentLine next = data.Document.GetLine (i + 1);
 					data.Replace (cur.Offset, cur.Length, i != lineEnd ? data.Document.GetTextAt (next.Offset, next.Length) : text);
 					data.Document.GetLine (i).ClearMarker ();
 					foreach (TextMarker marker in (i != lineEnd ? data.Document.GetLine (i + 1).Markers : prevLineMarkers)) {
@@ -386,7 +377,7 @@ namespace Mono.TextEditor
 				//Mono.TextEditor.LineSegment startLine = data.Document.GetLine (lineStart);
 				//int relCaretOffset = data.Caret.Offset - startLine.Offset;
 				
-				Mono.TextEditor.LineSegment nextLine = data.Document.GetLine (lineEnd + 1);
+				Mono.TextEditor.DocumentLine nextLine = data.Document.GetLine (lineEnd + 1);
 				if (nextLine == null)
 					return;
 				string text = data.Document.GetTextAt (nextLine.Offset, nextLine.Length);
@@ -394,8 +385,8 @@ namespace Mono.TextEditor
 				nextLine.ClearMarker ();
 				var loc = data.Caret.Location;
 				for (int i = lineEnd + 1; i >= lineStart; i--) {
-					LineSegment cur = data.Document.GetLine (i);
-					LineSegment prev = data.Document.GetLine (i - 1);
+					DocumentLine cur = data.Document.GetLine (i);
+					DocumentLine prev = data.Document.GetLine (i - 1);
 					data.Replace (cur.Offset, cur.Length, i != lineStart ? data.Document.GetTextAt (prev.Offset, prev.Length) : text);
 					data.Document.GetLine (i).ClearMarker ();
 					foreach (TextMarker marker in (i != lineStart ? data.Document.GetLine (i - 1).Markers : prevLineMarkers)) {
@@ -416,13 +407,13 @@ namespace Mono.TextEditor
 		{
 			if (data.Caret.Offset == 0)
 				return;
-			LineSegment line = data.Document.GetLine (data.Caret.Line);
+			DocumentLine line = data.Document.GetLine (data.Caret.Line);
 			if (line == null)
 				return;
 			int transposeOffset = data.Caret.Offset - 1;
 			char ch;
 			if (data.Caret.Column == 0) {
-				LineSegment lineAbove = data.Document.GetLine (data.Caret.Line - 1);
+				DocumentLine lineAbove = data.Document.GetLine (data.Caret.Line - 1);
 				if (lineAbove.Length == 0 && line.Length == 0) 
 					return;
 				
@@ -447,7 +438,7 @@ namespace Mono.TextEditor
 				transposeOffset = offset - 1;
 				// case one char in line:
 				if (transposeOffset < line.Offset) {
-					LineSegment lineAbove = data.Document.GetLine (data.Caret.Line - 1);
+					DocumentLine lineAbove = data.Document.GetLine (data.Caret.Line - 1);
 					transposeOffset = lineAbove.Offset + lineAbove.Length;
 					ch = data.Document.GetCharAt (offset);
 					data.Remove (offset, 1);

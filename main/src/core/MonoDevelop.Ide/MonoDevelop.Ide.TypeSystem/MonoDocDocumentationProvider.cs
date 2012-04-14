@@ -31,6 +31,7 @@ using ICSharpCode.NRefactory.Documentation;
 using ICSharpCode.NRefactory.TypeSystem;
 using ICSharpCode.NRefactory.TypeSystem.Implementation;
 using MonoDevelop.Core;
+using ICSharpCode.NRefactory.Documentation;
 
 namespace MonoDevelop.Ide.TypeSystem
 {
@@ -64,6 +65,8 @@ namespace MonoDevelop.Ide.TypeSystem
 			XmlDocument doc = null;
 			try {
 				var helpTree = MonoDevelop.Projects.HelpService.HelpTree;
+				if (helpTree == null)
+					return null;
 				if (entity.EntityType == EntityType.TypeDefinition) {
 					doc = helpTree.GetHelpXml (idString);
 				} else {
@@ -76,13 +79,13 @@ namespace MonoDevelop.Ide.TypeSystem
 					
 					if (node != null)
 						return commentCache [idString] = new DocumentationComment (node.OuterXml, new SimpleTypeResolveContext (entity));
+					return null;
 //					var node = doc.SelectSingleNode ("/Type/Members/Member")
 //					return new DocumentationComment (doc.OuterXml, new SimpleTypeResolveContext (entity));
 				}
 			} catch (Exception e) {
 				hadError = true;
 				LoggingService.LogError ("Error while reading monodoc file.", e);
-				throw e;
 			}
 			if (doc == null) {
 				commentCache [idString] = null;
@@ -118,7 +121,7 @@ namespace MonoDevelop.Ide.TypeSystem
 		{
 			XmlNode node = null;
 			if (nodes.Count == 1) {
-				node = nodes[0];
+				node = nodes [0];
 			} else {
 				var p = entity.Parameters;
 				foreach (XmlNode curNode in nodes) {
@@ -129,20 +132,22 @@ namespace MonoDevelop.Ide.TypeSystem
 						continue;
 					bool matched = true;
 					for (int i = 0; i < p.Count; i++) {
-						if (p[i].Type.FullName != paramList[i].Attributes["Type"].Value) {
+						var idString = AmbienceService.GetAmbience ("text/x-csharp").GetString (p [i].Type, OutputFlags.ClassBrowserEntries | OutputFlags.IncludeGenerics | OutputFlags.UseFullName | OutputFlags.UseFullInnerTypeName);
+						if (idString != paramList [i].Attributes ["Type"].Value) {
 							matched = false;
 							break;
 						}
 					}
-					if (matched)
+					if (matched) {
 						return curNode;
+					}
 				}
 			}
 			if (node != null) {
 				System.Xml.XmlNode result = node.SelectSingleNode ("Docs");
 				return result;
 			}
-			return null;;
+			return null;
 		}
 		
 		#endregion

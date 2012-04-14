@@ -232,7 +232,7 @@ namespace MonoDevelop.CSharp.Refactoring
 				using (var stringWriter = new System.IO.StringWriter ()) {
 					var formatter = new TextWriterOutputFormatter (stringWriter);
 					stringWriter.NewLine = EolMarker; 
-					var visitor = new CSharpOutputVisitor (formatter, new CSharpFormattingOptions ());
+					var visitor = new CSharpOutputVisitor (formatter, FormattingOptionsFactory.CreateMono ());
 					var shortType = CreateShortType (def.Compilation, file, loc, resolved);
 					shortType.AcceptVisitor (visitor);
 					
@@ -370,7 +370,10 @@ namespace MonoDevelop.CSharp.Refactoring
 			
 			// This should also check the types are in the correct mscorlib
 			Func<IType, bool> validBaseType = t => t.FullName != "System.Object" && t.FullName != "System.ValueType";
-			if (!options.ExplicitDeclaration && typeParameters.Any (p => p.HasDefaultConstructorConstraint || p.HasReferenceTypeConstraint || p.HasValueTypeConstraint || p.DirectBaseTypes.Any (validBaseType))) {
+
+			bool isFromInterface = method.DeclaringType != null && method.DeclaringTypeDefinition.Kind == TypeKind.Interface;
+
+			if (!options.ExplicitDeclaration && isFromInterface && typeParameters.Any (p => p.HasDefaultConstructorConstraint || p.HasReferenceTypeConstraint || p.HasValueTypeConstraint || p.DirectBaseTypes.Any (validBaseType))) {
 				result.Append (" where ");
 				int typeParameterCount = 0;
 				foreach (var p in typeParameters) {
@@ -754,7 +757,7 @@ namespace MonoDevelop.CSharp.Refactoring
 		int CountBlankLines (MonoDevelop.Ide.Gui.Document doc, int startLine)
 		{
 			int result = 0;
-			LineSegment line;
+			DocumentLine line;
 			while ((line = doc.Editor.GetLine (startLine + result)) != null && doc.Editor.GetLineIndent (line).Length == line.Length) {
 				result++;
 			}

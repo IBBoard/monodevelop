@@ -71,9 +71,9 @@ namespace MonoDevelop.SourceEditor
 		EventHandler<BreakpointEventArgs> breakpointAdded;
 		EventHandler<BreakpointEventArgs> breakpointRemoved;
 		EventHandler<BreakpointEventArgs> breakpointStatusChanged;
-		List<LineSegment> breakpointSegments = new List<LineSegment> ();
-		LineSegment debugStackSegment;
-		LineSegment currentLineSegment;
+		List<DocumentLine> breakpointSegments = new List<DocumentLine> ();
+		DocumentLine debugStackSegment;
+		DocumentLine currentLineSegment;
 		List<PinnedWatchInfo> pinnedWatches = new List<PinnedWatchInfo> ();
 		bool writeAllowed;
 		bool writeAccessChecked;
@@ -259,8 +259,7 @@ namespace MonoDevelop.SourceEditor
 			TaskService.Errors.TasksRemoved += UpdateTasks;
 			TaskService.JumpedToTask += HandleTaskServiceJumpedToTask;
 			IdeApp.Preferences.ShowMessageBubblesChanged += HandleIdeAppPreferencesShowMessageBubblesChanged;
-			MonoDevelop.Ide.Gui.Pads.ErrorListPad errorListPad = IdeApp.Workbench.GetPad<MonoDevelop.Ide.Gui.Pads.ErrorListPad> ().Content as MonoDevelop.Ide.Gui.Pads.ErrorListPad;
-			errorListPad.TaskToggled += HandleErrorListPadTaskToggled;
+			TaskService.TaskToggled += HandleErrorListPadTaskToggled;
 			widget.TextEditor.Options.Changed += HandleWidgetTextEditorOptionsChanged;
 			IdeApp.Preferences.DefaultHideMessageBubblesChanged += HandleIdeAppPreferencesDefaultHideMessageBubblesChanged;
 			Document.AddAnnotation (this);
@@ -336,7 +335,7 @@ namespace MonoDevelop.SourceEditor
 					if (task.Severity == TaskSeverity.Error || task.Severity == TaskSeverity.Warning) {
 						if (IdeApp.Preferences.ShowMessageBubbles == ShowMessageBubbles.ForErrors && task.Severity == TaskSeverity.Warning)
 							continue;
-						LineSegment lineSegment = widget.Document.GetLine (task.Line);
+						DocumentLine lineSegment = widget.Document.GetLine (task.Line);
 						if (lineSegment == null)
 							continue;
 						var marker = currentErrorMarkers.FirstOrDefault (m => m.LineSegment == lineSegment);
@@ -694,7 +693,7 @@ namespace MonoDevelop.SourceEditor
 			IdeApp.Preferences.DefaultHideMessageBubblesChanged -= HandleIdeAppPreferencesDefaultHideMessageBubblesChanged;
 			IdeApp.Preferences.ShowMessageBubblesChanged -= HandleIdeAppPreferencesShowMessageBubblesChanged;
 			MonoDevelop.Ide.Gui.Pads.ErrorListPad errorListPad = IdeApp.Workbench.GetPad<MonoDevelop.Ide.Gui.Pads.ErrorListPad> ().Content as MonoDevelop.Ide.Gui.Pads.ErrorListPad;
-			errorListPad.TaskToggled -= HandleErrorListPadTaskToggled;
+			TaskService.TaskToggled -= HandleErrorListPadTaskToggled;
 			
 			DisposeErrorMarkers ();
 			
@@ -847,7 +846,7 @@ namespace MonoDevelop.SourceEditor
 		struct PinnedWatchInfo
 		{
 			public PinnedWatch Watch;
-			public LineSegment Line;
+			public DocumentLine Line;
 			public PinnedWatchWidget Widget;
 //			public DebugValueMarker Marker;
 		}
@@ -869,7 +868,7 @@ namespace MonoDevelop.SourceEditor
 		
 		void AddWatch (PinnedWatch w)
 		{
-			LineSegment line = widget.TextEditor.Document.GetLine (w.Line);
+			DocumentLine line = widget.TextEditor.Document.GetLine (w.Line);
 			if (line == null)
 				return;
 			PinnedWatchInfo wi = new PinnedWatchInfo ();
@@ -954,7 +953,7 @@ namespace MonoDevelop.SourceEditor
 			}
 			
 			HashSet<int> lineNumbers = new HashSet<int> ();
-			foreach (LineSegment line in breakpointSegments) {
+			foreach (DocumentLine line in breakpointSegments) {
 				lineNumbers.Add (Document.OffsetToLineNumber (line.Offset));
 				widget.TextEditor.Document.RemoveMarker (line, typeof(BreakpointTextMarker));
 				widget.TextEditor.Document.RemoveMarker (line, typeof(DisabledBreakpointTextMarker));
@@ -984,7 +983,7 @@ namespace MonoDevelop.SourceEditor
 				return;
 			FilePath fp = Name;
 			if (fp.FullPath == bp.FileName) {
-				LineSegment line = widget.TextEditor.Document.GetLine (bp.Line);
+				DocumentLine line = widget.TextEditor.Document.GetLine (bp.Line);
 				var status = bp.GetStatus (DebuggingService.DebuggerSession);
 				
 				if (line == null)
@@ -1285,7 +1284,7 @@ namespace MonoDevelop.SourceEditor
 		#endregion 
 		
 		#region IBookmarkBuffer
-		LineSegment GetLine (int position)
+		DocumentLine GetLine (int position)
 		{
 			DocumentLocation location = Document.OffsetToLocation (position);
 			return Document.GetLine (location.Line);
@@ -1293,7 +1292,7 @@ namespace MonoDevelop.SourceEditor
 				
 		public void SetBookmarked (int position, bool mark)
 		{
-			LineSegment line = GetLine (position);
+			DocumentLine line = GetLine (position);
 			if (line != null && line.IsBookmarked != mark) {
 				int lineNumber = widget.TextEditor.Document.OffsetToLineNumber (line.Offset);
 				line.IsBookmarked = mark;
@@ -1304,7 +1303,7 @@ namespace MonoDevelop.SourceEditor
 		
 		public bool IsBookmarked (int position)
 		{
-			LineSegment line = GetLine (position);
+			DocumentLine line = GetLine (position);
 			return line != null ? line.IsBookmarked : false;
 		}
 		
@@ -1513,7 +1512,7 @@ namespace MonoDevelop.SourceEditor
 					int maxLine = data.MainSelection.MaxLine;
 					int column = triggerOffset - data.Document.GetLineByOffset (triggerOffset).Offset;
 					for (int lineNumber = minLine; lineNumber <= maxLine; lineNumber++) {
-						LineSegment lineSegment = data.Document.GetLine (lineNumber);
+						DocumentLine lineSegment = data.Document.GetLine (lineNumber);
 						if (lineSegment == null)
 							continue;
 						int offset = lineSegment.Offset + column;
@@ -2099,13 +2098,18 @@ namespace MonoDevelop.SourceEditor
 		[CommandHandler (EditCommands.IndentSelection)]
 		public void IndentSelection ()
 		{
-			Mono.TextEditor.MiscActions.IndentSelection (widget.TextEditor.GetTextEditorData ());
+			if (widget.TextEditor.IsSomethingSelected) {
+				MiscActions.IndentSelection (widget.TextEditor.GetTextEditorData ());
+			} else {
+				int offset = widget.TextEditor.LocationToOffset (widget.TextEditor.Caret.Line, 1);
+				widget.TextEditor.Insert (offset, widget.TextEditor.Options.IndentationString);
+			}
 		}
 		
 		[CommandHandler (EditCommands.UnIndentSelection)]
 		public void UnIndentSelection ()
 		{
-			Mono.TextEditor.MiscActions.RemoveIndentSelection (widget.TextEditor.GetTextEditorData ());
+			Mono.TextEditor.MiscActions.RemoveTab (widget.TextEditor.GetTextEditorData ());
 		}
 		
 		[CommandHandler (EditCommands.InsertGuid)]

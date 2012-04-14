@@ -12,12 +12,35 @@ namespace Mono.TextEditor
 		int textLength;
 		List<LineSplitter.Delimiter> delimiters = new List<LineSplitter.Delimiter> ();
 
-		sealed class PrimitiveLineSegment : LineSegment
+		sealed class PrimitiveLineSegment : DocumentLine
 		{
+			readonly PrimitiveLineSplitter splitter;
+			readonly int lineNumber;
+
 			public override int Offset { get; set; }
 
-			public PrimitiveLineSegment (int offset, int length, int delimiterLength) : base(length, delimiterLength)
+			public override int LineNumber {
+				get {
+					return lineNumber;
+				}
+			}
+
+			public override DocumentLine NextLine {
+				get {
+					return splitter.Get (lineNumber + 1);
+				}
+			}
+
+			public override DocumentLine PreviousLine {
+				get {
+					return splitter.Get (lineNumber - 1);
+				}
+			}
+
+			public PrimitiveLineSegment (PrimitiveLineSplitter splitter, int lineNumber, int offset, int length, int delimiterLength) : base(length, delimiterLength)
 			{
+				this.splitter = splitter;
+				this.lineNumber = lineNumber;
 				Offset = offset;
 			}
 		}
@@ -26,7 +49,7 @@ namespace Mono.TextEditor
 			get { return delimiters.Count + 1; }
 		}
 
-		public IEnumerable<LineSegment> Lines {
+		public IEnumerable<DocumentLine> Lines {
 			get { return GetLinesStartingAt (DocumentLocation.MinLine); }
 		}
 
@@ -55,7 +78,7 @@ namespace Mono.TextEditor
 			textLength = 0;
 		}
 
-		public LineSegment Get (int number)
+		public DocumentLine Get (int number)
 		{
 			number--;
 			if (number < 0)
@@ -70,10 +93,10 @@ namespace Mono.TextEditor
 				endOffset = textLength;
 				delimiterLength = 0;
 			}
-			return new PrimitiveLineSegment (startOffset, endOffset - startOffset, delimiterLength);
+			return new PrimitiveLineSegment (this, number, startOffset, endOffset - startOffset, delimiterLength);
 		}
 
-		public LineSegment GetLineByOffset (int offset)
+		public DocumentLine GetLineByOffset (int offset)
 		{
 			return Get (OffsetToLineNumber (offset));
 		}
@@ -103,19 +126,19 @@ namespace Mono.TextEditor
 			throw new NotSupportedException ("Operation not supported on this line splitter.");
 		}
 
-		public IEnumerable<LineSegment> GetLinesBetween (int startLine, int endLine)
+		public IEnumerable<DocumentLine> GetLinesBetween (int startLine, int endLine)
 		{
 			for (int i = startLine; i <= endLine; i++)
 				yield return Get (i);
 		}
 
-		public IEnumerable<LineSegment> GetLinesStartingAt (int startLine)
+		public IEnumerable<DocumentLine> GetLinesStartingAt (int startLine)
 		{
 			for (int i = startLine; i <= Count; i++)
 				yield return Get (i);
 		}
 
-		public IEnumerable<LineSegment> GetLinesReverseStartingAt (int startLine)
+		public IEnumerable<DocumentLine> GetLinesReverseStartingAt (int startLine)
 		{
 			for (int i = startLine; i-- > DocumentLocation.MinLine;)
 				yield return Get (i);

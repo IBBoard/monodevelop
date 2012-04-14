@@ -330,7 +330,7 @@ namespace MonoDevelop.GtkCore.GuiBuilder
 				};
 				provider.GenerateCodeFromCompileUnit (cu, fileStream, options);
 				text = fileStream.ToString ();
-				text = FormatGeneratedFile (fileName, text, provider);
+				text = FormatGeneratedFile (fileName, text, project, provider);
 			}
 			
 			if (saveToFile)
@@ -482,10 +482,9 @@ namespace MonoDevelop.GtkCore.GuiBuilder
 						timer.Trace ("Generating code for " + unit.Name);
 						provider.GenerateCodeFromCompileUnit (unit, sw, codeGeneratorOptions);
 						string content = sw.ToString ();
-						string eol = pol.GetEolMarker ();
-									
+								
 						timer.Trace ("Formatting code");
-						content = FormatGeneratedFile (fname, content, provider);
+						content = FormatGeneratedFile (fname, content, project, provider);
 						timer.Trace ("Writing code");
 						File.WriteAllText (fname, content);
 					} finally {
@@ -527,19 +526,20 @@ namespace MonoDevelop.GtkCore.GuiBuilder
 			return pfile.FilePath;
 		}
 		
-		static string FormatGeneratedFile (string file, string content, CodeDomProvider provider)
+		static string FormatGeneratedFile (string file, string content, Project project, CodeDomProvider provider)
 		{
 			content = StripHeaderAndBlankLines (content, provider);
-			
-			var pol = PolicyService.InvariantPolicies.Get<TextStylePolicy> ();
-			string eol = pol.GetEolMarker ();
-			if (Environment.NewLine != eol)
-				content = content.Replace (Environment.NewLine, eol);
-			
+
 			string mt = DesktopService.GetMimeTypeForUri (file);
 			var formatter = MonoDevelop.Ide.CodeFormatting.CodeFormatterService.GetFormatter (mt);
 			if (formatter != null)
 				content = formatter.FormatText (PolicyService.InvariantPolicies, content);
+			
+			// The project policies should be taken for generated files (windows git eol problem)
+			var pol = project.Policies.Get<TextStylePolicy> (DesktopService.GetMimeTypeForUri (file));
+			string eol = pol.GetEolMarker ();
+			if (Environment.NewLine != eol)
+				content = content.Replace (Environment.NewLine, eol);
 			
 			return content;
 		}
@@ -564,7 +564,7 @@ namespace MonoDevelop.GtkCore.GuiBuilder
 			if (provider is Microsoft.CSharp.CSharpCodeProvider) {
 				bool previousWasBlank = false;
 				for (int i = 1; i <= doc.LineCount; i++) {
-					Mono.TextEditor.LineSegment line = doc.GetLine (i);
+					Mono.TextEditor.DocumentLine line = doc.GetLine (i);
 					bool isBlank, isBracket;
 					CheckLine (doc, line, out isBlank, out isBracket);
 					if (isBlank && previousWasBlank && line.LengthIncludingDelimiter > 0) {
@@ -579,7 +579,7 @@ namespace MonoDevelop.GtkCore.GuiBuilder
 			return doc.GetTextAt (offset, doc.TextLength - offset);
 		}
 
-		static void CheckLine (Mono.TextEditor.TextDocument doc, Mono.TextEditor.LineSegment line, out bool isBlank, out bool isBracket)
+		static void CheckLine (Mono.TextEditor.TextDocument doc, Mono.TextEditor.DocumentLine line, out bool isBlank, out bool isBracket)
 		{
 			isBlank = true;
 			isBracket = false;

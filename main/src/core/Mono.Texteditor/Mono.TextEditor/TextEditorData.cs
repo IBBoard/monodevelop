@@ -128,10 +128,15 @@ namespace Mono.TextEditor
 
 			document.TextSet += HandleDocTextSet;
 			document.Folded += HandleTextEditorDataDocumentFolded;
-
+			document.FoldTreeUpdated += HandleFoldTreeUpdated;
 			SearchEngine = new BasicSearchEngine ();
 
 			HeightTree = new HeightTree (this);
+			HeightTree.Rebuild ();
+		}
+
+		void HandleFoldTreeUpdated (object sender, EventArgs e)
+		{
 			HeightTree.Rebuild ();
 		}
 
@@ -142,7 +147,7 @@ namespace Mono.TextEditor
 			ClearSelection ();
 		}
 
-		public double GetLineHeight (LineSegment line)
+		public double GetLineHeight (DocumentLine line)
 		{
 			if (Parent == null)
 				return LineHeight;
@@ -185,7 +190,7 @@ namespace Mono.TextEditor
 					return Options.DefaultEolMarker;
 				string eol = null;
 				if (Document.LineCount > 0) {
-					LineSegment line = Document.GetLine (DocumentLocation.MinLine);
+					DocumentLine line = Document.GetLine (DocumentLocation.MinLine);
 					if (line.DelimiterLength > 0) 
 						eol = Document.GetTextAt (line.Length, line.DelimiterLength);
 				}
@@ -227,7 +232,7 @@ namespace Mono.TextEditor
 
 			StringBuilder result = new StringBuilder ();
 			while (curOffset < offset + length && curOffset < Document.TextLength) {
-				LineSegment line = Document.GetLineByOffset (curOffset);
+				DocumentLine line = Document.GetLineByOffset (curOffset);
 				int toOffset = System.Math.Min (line.Offset + line.Length, offset + length);
 				Stack<ChunkStyle> styleStack = new Stack<ChunkStyle> ();
 				foreach (var chunk in mode.GetChunks (ColorStyle, line, curOffset, toOffset - curOffset)) {
@@ -300,7 +305,7 @@ namespace Mono.TextEditor
 			return result.ToString ();
 		}
 
-		public IEnumerable<Chunk> GetChunks (LineSegment line, int offset, int length)
+		public IEnumerable<Chunk> GetChunks (DocumentLine line, int offset, int length)
 		{
 			return document.SyntaxMode.GetChunks (ColorStyle, line, offset, length);
 		}		
@@ -419,6 +424,7 @@ namespace Mono.TextEditor
 			
 			document.TextSet -= HandleDocTextSet;
 			document.Folded -= HandleTextEditorDataDocumentFolded;
+			document.FoldTreeUpdated -= HandleFoldTreeUpdated;
 		}
 
 		public void Dispose ()
@@ -685,6 +691,10 @@ namespace Mono.TextEditor
 				}
 			}
 		}
+
+		/// <summary>
+		/// Gets or sets the selection range. If nothing is selected (Caret.Offset, 0) is returned.
+		/// </summary>
 		public TextSegment SelectionRange {
 			get {
 				return MainSelection != null ? MainSelection.GetSelectionRange (this) : new TextSegment (Caret.Offset, 0);
@@ -733,7 +743,7 @@ namespace Mono.TextEditor
 		}
 		
 		
-		public IEnumerable<LineSegment> SelectedLines {
+		public IEnumerable<DocumentLine> SelectedLines {
 			get {
 				if (!IsSomethingSelected) 
 					return document.GetLinesBetween (caret.Line, caret.Line);
@@ -812,7 +822,7 @@ namespace Mono.TextEditor
 				bool preserve = Caret.PreserveSelection;
 				Caret.PreserveSelection = true;
 				for (int lineNr = selection.MinLine; lineNr <= selection.MaxLine; lineNr++) {
-					LineSegment curLine = Document.GetLine (lineNr);
+					DocumentLine curLine = Document.GetLine (lineNr);
 					int col1 = curLine.GetLogicalColumn (this, startCol) - 1;
 					int col2 = System.Math.Min (curLine.GetLogicalColumn (this, endCol) - 1, curLine.Length);
 					if (col1 >= col2)
@@ -1059,7 +1069,7 @@ namespace Mono.TextEditor
 		public int EnsureCaretIsNotVirtual ()
 		{
 			Debug.Assert (document.IsInAtomicUndo);
-			LineSegment line = Document.GetLine (Caret.Line);
+			DocumentLine line = Document.GetLine (Caret.Line);
 			if (line == null)
 				return 0;
 			if (Caret.Column > line.Length + 1) {
@@ -1186,7 +1196,7 @@ namespace Mono.TextEditor
 			return Document.GetLineText (line, includeDelimiter);
 		}
 
-		public IEnumerable<LineSegment> Lines {
+		public IEnumerable<DocumentLine> Lines {
 			get {
 				return Document.Lines;
 			}
@@ -1218,17 +1228,17 @@ namespace Mono.TextEditor
 			return Document.GetLineIndent (lineNumber);
 		}
 		
-		public string GetLineIndent (LineSegment segment)
+		public string GetLineIndent (DocumentLine segment)
 		{
 			return Document.GetLineIndent (segment);
 		}
 		
-		public LineSegment GetLine (int lineNumber)
+		public DocumentLine GetLine (int lineNumber)
 		{
 			return Document.GetLine (lineNumber);
 		}
 		
-		public LineSegment GetLineByOffset (int offset)
+		public DocumentLine GetLineByOffset (int offset)
 		{
 			return Document.GetLineByOffset (offset);
 		}

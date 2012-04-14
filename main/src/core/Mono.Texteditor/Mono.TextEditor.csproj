@@ -33,22 +33,36 @@
     </Execution>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Standalone|AnyCPU' ">
+    <DebugType>none</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Standalone</OutputPath>
+    <DefineConstants>STANDALONE</DefineConstants>
+    <WarningLevel>4</WarningLevel>
+    <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="Mono.Posix" />
     <Reference Include="glib-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f">
       <SpecificVersion>False</SpecificVersion>
+      <Package>glib-sharp-2.0</Package>
     </Reference>
     <Reference Include="pango-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f">
       <SpecificVersion>False</SpecificVersion>
+      <Package>gtk-sharp-2.0</Package>
     </Reference>
     <Reference Include="atk-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f">
       <SpecificVersion>False</SpecificVersion>
+      <Package>gtk-sharp-2.0</Package>
     </Reference>
     <Reference Include="gdk-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f">
       <SpecificVersion>False</SpecificVersion>
+      <Package>gtk-sharp-2.0</Package>
     </Reference>
     <Reference Include="gtk-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f">
       <SpecificVersion>False</SpecificVersion>
+      <Package>gtk-sharp-2.0</Package>
     </Reference>
     <Reference Include="System.Drawing" />
     <Reference Include="System" />
@@ -164,7 +178,6 @@
     <Compile Include="Mono.TextEditor\Document\GapBuffer.cs" />
     <Compile Include="Mono.TextEditor\Document\FoldSegment.cs" />
     <Compile Include="Mono.TextEditor\Document\LineEventArgs.cs" />
-    <Compile Include="Mono.TextEditor\Document\LineSegment.cs" />
     <Compile Include="Mono.TextEditor\Document\LineSplitter.cs" />
     <Compile Include="Mono.TextEditor\Document\SegmentTree.cs" />
     <Compile Include="Mono.TextEditor\Document\TextDocument.cs" />
@@ -184,6 +197,15 @@
     <Compile Include="Mono.TextEditor\Document\EmacsWordFindStrategy.cs" />
     <Compile Include="Mono.TextEditor\Document\BufferedTextReader.cs" />
     <Compile Include="Mono.TextEditor\Document\SyntaxModeChangeEventArgs.cs" />
+    <Compile Include="Mono.TextEditor\Document\DocumentLine.cs" />
+    <Compile Include="Mono.TextEditor\Standalone\TextSourceVersionProvider.cs" />
+    <Compile Include="Mono.TextEditor\Standalone\ITextSource.cs" />
+    <Compile Include="Mono.TextEditor\Standalone\IDocument.cs" />
+    <Compile Include="Mono.TextEditor\Standalone\ISegment.cs" />
+    <Compile Include="Mono.TextEditor\Standalone\TextChangeEventArgs.cs" />
+    <Compile Include="Mono.TextEditor\Standalone\IDocumentLine.cs" />
+    <Compile Include="Mono.TextEditor\Standalone\ITextAnchor.cs" />
+    <Compile Include="Mono.TextEditor\Standalone\TextLocation.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Mono.TextEditor.dll.config">
@@ -323,11 +345,13 @@
     <Folder Include="Mono.TextEditor\Actions\" />
     <Folder Include="Mono.TextEditor\Gui\" />
     <Folder Include="Mono.TextEditor\Document\" />
+    <Folder Include="Mono.TextEditor\Standalone\" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\contrib\ICSharpCode.NRefactory\ICSharpCode.NRefactory.csproj">
       <Project>{3B2A5653-EC97-4001-BB9B-D90F1AF2C371}</Project>
       <Name>ICSharpCode.NRefactory</Name>
+      <Private>False</Private>
     </ProjectReference>
   </ItemGroup>
 </Project>

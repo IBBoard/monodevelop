@@ -45,6 +45,7 @@ using MonoDevelop.Ide.TypeSystem;
 using ICSharpCode.NRefactory.TypeSystem;
 using ICSharpCode.NRefactory.TypeSystem.Implementation;
 using System.IO;
+using ICSharpCode.NRefactory.CSharp;
 
 namespace MonoDevelop.AssemblyBrowser
 {
@@ -122,8 +123,23 @@ namespace MonoDevelop.AssemblyBrowser
 				
 			return (ModuleDefinition)nav.DataItem;
 		}
-		
+
 		public static List<ReferenceSegment> Decompile (TextEditorData data, ModuleDefinition module, TypeDefinition currentType, Action<AstBuilder> setData)
+		{
+			DecompilerSettings settings = new DecompilerSettings () {
+				AnonymousMethods = true,
+				AutomaticEvents  = true,
+				AutomaticProperties = true,
+				ForEachStatement = true,
+				LockStatement = true,
+				ShowXmlDocumentation = true,
+
+			};
+			return Decompile (data, module, currentType, setData, settings);
+		}
+
+
+		public static List<ReferenceSegment> Decompile (TextEditorData data, ModuleDefinition module, TypeDefinition currentType, Action<AstBuilder> setData, DecompilerSettings settings)
 		{
 			try {
 				var types = DesktopService.GetMimeTypeInheritanceChain (data.Document.MimeType);
@@ -135,21 +151,16 @@ namespace MonoDevelop.AssemblyBrowser
 				context.CancellationToken = source.Token;
 				context.CurrentType = currentType;
 				
-				context.Settings = new DecompilerSettings () {
-					AnonymousMethods = true,
-					AutomaticEvents  = true,
-					AutomaticProperties = true,
-					ForEachStatement = true,
-					LockStatement = true
-				};
+				context.Settings = settings;
 				
 				AstBuilder astBuilder = new AstBuilder (context);
 				
 				setData (astBuilder);
 				
 				astBuilder.RunTransformations (o => false);
+				GeneratedCodeSettings.Default.Apply (astBuilder.CompilationUnit);
 				var output = new ColoredCSharpFormatter (data.Document);
-				ICSharpCode.NRefactory.CSharp.CSharpFormattingOptions options = codePolicy.CreateOptions ();
+				CSharpFormattingOptions options = codePolicy.CreateOptions ();
 				astBuilder.GenerateCode (output, options);
 				output.SetDocumentData ();
 				return output.ReferencedSegments;
@@ -172,7 +183,7 @@ namespace MonoDevelop.AssemblyBrowser
 			return result.ToString ();
 		}
 		
-		public List<ReferenceSegment> Decompile (TextEditorData data, ITreeNavigator navigator)
+		public List<ReferenceSegment> Decompile (TextEditorData data, ITreeNavigator navigator, bool publicOnly)
 		{
 			var method = (IUnresolvedMethod)navigator.DataItem;
 			if (HandleSourceCodeEntity (navigator, data)) 

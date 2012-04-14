@@ -1,4 +1,4 @@
-﻿// 
+// 
 // CSharpParameterCompletionEngine.cs
 //  
 // Author:
@@ -105,6 +105,8 @@ namespace ICSharpCode.NRefactory.CSharp.Completion
 			
 			//var memberLocation = currentMember != null ? currentMember.Region.Begin : currentType.Region.Begin;
 			var expr = baseUnit.GetNodeAt<AstType>(location.Line, location.Column + 1);
+			if (expr == null)
+				return null;
 			// '>' position
 			return new ExpressionResult((AstNode)expr, baseUnit);
 		}
@@ -146,7 +148,7 @@ namespace ICSharpCode.NRefactory.CSharp.Completion
 			}
 			
 			SetOffset(offset);
-			if (IsInsideCommentOrString()) {
+			if (IsInsideCommentStringOrDirective()) {
 				return null;
 			}
 
@@ -171,6 +173,8 @@ namespace ICSharpCode.NRefactory.CSharp.Completion
 					}
 					if (invoke.Node is ObjectCreateExpression) {
 						var createType = ResolveExpression(((ObjectCreateExpression)invoke.Node).Type, invoke.Unit);
+						if (createType.Item1.Type.Kind == TypeKind.Unknown)
+							return null;
 						return factory.CreateConstructorProvider(document.GetOffset(invoke.Node.StartLocation), createType.Item1.Type);
 					}
 				
@@ -351,6 +355,7 @@ namespace ICSharpCode.NRefactory.CSharp.Completion
 						bracketStack.Push(parameter);
 						parameter = new Stack<int>();
 						break;
+					case '[':
 					case '(':
 						if (inString || inChar || inVerbatimString || inSingleComment || inMultiLineComment) {
 							break;
@@ -367,6 +372,7 @@ namespace ICSharpCode.NRefactory.CSharp.Completion
 							return -1;
 						}
 						break;
+					case ']':
 					case ')':
 						if (inString || inChar || inVerbatimString || inSingleComment || inMultiLineComment) {
 							break;

@@ -55,7 +55,7 @@ namespace MonoDevelop.AspNet
 			}
 		}
 		
-		public override SpanParser CreateSpanParser (LineSegment line, CloneableStack<Span> spanStack)
+		public override SpanParser CreateSpanParser (DocumentLine line, CloneableStack<Span> spanStack)
 		{
 			return new ASPNetSpanParser (this, spanStack ?? line.StartSpan.Clone ());
 		}
@@ -74,6 +74,7 @@ namespace MonoDevelop.AspNet
 					End = new Regex ("<%");
 					Color = "template";
 					TagColor = "template.tag";
+					StopAtEol = false;
 				}
 			}
 			

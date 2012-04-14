@@ -71,11 +71,14 @@ FILES =  \
 	Ast/GeneralScope/DelegateDeclaration.cs \
 	Ast/GeneralScope/ExternAliasDeclaration.cs \
 	Ast/GeneralScope/NamespaceDeclaration.cs \
+	Ast/GeneralScope/NewLineNode.cs \
 	Ast/GeneralScope/PreProcessorDirective.cs \
+	Ast/GeneralScope/TextNode.cs \
 	Ast/GeneralScope/TypeDeclaration.cs \
 	Ast/GeneralScope/TypeParameterDeclaration.cs \
 	Ast/GeneralScope/UsingAliasDeclaration.cs \
 	Ast/GeneralScope/UsingDeclaration.cs \
+	Ast/GeneralScope/WhitespaceNode.cs \
 	Ast/IAstVisitor.cs \
 	Ast/Identifier.cs \
 	Ast/IdentifierExpressionBackreference.cs \
@@ -138,6 +141,8 @@ FILES =  \
 	CSharpProjectContent.cs \
 	Formatter/AstFormattingVisitor.cs \
 	Formatter/CSharpFormattingOptions.cs \
+	Formatter/FormattingOptionsFactory.cs \
+	Formatter/GeneratedCodeSettings.cs \
 	Formatter/Indent.cs \
 	Formatter/TextEditorOptions.cs \
 	OutputVisitor/CodeDomConvertVisitor.cs \
@@ -240,6 +245,7 @@ FILES =  \
 	Refactoring/CodeActions/RemoveBracesAction.cs \
 	Refactoring/CodeActions/RemoveRegionAction.cs \
 	Refactoring/CodeActions/ReplaceEmptyStringAction.cs \
+	Refactoring/CodeActions/SpecializedCodeAction.cs \
 	Refactoring/CodeActions/SplitDeclarationAndAssignmentAction.cs \
 	Refactoring/CodeActions/SplitStringAction.cs \
 	Refactoring/CodeActions/UseExplicitTypeAction.cs \

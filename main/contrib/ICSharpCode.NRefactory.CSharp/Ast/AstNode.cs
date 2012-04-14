@@ -1,4 +1,4 @@
-﻿// 
+// 
 // AstNode.cs
 //
 // Author:
@@ -364,6 +364,13 @@ namespace ICSharpCode.NRefactory.CSharp
 				lastChild.nextSibling = child;
 				child.prevSibling = lastChild;
 				lastChild = child;
+			}
+		}
+
+		public void InsertChildsBefore<T>(AstNode nextSibling, Role<T> role, params T[] child) where T : AstNode
+		{
+			foreach (var cur in child) {
+				InsertChildBefore(nextSibling, cur, role);
 			}
 		}
 		
@@ -824,7 +831,7 @@ namespace ICSharpCode.NRefactory.CSharp
 			if (IsNull)
 				return "";
 			var w = new StringWriter ();
-			AcceptVisitor (new CSharpOutputVisitor (w, formattingOptions ?? new CSharpFormattingOptions ()));
+			AcceptVisitor (new CSharpOutputVisitor (w, formattingOptions ?? FormattingOptionsFactory.CreateMono ()));
 			return w.ToString ();
 		}
 		
