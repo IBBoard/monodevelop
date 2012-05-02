@@ -80,7 +80,7 @@ namespace MonoDevelop.CSharpBinding
 		}
 
 		[Test]
-		public void TestSimple ()
+		public void TestSemicolon ()
 		{
 			TestViewContent content;
 			var ext = Setup (@"class Foo
@@ -90,7 +90,32 @@ namespace MonoDevelop.CSharpBinding
 		Console.WriteLine ()      ;$
 	}
 }", out content);
-			ext.KeyPress (Gdk.Key.Return, '\n', Gdk.ModifierType.None);
+			ext.KeyPress (Gdk.Key.semicolon, ';', Gdk.ModifierType.None);
+			
+			var newText = content.Text;
+			Console.WriteLine (newText);
+			Assert.AreEqual (@"class Foo
+{
+	void Test ()
+	{
+		Console.WriteLine ();
+	}
+}", newText);
+
+		}
+
+		[Test]
+		public void TestCloseBrace ()
+		{
+			TestViewContent content;
+			var ext = Setup (@"class Foo
+{
+	void Test ()
+	{
+		Console.WriteLine()                   ;
+	}$
+}", out content);
+			ext.KeyPress (Gdk.Key.braceright, '}', Gdk.ModifierType.None);
 			
 			var newText = content.Text;
 			Console.WriteLine (newText);

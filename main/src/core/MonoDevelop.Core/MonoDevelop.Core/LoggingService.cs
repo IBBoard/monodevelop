@@ -94,11 +94,9 @@ namespace MonoDevelop.Core
 		public static void Initialize (bool redirectOutput)
 		{
 			PurgeOldLogs ();
-#if DEBUG
-			if (redirectOutput)
-#else
+
+			// Always redirect on windows otherwise we cannot get output at all
 			if (Platform.IsWindows || redirectOutput)
-#endif
 				RedirectOutputToLogFile ();
 		}
 		

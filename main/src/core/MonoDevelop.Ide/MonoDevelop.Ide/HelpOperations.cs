@@ -61,6 +61,16 @@ namespace MonoDevelop.Ide
 				else
 					System.Diagnostics.Process.Start ("open", url);
 				return;
+			} else if (Platform.IsWindows) {
+				string mdapp = new FilePath (typeof (HelpOperations).Assembly.Location).ParentDirectory.Combine ("windoc", "WinDoc.exe").FullPath;
+				if (File.Exists (mdapp)) {
+					System.Diagnostics.Process.Start (new System.Diagnostics.ProcessStartInfo {
+						FileName = mdapp,
+						Arguments = "--url \"" + topic + '"' + DirArgs,
+						WorkingDirectory = Path.GetDirectoryName (mdapp),
+					});
+					return;
+				}
 			}
 	
 			if (firstCall)
@@ -72,7 +82,7 @@ namespace MonoDevelop.Ide
 		
 		public bool CanShowHelp (string topic)
 		{
-			return topic != null && !Platform.IsWindows;
+			return topic != null;
 		}
 		
 		void CheckExternalMonodoc ()

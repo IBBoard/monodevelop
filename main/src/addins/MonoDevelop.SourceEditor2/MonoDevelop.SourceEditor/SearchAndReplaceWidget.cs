@@ -223,17 +223,17 @@ namespace MonoDevelop.SourceEditor
 			
 			searchEntry.Entry.Activated += delegate {
 				UpdateSearchHistory (SearchPattern);
-				FindNext ();
+				FindNext (textEditor);
 			};
 			
 			buttonSearchForward.Clicked += delegate {
 				UpdateSearchHistory (SearchPattern);
-				FindNext ();
+				FindNext (textEditor);
 			};
 			
 			buttonSearchBackward.Clicked += delegate {
 				UpdateSearchHistory (SearchPattern);
-				FindPrevious ();
+				FindPrevious (textEditor);
 			};
 			
 //			optionsButton.Label = MonoDevelop.Core.GettextCatalog.GetString ("Options");
@@ -289,7 +289,6 @@ namespace MonoDevelop.SourceEditor
 			SetSearchPattern (searchPattern);
 			textEditor.HighlightSearchPattern = true;
 			textEditor.TextViewMargin.RefreshSearchMarker ();
-			Console.WriteLine ("readonly" + textEditor.Document.ReadOnly);
 			if (textEditor.Document.ReadOnly) {
 				buttonSearchMode.Visible = false;
 				IsReplaceMode = false;
@@ -809,7 +808,7 @@ But I leave it in in the case I've missed something. Mike
 		}
 		
 
-		public SearchResult FindNext ()
+		public static SearchResult FindNext (TextEditor textEditor)
 		{
 			SearchResult result = textEditor.FindNext (true);
 			textEditor.CenterToCaret ();
@@ -827,7 +826,7 @@ But I leave it in in the case I've missed something. Mike
 			return result;
 		}
 
-		public SearchResult FindPrevious ()
+		public static SearchResult FindPrevious (TextEditor textEditor)
 		{
 			SearchResult result = textEditor.FindPrevious (true);
 

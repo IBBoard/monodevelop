@@ -240,7 +240,6 @@ namespace ICSharpCode.NRefactory.CSharp.Completion
 				}
 				i++;
 			} while (i <= cursor && parentheses >= 0);
-			Console.WriteLine (indexStack.Count >= 0 || parentheses != 1 || bracket > 0 ? -1 : index);
 			return indexStack.Count >= 0 || parentheses != 1 || bracket > 0 ? -1 : index;
 		}
 
@@ -309,6 +308,7 @@ namespace ICSharpCode.NRefactory.CSharp.Completion
 							IsInString = false;
 							IsInChar = false;
 							IsFistNonWs = true;
+							IsInPreprocessorDirective = false;
 							break;
 						case '\\':
 							if (IsInString || IsInChar)
@@ -339,6 +339,21 @@ namespace ICSharpCode.NRefactory.CSharp.Completion
 				}
 			}
 		}
+
+		
+		protected bool IsInsideCommentStringOrDirective(int offset)
+		{
+			var lexer = new MiniLexer(document.Text);
+			lexer.Parse(0, offset);
+			return
+				lexer.IsInSingleComment || 
+				lexer.IsInString ||
+				lexer.IsInVerbatimString ||
+				lexer.IsInChar ||
+				lexer.IsInMultiLineComment || 
+				lexer.IsInPreprocessorDirective;
+		}
+
 
 		protected bool IsInsideCommentStringOrDirective()
 		{

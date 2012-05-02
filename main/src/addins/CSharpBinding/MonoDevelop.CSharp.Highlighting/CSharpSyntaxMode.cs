@@ -67,7 +67,7 @@ namespace MonoDevelop.CSharp.Highlighting
 	
 	public class CSharpSyntaxMode : Mono.TextEditor.Highlighting.SyntaxMode, IQuickTaskProvider
 	{
-		MonoDevelop.Ide.Gui.Document guiDocument;
+		Document guiDocument;
 		CompilationUnit unit;
 		CSharpParsedFile parsedFile;
 		ICompilation compilation;
@@ -89,13 +89,16 @@ namespace MonoDevelop.CSharp.Highlighting
 		
 		class HighlightingSegmentTree : SegmentTree<StyledTreeSegment>
 		{
-			public string GetStyle (Chunk chunk, ref int endOffset)
+			public bool GetStyle (Chunk chunk, ref int endOffset, out string style)
 			{
 				var segment = GetSegmentsAt (chunk.Offset).FirstOrDefault (s => s.Offset == chunk.Offset);
-				if (segment == null)
-					return null;
+				if (segment == null) {
+					style = null;
+					return false;
+				}
 				endOffset = segment.EndOffset;
-				return segment.Style;
+				style = segment.Style;
+				return true;
 			}
 			
 			public void AddStyle (int startOffset, int endOffset, string style)
@@ -217,6 +220,13 @@ namespace MonoDevelop.CSharp.Highlighting
 					doc.ReparseDocument ();
 				}
 			};
+			IdeApp.Workbench.ActiveDocumentChanged += delegate {
+				var doc = IdeApp.Workbench.ActiveDocument;
+				if (doc == null || doc.Editor == null || !(doc.Editor.Document.SyntaxMode is CSharpSyntaxMode))
+					return;
+				var mode = (CSharpSyntaxMode)doc.Editor.Document.SyntaxMode;
+				mode.HandleDocumentParsed (null, EventArgs.Empty);
+			};
 		}
 		
 		static void OnDisableConditionalCompilation (object s, MonoDevelop.Ide.Gui.DocumentEventArgs e)
@@ -234,7 +244,20 @@ namespace MonoDevelop.CSharp.Highlighting
 		};
 		
 		static readonly HashSet<string> ContextualDehighlightKeywordList = new HashSet<string> (new string[] {
-			"get", "set", "add", "remove", "var", "global", "partial", "where"
+			"get", "set", "add", "remove", "var", "global", "partial", 
+			"where",
+			"select",
+			"group",
+			"by",
+			"into",
+			"from",
+			"ascending",
+			"descending",
+			"orderby",
+			"let",
+			"join",
+			"on",
+			"equals"
 		});
 		
 		public CSharpSyntaxMode ()
@@ -274,6 +297,7 @@ namespace MonoDevelop.CSharp.Highlighting
 				guiDocument = null;
 			}
 			if (guiDocument != null) {
+
 				guiDocument.Closed += delegate {
 					if (src != null)
 						src.Cancel ();
@@ -332,7 +356,26 @@ namespace MonoDevelop.CSharp.Highlighting
 				}
 			}
 		}
-		
+
+		class DefineSpan : Span
+		{
+			string define;
+
+			public string Define { 
+				get { 
+					return define;
+				}
+			}
+
+			public DefineSpan (string define)
+			{
+				this.define = define;
+				StopAtEol = false;
+				Color = "text";
+				Rule = "<root>";
+			}
+		}
+
 		class IfBlockSpan : AbstractBlockSpan
 		{
 			public IfBlockSpan (bool isValid) : base (isValid)
@@ -446,11 +489,11 @@ namespace MonoDevelop.CSharp.Highlighting
 			#endregion
 			string GetSemanticStyle (ParsedDocument parsedDocument, Chunk chunk, ref int endOffset)
 			{
-				string style = csharpSyntaxMode.highlightedSegmentCache.GetStyle (chunk, ref endOffset);
-				if (style == null && !csharpSyntaxMode.highlightedSegmentCache.IsDirty) {
+				string style;
+				bool found = csharpSyntaxMode.highlightedSegmentCache.GetStyle (chunk, ref endOffset, out style);
+				if (!found && !csharpSyntaxMode.highlightedSegmentCache.IsDirty) {
 					style = GetSemanticStyleFromAst (parsedDocument, chunk, ref endOffset);
-					if (style != null)
-						csharpSyntaxMode.highlightedSegmentCache.AddStyle (chunk.Offset, endOffset, style);
+					csharpSyntaxMode.highlightedSegmentCache.AddStyle (chunk.Offset, style == null ? chunk.EndOffset : endOffset, style);
 				}
 				return style;
 			}
@@ -465,50 +508,10 @@ namespace MonoDevelop.CSharp.Highlighting
 				var node = unit.GetNodeAt (loc, n => n is Identifier || n is AstType || n is CSharpTokenNode);
 				var word = wordbuilder.ToString ();
 				string color;
-				if (csharpSyntaxMode.contextualHighlightKeywords.TryGetValue (word, out color)) {
-					if (node == null)
-						return null;
-					switch (word) {
-					case "value":
-						// highlight 'value' in property setters and event add/remove
-						var n = node.Parent;
-						while (n != null) {
-							if (n is Accessor && n.Role == PropertyDeclaration.SetterRole) {
-								endOffset = chunk.Offset + "value".Length;
-								return color;
-							}
-							n = n.Parent;
-						}
-						return null;
-					}
-					endOffset = chunk.Offset + word.Length;
-					if (node is CSharpTokenNode)
-						return color;
-					return spanParser.CurSpan != null ? spanParser.CurSpan.Color : "text";
-				}
-				
-				if (ContextualDehighlightKeywordList.Contains (word)) {
-					if (node == null)
-						return null;
-					if (node is Identifier) {
-						switch (((Identifier)node).Name) {
-						case "var": 
-							if (node.Parent != null) {
-								var vds = node.Parent.Parent as VariableDeclarationStatement;
-								if (node.Parent.Parent is ForeachStatement && ((ForeachStatement)node.Parent.Parent).VariableType.StartLocation == node.StartLocation ||
-									vds != null && node.StartLocation == vds.Type.StartLocation)
-									return null;
-							}
-							endOffset = chunk.Offset + "var".Length;
-							return spanParser.CurSpan != null ? spanParser.CurSpan.Color : "text";
-						}
-					} else if (node is CSharpTokenNode)
-						return color;
-					endOffset = chunk.Offset + word.Length;
-					return spanParser.CurSpan != null ? spanParser.CurSpan.Color : "text";
-				}
-				
+
 				while (node != null && !(node is Statement || node is EntityDeclaration)) {
+					if (node is CSharpTokenNode || node is ICSharpCode.NRefactory.CSharp.Comment || node is PreProcessorDirective)
+						break;
 					if (node is SimpleType) {
 						var st = (SimpleType)node;
 						
@@ -619,6 +622,50 @@ namespace MonoDevelop.CSharp.Highlighting
 					}
 					node = node.Parent;
 				}
+
+				if (csharpSyntaxMode.contextualHighlightKeywords.TryGetValue (word, out color)) {
+					if (node == null)
+						return null;
+					switch (word) {
+					case "value":
+						// highlight 'value' in property setters and event add/remove
+						var n = node.Parent;
+						while (n != null) {
+							if (n is Accessor && n.Role == PropertyDeclaration.SetterRole) {
+								endOffset = chunk.Offset + "value".Length;
+								return color;
+							}
+							n = n.Parent;
+						}
+						return null;
+					}
+					endOffset = chunk.Offset + word.Length;
+					if (node is CSharpTokenNode)
+						return color;
+					return spanParser.CurSpan != null ? spanParser.CurSpan.Color : "text";
+				}
+
+				if (ContextualDehighlightKeywordList.Contains (word)) {
+					if (node == null)
+						return null;
+					if (node is Identifier) {
+						switch (((Identifier)node).Name) {
+						case "var": 
+							if (node.Parent != null) {
+								var vds = node.Parent.Parent as VariableDeclarationStatement;
+								if (node.Parent.Parent is ForeachStatement && ((ForeachStatement)node.Parent.Parent).VariableType.StartLocation == node.StartLocation ||
+									vds != null && node.StartLocation == vds.Type.StartLocation)
+									return null;
+							}
+							endOffset = chunk.Offset + "var".Length;
+							return spanParser.CurSpan != null ? spanParser.CurSpan.Color : "text";
+						}
+					} else if (node is CSharpTokenNode)
+						return color;
+					endOffset = chunk.Offset + word.Length;
+					return spanParser.CurSpan != null ? spanParser.CurSpan.Color : "text";
+				}
+
 				return null;
 			}
 			
@@ -629,7 +676,7 @@ namespace MonoDevelop.CSharp.Highlighting
 				if (parsedDocument != null && MonoDevelop.Core.PropertyService.Get ("EnableSemanticHighlighting", true)) {
 					int endLoc = -1;
 					string semanticStyle = null;
-					if (spanParser.CurSpan == null) {
+					if (spanParser.CurSpan == null || spanParser.CurSpan is DefineSpan) {
 						try {
 							semanticStyle = GetSemanticStyle (parsedDocument, chunk, ref endLoc);
 						} catch (Exception e) {
@@ -668,9 +715,8 @@ namespace MonoDevelop.CSharp.Highlighting
 			}
 			class ConditinalExpressionEvaluator : DepthFirstAstVisitor<object, object>
 			{
-				HashSet<string> symbols = new HashSet<string> ();
-				
-			
+				HashSet<string> symbols;
+
 				MonoDevelop.Projects.Project GetProject (Mono.TextEditor.TextDocument doc)
 				{
 					// There is no reference between document & higher level infrastructure,
@@ -692,9 +738,10 @@ namespace MonoDevelop.CSharp.Highlighting
 					
 					return project;
 				}
-				
-				public ConditinalExpressionEvaluator (Mono.TextEditor.TextDocument doc)
+
+				public ConditinalExpressionEvaluator (Mono.TextEditor.TextDocument doc, IEnumerable<string> symbols)
 				{
+					this.symbols = new HashSet<string> (symbols);
 					var project = GetProject (doc);
 					
 					if (project == null) {
@@ -715,12 +762,12 @@ namespace MonoDevelop.CSharp.Highlighting
 								foreach (string s in syms) {
 									string ss = s.Trim ();
 									if (ss.Length > 0 && !symbols.Contains (ss))
-										symbols.Add (ss);
+										this.symbols.Add (ss);
 								}
 							}
 							// Workaround for mcs defined symbol
 							if (configuration.TargetRuntime.RuntimeId == "Mono") 
-								symbols.Add ("__MonoCS__");
+								this.symbols.Add ("__MonoCS__");
 						} else {
 							Console.WriteLine ("NO CONFIGURATION");
 						}
@@ -812,7 +859,14 @@ namespace MonoDevelop.CSharp.Highlighting
 				Span preprocessorSpan = CreatePreprocessorSpan ();
 				FoundSpanBegin (preprocessorSpan, i, 0);
 			}
-
+			IEnumerable<string> Defines {
+				get {
+					foreach (var span in SpanStack) {
+						if (span is DefineSpan)
+							yield return ((DefineSpan)span).Define;
+					}
+				}
+			}
 			void ScanPreProcessorIf (int textOffset, ref int i)
 			{
 				int length = CurText.Length - textOffset;
@@ -823,7 +877,7 @@ namespace MonoDevelop.CSharp.Highlighting
 				}
 				bool result = false;
 				if (expr != null && !expr.IsNull) {
-					object o = expr.AcceptVisitor (new ConditinalExpressionEvaluator (doc), null);
+					object o = expr.AcceptVisitor (new ConditinalExpressionEvaluator (doc, Defines), null);
 					if (o is bool)
 						result = (bool)o;
 				}
@@ -862,7 +916,7 @@ namespace MonoDevelop.CSharp.Highlighting
 					expr = new CSharpParser ().ParseExpression (reader);
 				}
 				
-				bool result = expr != null && !expr.IsNull ? (bool)expr.AcceptVisitor (new ConditinalExpressionEvaluator (doc), null) : false;
+				bool result = expr != null && !expr.IsNull ? (bool)expr.AcceptVisitor (new ConditinalExpressionEvaluator (doc, Defines), null) : false;
 					
 				IfBlockSpan containingIf = null;
 				if (result) {
@@ -902,6 +956,14 @@ namespace MonoDevelop.CSharp.Highlighting
 
 				if (textOffset < CurText.Length && CurText [textOffset] == '#' && IsFirstNonWsChar (textOffset)) {
 
+					if (CurText.IsAt (textOffset, "#define")) {
+						int length = CurText.Length - textOffset;
+						string parameter = CurText.Substring (textOffset + "#define".Length, length - "#define".Length).Trim ();
+
+						var defineSpan = new DefineSpan (parameter);
+						FoundSpanBegin (defineSpan, i, 0);
+					}
+	
 					if (CurText.IsAt (textOffset, "#else")) {
 						ScanPreProcessorElse (ref i);
 						return;

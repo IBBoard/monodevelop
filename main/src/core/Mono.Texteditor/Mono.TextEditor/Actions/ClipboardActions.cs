@@ -34,6 +34,7 @@ using System.Text;
 
 using Gtk;
 using Mono.TextEditor.Highlighting;
+using Mono.TextEditor.Utils;
 
 namespace Mono.TextEditor
 {
@@ -93,7 +94,7 @@ namespace Mono.TextEditor
 					}
 					break;
 				case RichTextType:
-					selection_data.Set (RTF_ATOM, UTF8_FORMAT, System.Text.Encoding.UTF8.GetBytes (GenerateRtf (copiedDocument, mode, docStyle, options)));
+					selection_data.Set (RTF_ATOM, UTF8_FORMAT, System.Text.Encoding.UTF8.GetBytes (RtfWriter.GenerateRtf (copiedDocument, mode, docStyle, options)));
 					break;
 				case MonoTextType:
 					byte[] rawText = System.Text.Encoding.UTF8.GetBytes (monoDocument.Text);
@@ -126,122 +127,7 @@ namespace Mono.TextEditor
 			public Mono.TextEditor.Highlighting.ColorScheme docStyle;
 			ITextEditorOptions options;
 			Mono.TextEditor.Highlighting.ISyntaxMode mode;
-			
-			static string GenerateRtf (TextDocument doc, Mono.TextEditor.Highlighting.ISyntaxMode mode, Mono.TextEditor.Highlighting.ColorScheme style, ITextEditorOptions options)
-			{
-				StringBuilder rtfText = new StringBuilder ();
-				List<Gdk.Color> colorList = new List<Gdk.Color> ();
-	
-				var selection = new TextSegment (0, doc.TextLength);
-				int startLineNumber = doc.OffsetToLineNumber (selection.Offset);
-				int endLineNumber = doc.OffsetToLineNumber (selection.EndOffset);
-				
-				bool isItalic = false;
-				bool isBold = false;
-				int curColor = -1;
 
-				foreach (var line in doc.GetLinesBetween (startLineNumber, endLineNumber)) {
-					bool appendSpace = false;
-					foreach (Chunk chunk in mode.GetChunks (style, line, line.Offset, line.Length)) {
-						int start = System.Math.Max (selection.Offset, chunk.Offset);
-						int end = System.Math.Min (chunk.EndOffset, selection.EndOffset);
-						ChunkStyle chunkStyle = style.GetChunkStyle (chunk);
-						if (start < end) {
-							if (isBold != chunkStyle.Bold) {
-								rtfText.Append (chunkStyle.Bold ? @"\b" : @"\b0");
-								isBold = chunkStyle.Bold;
-								appendSpace = true;
-							}
-							if (isItalic != chunkStyle.Italic) {
-								rtfText.Append (chunkStyle.Italic ? @"\i" : @"\i0");
-								isItalic = chunkStyle.Italic;
-								appendSpace = true;
-							}
-							if (!colorList.Contains (chunkStyle.Color)) 
-								colorList.Add (chunkStyle.Color);
-							int color = colorList.IndexOf (chunkStyle.Color);
-							if (curColor != color) {
-								curColor = color;
-								rtfText.Append (@"\cf" + (curColor + 1));
-								appendSpace = true;
-							}
-							for (int i = start; i < end; i++) {
-								char ch = doc.GetCharAt (i);
-								
-								switch (ch) {
-								case '\\':
-									rtfText.Append (@"\\");
-									break;
-								case '{':
-									rtfText.Append (@"\{");
-									break;
-								case '}':
-									rtfText.Append (@"\}");
-									break;
-								case '\t':
-									rtfText.Append (@"\tab");
-									appendSpace = true;
-									break;
-								default:
-									if (appendSpace) {
-										rtfText.Append (' ');
-										appendSpace = false;
-									}
-									rtfText.Append (ch);
-									break;
-								}
-							}
-						}
-					}
-					rtfText.Append (@"\par");
-					rtfText.AppendLine ();
-				}
-				
-				// color table
-
-				StringBuilder colorTable = new StringBuilder ();
-				colorTable.Append (@"{\colortbl ;");
-				for (int i = 0; i < colorList.Count; i++) {
-					Gdk.Color color = colorList[i];
-					colorTable.Append (@"\red");
-					colorTable.Append (color.Red / 256);
-					colorTable.Append (@"\green");
-					colorTable.Append (color.Green / 256); 
-					colorTable.Append (@"\blue");
-					colorTable.Append (color.Blue / 256);
-					colorTable.Append (";");
-				}
-				colorTable.Append ("}");
-				
-				StringBuilder rtf = new StringBuilder();
-
-				rtf.Append (@"{\rtf1\ansi\deff0\adeflang1025");
-				
-				// font table
-				rtf.Append (@"{\fonttbl");
-
-				rtf.Append (@"{\f0\fnil\fprq1\fcharset128 " + options.Font.Family + ";}");
-
-				rtf.Append ("}");
-				
-				rtf.Append (colorTable.ToString ());
-				
-				rtf.Append (@"\viewkind4\uc1\pard");
-
-				rtf.Append (@"\f0");
-				try {
-					string fontName = options.Font.ToString ();
-					double fontSize = Double.Parse (fontName.Substring (fontName.LastIndexOf (' ')  + 1), System.Globalization.CultureInfo.InvariantCulture) * 2;
-					rtf.Append (@"\fs");
-					rtf.Append (fontSize);
-				} catch (Exception) {};
-				rtf.Append (@"\cf1");
-				rtf.Append (rtfText.ToString ());
-				rtf.Append("}");
-//				System.Console.WriteLine(rtf);
-				return rtf.ToString ();
-			}
-			
 			public static Gtk.TargetList targetList;
 			
 			static CopyOperation ()
@@ -274,7 +160,7 @@ namespace Mono.TextEditor
 					monoDocument = new TextDocument ();
 					this.docStyle = data.ColorStyle;
 					this.options = data.Options;
-					this.mode = data.Document.SyntaxMode != null && data.Options.EnableSyntaxHighlighting ? data.Document.SyntaxMode : new SyntaxMode (data.Document);
+					this.mode = SyntaxModeService.GetSyntaxMode (monoDocument, data.MimeType);
 					switch (selection.SelectionMode) {
 					case SelectionMode.Normal:
 						isBlockMode = false;
@@ -372,12 +258,13 @@ namespace Mono.TextEditor
 						bool pasteBlock = (selBytes [0] & 1) == 1;
 						bool pasteLine = (selBytes [0] & 2) == 2;
 						
+						var clearSelection = data.IsSomethingSelected ? data.MainSelection.SelectionMode != SelectionMode.Block : true;
 						using (var undo = data.OpenUndoGroup ()) {
-							if (preserveSelection && data.IsSomethingSelected)
-								data.DeleteSelectedText ();
-							
-							data.Caret.PreserveSelection = true;
 							if (pasteBlock) {
+								data.Caret.PreserveSelection = true;
+								if (preserveSelection && data.IsSomethingSelected)
+									data.DeleteSelectedText (clearSelection);
+							
 								string[] lines = text.Split ('\r');
 								int lineNr = data.Document.OffsetToLineNumber (insertionOffset);
 								int col = insertionOffset - data.Document.GetLine (lineNr).Offset;
@@ -403,21 +290,22 @@ namespace Mono.TextEditor
 									if (!preserveState)
 										data.Caret.Offset = curLine.Offset + lineCol + lines [i].Length;
 								}
+								if (!preserveState)
+									data.ClearSelection ();
+								data.Caret.PreserveSelection = false;
 							} else if (pasteLine) {
+								data.Caret.PreserveSelection = true;
+								if (preserveSelection && data.IsSomethingSelected)
+									data.DeleteSelectedText (clearSelection);
 								result = text.Length;
 								DocumentLine curLine = data.Document.GetLine (data.Caret.Line);
 								data.Insert (curLine.Offset, text + data.EolMarker);
+								if (!preserveState)
+									data.ClearSelection ();
+								data.Caret.PreserveSelection = false;
 							} else {
-								int offset = data.Caret.Offset;
-								data.InsertAtCaret (text);
-								data.PasteText (offset, text, data.Caret.Offset - offset);
+								PastePlainText (data, text);
 							}
-							/*				data.MainSelection = new Selection (data.Document.OffsetToLocation (insertionOffset),
-							                                    data.Caret.Location,
-							                                    lines.Length > 1 ? SelectionMode.Block : SelectionMode.Normal);*/
-							if (!preserveState)
-								data.ClearSelection ();
-							data.Caret.PreserveSelection = false;
 						}
 					}
 				});
@@ -430,66 +318,20 @@ namespace Mono.TextEditor
 					if (string.IsNullOrEmpty (text))
 						return;
 					using (var undo = data.OpenUndoGroup ()) {
-						int caretPos = data.Caret.Offset;
-						if (data.IsSomethingSelected && data.MainSelection.SelectionMode == SelectionMode.Block) {
-							data.Caret.PreserveSelection = true;
-							data.DeleteSelectedText (false);
-							int textLength = 0;
-							int minLine = data.MainSelection.MinLine;
-							int maxLine = data.MainSelection.MaxLine;
-							var visualInsertLocation = data.LogicalToVisualLocation (data.Caret.Location);
-							for (int lineNumber = minLine; lineNumber <= maxLine; lineNumber++) {
-								DocumentLine lineSegment = data.GetLine (lineNumber);
-								int insertOffset = lineSegment.GetLogicalColumn (data, visualInsertLocation.Column) - 1;
-								if (lineSegment.Length < insertOffset) {
-									int visualLastColumn = lineSegment.GetVisualColumn (data, lineSegment.Length + 1);
-									int charsToInsert = visualInsertLocation.Column - visualLastColumn;
-									int spaceCount = charsToInsert % data.Options.TabSize;
-									string textToInsert = new string ('\t', (charsToInsert - spaceCount) / data.Options.TabSize) + new string (' ', spaceCount) + text;
-									insertOffset = lineSegment.Length;
-									int insertedChars = data.Insert (lineSegment.Offset + insertOffset, textToInsert);
-									data.PasteText (lineSegment.Offset + insertOffset, textToInsert, insertedChars);
-								} else {
-									textLength = data.Insert (lineSegment.Offset + insertOffset, text);
-									data.PasteText (lineSegment.Offset + insertOffset, text, textLength);
-								}
-							}
-							
-							data.MainSelection.Anchor = new DocumentLocation (System.Math.Max (DocumentLocation.MinLine, data.Caret.Line == minLine ? maxLine : minLine), System.Math.Max (DocumentLocation.MinColumn, data.Caret.Column - textLength));
-							data.MainSelection.Lead = new DocumentLocation (data.Caret.Line, data.Caret.Column);
-							data.Caret.PreserveSelection = false;
-							data.Document.CommitMultipleLineUpdate (data.MainSelection.MinLine, data.MainSelection.MaxLine);
-						} else {
-							TextSegment selection = data.SelectionRange;
-							if (preserveSelection && data.IsSomethingSelected)
-								data.DeleteSelectedText ();
-							data.Caret.PreserveSelection = true;
-							//int oldLine = data.Caret.Line;
-							int textLength = data.Insert (insertionOffset, text);
-							result = textLength;
-		
-							if (data.IsSomethingSelected && data.SelectionRange.Offset >= insertionOffset)
-								data.SelectionRange = new TextSegment (data.SelectionRange.Offset + textLength, data.SelectionRange.Length);
-							if (data.IsSomethingSelected && data.MainSelection.GetAnchorOffset (data) >= insertionOffset)
-								data.MainSelection.Anchor = data.Document.OffsetToLocation (data.MainSelection.GetAnchorOffset (data) + textLength);
-							
-							data.Caret.PreserveSelection = false;
-							if (!preserveState) {
-							} else {
-								if (!selection.IsInvalid) {
-									int offset = selection.Offset;
-									if (offset >= insertionOffset)
-										offset += textLength;
-									data.SelectionRange = new TextSegment (offset, selection.Length);
-								}
-							}
-							data.PasteText (insertionOffset, text, textLength);
-						}
+						PastePlainText (data, text);
 					}
 				});
 			}
 			
 			return result;
+		}
+
+		static void PastePlainText (TextEditorData data, string text)
+		{
+			data.DeleteSelectedText (!data.IsSomethingSelected || data.MainSelection.SelectionMode != SelectionMode.Block);
+			int offset = data.Caret.Offset;
+			data.InsertAtCaret (text);
+			data.PasteText (offset, text, data.Caret.Offset - offset);
 		}
 		
 		public static int PasteFromPrimary (TextEditorData data, int insertionOffset)

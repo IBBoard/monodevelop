@@ -133,7 +133,8 @@ namespace MonoDevelop.Ide.Gui
 			window.ActiveViewContentChanged += OnActiveViewContentChanged;
 			if (IdeApp.Workspace != null)
 				IdeApp.Workspace.ItemRemovedFromSolution += OnEntryRemoved;
-//			TypeSystemService.DomRegistered += UpdateRegisteredDom;
+			if (window.ViewContent.Project != null)
+				window.ViewContent.Project.Modified += HandleProjectModified;
 		}
 
 /*		void UpdateRegisteredDom (object sender, ProjectDomEventArgs e)
@@ -539,6 +540,9 @@ namespace MonoDevelop.Ide.Gui
 		void InitializeEditor (IExtensibleTextEditor editor)
 		{
 			Editor.Document.TextReplaced += (o, a) => {
+				if (parsedDocument != null)
+					parsedDocument.IsInvalid = true;
+
 				if (Editor.Document.IsInAtomicUndo) {
 					wasEdited = true;
 				} else {
@@ -632,9 +636,21 @@ namespace MonoDevelop.Ide.Gui
 				Window.ViewContent.Project = project;
 				pr.Update (project);
 			}
+			if (project != null)
+				project.Modified += HandleProjectModified;
 			OnDocumentAttached ();
 		}
-		
+
+		void HandleProjectModified (object sender, SolutionItemModifiedEventArgs e)
+		{
+			if (!e.Any (
+					x => x is SolutionItemModifiedEventInfo &&
+				(((SolutionItemModifiedEventInfo)x).Hint == "TargetFramework" ||
+				((SolutionItemModifiedEventInfo)x).Hint == "References")))
+				return;
+			StartReparseThread ();
+		}
+
 		/// <summary>
 		/// This method can take some time to finish. It's not threaded
 		/// </summary>
@@ -661,16 +677,18 @@ namespace MonoDevelop.Ide.Gui
 
 		static readonly Lazy<IUnresolvedAssembly> mscorlib = new Lazy<IUnresolvedAssembly> ( () => new CecilLoader ().LoadAssemblyFile (typeof (object).Assembly.Location));
 		static readonly Lazy<IUnresolvedAssembly> systemCore = new Lazy<IUnresolvedAssembly>( () => new CecilLoader ().LoadAssemblyFile (typeof (System.Linq.Enumerable).Assembly.Location));
+		static readonly Lazy<IUnresolvedAssembly> system = new Lazy<IUnresolvedAssembly>( () => new CecilLoader ().LoadAssemblyFile (typeof (System.Uri).Assembly.Location));
 
 		static IUnresolvedAssembly Mscorlib { get { return mscorlib.Value; } }
 		static IUnresolvedAssembly SystemCore { get { return systemCore.Value; } }
-		
+		static IUnresolvedAssembly System { get { return system.Value; } }
+
 		public virtual IProjectContent GetProjectContext ()
 		{
 			if (Project == null) {
 				if (singleFileContext == null) {
 					singleFileContext = new ICSharpCode.NRefactory.CSharp.CSharpProjectContent ();
-					singleFileContext = singleFileContext.AddAssemblyReferences (new [] { Mscorlib, SystemCore });
+					singleFileContext = singleFileContext.AddAssemblyReferences (new [] { Mscorlib, System, SystemCore });
 				}
 				if (parsedDocument != null)
 					return singleFileContext.UpdateProjectContent (null, parsedDocument.ParsedFile);
@@ -690,8 +708,11 @@ namespace MonoDevelop.Ide.Gui
 			CancelParseTimeout ();
 			
 			parseTimeout = GLib.Timeout.Add (ParseDelay, delegate {
-				string currentParseText = Editor.Text;
-				string mimeType = Editor.Document.MimeType;
+				var editor = Editor;
+				if (editor == null)
+					return false;
+				string currentParseText = editor.Text;
+				string mimeType = editor.Document.MimeType;
 				ThreadPool.QueueUserWorkItem (delegate {
 					var currentParsedDocument = TypeSystemService.ParseFile (Project, currentParseFile, mimeType, currentParseText);
 					Application.Invoke (delegate {

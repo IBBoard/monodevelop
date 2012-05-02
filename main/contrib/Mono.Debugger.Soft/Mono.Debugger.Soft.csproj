@@ -106,6 +106,7 @@
     <Compile Include="Mono.Debugger.Soft\VMStartEvent.cs" />
     <Compile Include="Mono.Debugger.Soft\AssemblyLoadEventRequest.cs" />
     <Compile Include="Locale.cs" />
+    <Compile Include="Mono.Debugger.Soft\PointerValue.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Makefile.am" />
@@ -131,7 +132,7 @@
     </MonoDevelop>
   </ProjectExtensions>
   <ItemGroup>
-    <ProjectReference Include="..\Mono.Cecil\src\Mono.Cecil.csproj">
+    <ProjectReference Include="..\..\..\external\cecil\Mono.Cecil.csproj">
       <Project>{D68133BD-1E63-496E-9EDE-4FBDBF77B486}</Project>
       <Name>Mono.Cecil</Name>
     </ProjectReference>

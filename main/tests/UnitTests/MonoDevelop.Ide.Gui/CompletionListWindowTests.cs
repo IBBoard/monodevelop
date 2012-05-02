@@ -456,17 +456,25 @@ namespace MonoDevelop.Ide.Gui
 			",A.bAb",
 			"Addd",
 		};
-		
+
 		[Test]
 		public void TestMatchPunctuation ()
 		{
 			string output = RunSimulation ("", "/\n", true, false, false, punctuationData);
 			Assert.AreEqual ("/AbAb", output);
-			
-			output = RunSimulation ("", "A\n", true, false, false, punctuationData);
+		}
+
+		[Test]
+		public void TestMatchPunctuationCase2 ()
+		{
+			string output = RunSimulation ("", "A\n", true, false, false, punctuationData);
 			Assert.AreEqual ("AbAb", output);
-			
-			output = RunSimulation ("", ",A..\n", true, false, false, punctuationData);
+		}
+
+		[Test]
+		public void TestMatchPunctuationCase3 ()
+		{
+			string output = RunSimulation ("", ",A..\n", true, false, false, punctuationData);
 			Assert.AreEqual (",A..bAb", output);
 		}
 		
@@ -475,17 +483,33 @@ namespace MonoDevelop.Ide.Gui
 		{
 			string output = RunSimulation ("", "Ac ", true, true, false, punctuationData);
 			Assert.AreEqual ("Accc", output);
-			
-			output = RunSimulation ("", "/ ", true, true, false, punctuationData);
+		}
+
+		[Test]
+		public void TestMatchPunctuationCommitOnSpaceAndPunctuation2 ()
+		{
+			var output = RunSimulation ("", "/ ", true, true, false, punctuationData);
 			Assert.AreEqual ("/AbAb", output);
-			
-			output = RunSimulation ("", ".", true, true, false, punctuationData);
+		}
+
+		[Test]
+		public void TestMatchPunctuationCommitOnSpaceAndPunctuation3 ()
+		{
+			var output = RunSimulation ("", ".", true, true, false, punctuationData);
 			Assert.AreEqual (null, output);
-			
-			output = RunSimulation ("", "A ", true, true, false, punctuationData);
+		}
+
+		[Test]
+		public void TestMatchPunctuationCommitOnSpaceAndPunctuation4 ()
+		{
+			var output = RunSimulation ("", "A ", true, true, false, punctuationData);
 			Assert.AreEqual ("AbAb", output);
-			
-			output = RunSimulation ("", ",A.b ", true, true, false, punctuationData);
+		}
+
+		[Test]
+		public void TestMatchPunctuationCommitOnSpaceAndPunctuation5 ()
+		{
+			var output = RunSimulation ("", ",A.b ", true, true, false, punctuationData);
 			Assert.AreEqual (",A.bAb", output);
 		}
 		
@@ -587,11 +611,19 @@ namespace MonoDevelop.Ide.Gui
 		{
 			string output = RunSimulation ("", "A\t", true, true, false, "AbCdEf");
 			Assert.AreEqual ("AbCdEf", output);
-			
-			output = RunSimulation ("", "Cd\t", true, true, false, "AbCdEf");
+		}
+
+		[Test]
+		public void TestBug595240Case2 ()
+		{
+			var output = RunSimulation ("", "Cd\t", true, true, false, "AbCdEf");
 			Assert.AreEqual ("AbCdEf", output);
-			
-			output = RunSimulation ("", "bC\t", true, true, false, "AbCdEf");
+		}
+
+		[Test]
+		public void TestBug595240Case3 ()
+		{
+			var output = RunSimulation ("", "bC\t", true, true, false, "AbCdEf");
 			Assert.AreNotEqual ("AbCdEf", output);
 		}
 		
@@ -653,12 +685,58 @@ namespace MonoDevelop.Ide.Gui
 		}
 		
 		[Test]
-		public void TestDigitSelection()
+		public void TestDigitSelection ()
 		{
 			string output = RunSimulation ("", "v1\t", true, true, false, "var", "var1");
 			Assert.AreEqual ("var1", output);
 		}
-		
+
+		[Test]
+		public void TestSelectFirst ()
+		{
+			string output = RunSimulation ("", "Are\t", true, true, false, "AreSame", "AreEqual", "AreDifferent");
+			Assert.AreEqual ("AreDifferent", output);
+		}
+
+		[Test]
+		public void TestPreferStart ()
+		{
+			string output = RunSimulation ("", "InC\t", true, true, false, "Equals", "InvariantCultureIfo", "GetInvariantCulture");
+			Assert.AreEqual ("InvariantCultureIfo", output);
+		}
+
+		[Test]
+		public void TestPreProcessorDirective ()
+		{
+			string output = RunSimulation ("", "if\t", true, true, false, "#if", "if");
+			Assert.AreEqual ("if", output);
+		}
+
+		/// <summary>
+		/// Bug 4732 - [Regression] Broken intellisense again 
+		/// </summary>
+		[Test]
+		public void TestBug4732 ()
+		{
+			string output = RunSimulation ("", "a\t", true, true, false, "_AppDomain", "A");
+			Assert.AreEqual ("A", output);
+		}
+
+
+		[Test]
+		public void TestFavorFirstSubword ()
+		{
+			string output = RunSimulation ("", "button\t", true, true, false, "AnotherTestButton", "Button");
+			Assert.AreEqual ("Button", output);
+		}
+
+		[Test]
+		public void TestFavorExactMatch ()
+		{
+			string output = RunSimulation ("", "View\t", true, true, false, "view", "View");
+			Assert.AreEqual ("View", output);
+		}
+
 		[TestFixtureSetUp] 
 		public void SetUp()
 		{

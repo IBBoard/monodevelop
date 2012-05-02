@@ -495,9 +495,20 @@ namespace MonoDevelop.SourceEditor
 		{
 			if (string.IsNullOrEmpty (text)) 
 				return;
+			ParsedDocument parsedDocument = null;
+
 			var foldingParser = TypeSystemService.GetFoldingParser (Document.MimeType);
-			if (foldingParser != null) 
-				widget.UpdateParsedDocument (foldingParser.Parse (Document.FileName, text));
+			if (foldingParser != null) {
+				parsedDocument = foldingParser.Parse (Document.FileName, text);
+			} else {
+				var normalParser = TypeSystemService.GetParser (Document.MimeType);
+				if (normalParser != null) {
+					using (var sr = new StringReader (text))
+						parsedDocument = normalParser.Parse (true, Document.FileName, sr, null);
+				}
+			}
+			if (parsedDocument != null) 
+				widget.UpdateParsedDocument (parsedDocument);
 		}
 		
 		public void Load (string fileName, Encoding loadEncoding)
@@ -1248,9 +1259,11 @@ namespace MonoDevelop.SourceEditor
 
 		public string GetText (int startPosition, int endPosition)
 		{
-			if (startPosition < 0 ||  endPosition < 0 ||  startPosition > endPosition)
+			var doc = widget.TextEditor.Document;
+			if (startPosition < 0 ||  endPosition < 0 ||  startPosition > endPosition || startPosition >= doc.TextLength)
 				return "";
-			return this.widget.TextEditor.Document.GetTextAt (startPosition, endPosition - startPosition);
+			var length = Math.Min (endPosition - startPosition, doc.TextLength - startPosition);
+			return doc.GetTextAt (startPosition, length);
 		}
 		
 		public char GetCharAt (int position)
@@ -1476,10 +1489,9 @@ namespace MonoDevelop.SourceEditor
 		{
 			SetCompletionText (ctx, partial_word, complete_word, complete_word.Length);
 		}
-		
-		public void SetCompletionText (CodeCompletionContext ctx, string partial_word, string complete_word, int wordOffset)
+
+		public static void SetCompletionText (TextEditorData data, CodeCompletionContext ctx, string partial_word, string complete_word, int wordOffset)
 		{
-			TextEditorData data = this.GetTextEditorData ();
 			if (data == null || data.Document == null)
 				return;
 			int triggerOffset = ctx.TriggerOffset;
@@ -1520,7 +1532,7 @@ namespace MonoDevelop.SourceEditor
 					}
 					int minColumn = System.Math.Min (data.MainSelection.Anchor.Column, data.MainSelection.Lead.Column);
 					data.MainSelection.Anchor = new DocumentLocation (data.Caret.Line == minLine ? maxLine : minLine, minColumn);
-					data.MainSelection.Lead = new DocumentLocation (data.Caret.Line, TextEditor.Caret.Column);
+					data.MainSelection.Lead = data.Caret.Location;
 					
 					data.Document.CommitMultipleLineUpdate (data.MainSelection.MinLine, data.MainSelection.MaxLine);
 					data.Caret.PreserveSelection = false;
@@ -1530,6 +1542,14 @@ namespace MonoDevelop.SourceEditor
 			}
 			
 			data.Document.CommitLineUpdate (data.Caret.Line);
+			if (idx >= 0)
+				data.Caret.Offset = triggerOffset + idx;
+			data.PasteText (triggerOffset, complete_word, complete_word.Length);
+		}
+
+		public void SetCompletionText (CodeCompletionContext ctx, string partial_word, string complete_word, int wordOffset)
+		{
+			SetCompletionText (GetTextEditorData (), ctx, partial_word, complete_word, wordOffset);
 		}
 		
 		internal void FireCompletionContextChanged ()

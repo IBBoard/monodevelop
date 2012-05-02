@@ -83,7 +83,7 @@ namespace Mono.Debugging.Evaluation
 			Expression expObj = parser.ParseExpression ();
 			if (expObj == null)
 				throw new EvaluatorException ("Could not parse expression '{0}'", exp);
-			
+
 			try {
 				EvaluatorVisitor ev = new EvaluatorVisitor (ctx, exp, expectedType, userVariables, tryTypeOf);
 				return (ValueReference) expObj.AcceptVisitor (ev, null);
@@ -342,12 +342,12 @@ namespace Mono.Debugging.Evaluation
 		
 		public override object VisitTypeReferenceExpression (ICSharpCode.OldNRefactory.Ast.TypeReferenceExpression typeReferenceExpression, object data)
 		{
-			if (typeReferenceExpression.TypeReference.IsGlobal) {
+			if (typeReferenceExpression.TypeReference.IsGlobal || typeReferenceExpression.TypeReference.IsKeyword) {
 				string name = typeReferenceExpression.TypeReference.Type;
 				object type = ctx.Options.AllowImplicitTypeLoading ? ctx.Adapter.ForceLoadType (ctx, name) : ctx.Adapter.GetType (ctx, name);
 				if (type != null)
 					return new TypeValueReference (ctx, type);
-	
+
 				if (!ctx.Options.AllowImplicitTypeLoading) {
 					string[] namespaces = ctx.Adapter.GetImportedNamespaces (ctx);
 					if (namespaces.Length > 0) {
@@ -576,7 +576,7 @@ namespace Mono.Debugging.Evaluation
 					if (TypeValueReference.GetTypeName (ctx.Adapter.GetTypeName (ctx, ntype)) == name)
 						return new TypeValueReference (ctx, ntype);
 				}
-	
+				
 				string[] namespaces = ctx.Adapter.GetImportedNamespaces (ctx);
 				if (namespaces.Length > 0) {
 					// Look in namespaces
@@ -592,6 +592,13 @@ namespace Mono.Debugging.Evaluation
 					}
 				}
 			}
+			
+			if (thisobj == null && ctx.Adapter.HasMember (ctx, thistype, name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)) {
+				string message = string.Format ("An object reference is required for the non-static field, method, or property '{0}.{1}'",
+				                                ctx.Adapter.GetDisplayTypeName (ctx, thistype), name);
+				throw CreateParseError (message);
+			}
+			
 			throw CreateParseError ("Unknown identifier: {0}", name);
 		}
 		
@@ -801,16 +808,18 @@ namespace Mono.Debugging.Evaluation
 				res = EvaluateOperation (oper, v1, v2);
 			}
 			
-			if (!(res is bool))
+			if (!(res is bool)) {
+				if (ctx.Adapter.IsEnum (ctx, targetVal1)) {
+					object tval = ctx.Adapter.Cast (ctx, ctx.Adapter.CreateValue (ctx, res), ctx.Adapter.GetValueType (ctx, targetVal1));
+					return LiteralValueReference.CreateTargetObjectLiteral (ctx, name, tval);
+				}
+				
+				if (ctx.Adapter.IsEnum (ctx, targetVal2)) {
+					object tval = ctx.Adapter.Cast (ctx, ctx.Adapter.CreateValue (ctx, res), ctx.Adapter.GetValueType (ctx, targetVal2));
+					return LiteralValueReference.CreateTargetObjectLiteral (ctx, name, tval);
+				}
+				
 				res = Convert.ChangeType (res, GetCommonType (val1, val2));
-			
-			if (ctx.Adapter.IsEnum (ctx, targetVal1)) {
-				object tval = ctx.Adapter.Cast (ctx, ctx.Adapter.CreateValue (ctx, res), ctx.Adapter.GetValueType (ctx, targetVal1));
-				return LiteralValueReference.CreateTargetObjectLiteral (ctx, name, tval);
-			}
-			if (ctx.Adapter.IsEnum (ctx, targetVal2)) {
-				object tval = ctx.Adapter.Cast (ctx, ctx.Adapter.CreateValue (ctx, res), ctx.Adapter.GetValueType (ctx, targetVal2));
-				return LiteralValueReference.CreateTargetObjectLiteral (ctx, name, tval);
 			}
 			
 			return LiteralValueReference.CreateObjectLiteral (ctx, name, res);

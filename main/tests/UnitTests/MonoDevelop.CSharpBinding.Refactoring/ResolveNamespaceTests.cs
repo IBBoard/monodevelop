@@ -74,7 +74,7 @@ namespace MonoDevelop.CSharpBinding.Refactoring
 			ResolveResult resolveResult;
 			AstNode node;
 			doc.TryResolveAt (location, out resolveResult, out node);
-			return ResolveCommandHandler.GetPossibleNamespaces (doc, resolveResult);
+			return ResolveCommandHandler.GetPossibleNamespaces (doc, node, resolveResult);
 		}
 
 		[Test ()]
@@ -303,6 +303,30 @@ namespace sadfhgjhkfj
 			foreach (var a in result)
 				Console.WriteLine (a);
 			Assert.IsTrue (result.Contains ("System.Threading"));
+		}
+
+		/// <summary>
+		/// Bug 4493 - 'Resolve' context action offers incorrect options
+		/// </summary>
+		[Test ()]
+		public void TestBug4493 ()
+		{
+			var result = GetResult (@"using System;
+
+namespace sadfhgjhkfj
+{
+    class MainClass
+    {
+        public static void Main (string[] args)
+        {
+            S$tack<int> a;
+        }
+    }
+}"
+			);
+
+			Assert.IsFalse (result.Contains ("System.Collections"));
+			Assert.IsTrue (result.Contains ("System.Collections.Generic"));
 		}
 	}
 }

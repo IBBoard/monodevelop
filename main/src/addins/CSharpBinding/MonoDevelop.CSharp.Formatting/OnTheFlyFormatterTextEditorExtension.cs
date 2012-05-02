@@ -55,61 +55,14 @@ namespace MonoDevelop.CSharp.Formatting
 			}
 		}
 
-		public override void Initialize ()
-		{
-			base.Initialize ();
-			Document.Editor.Paste += HandleTextPaste;
-		}
-
-		void HandleTextPaste (int insertionOffset, string text, int insertedChars)
-		{
-			// Trim blank spaces on text paste, see: Bug 511 - Trim blank spaces when copy-pasting
-			if (OnTheFlyFormatting) {
-				int i = insertionOffset + insertedChars;
-				bool foundNonWsFollowUp = false;
-
-				var line = Document.Editor.GetLineByOffset (i);
-				if (line != null) {
-					for (int j = 0; j < line.Offset + line.Length; j++) {
-						var ch = Document.Editor.GetCharAt (j);
-						if (ch != ' ' && ch != '\t') {
-							foundNonWsFollowUp = true;
-							break;
-						}
-					}
-				}
-
-				if (!foundNonWsFollowUp) {
-					while (i > insertionOffset) {
-						char ch = Document.Editor.GetCharAt (i - 1);
-						if (ch != ' ' && ch != '\t') 
-							break;
-						i--;
-					}
-					int delta = insertionOffset + insertedChars - i;
-					if (delta > 0) {
-						Editor.Caret.Offset -= delta;
-						Editor.Remove (insertionOffset + insertedChars - delta, delta);
-					}
-				}
-			}
-
-			RunFormatter ();
-		}
-
-		public override void Dispose ()
-		{
-			base.Dispose ();
-		}
-
 		public override bool KeyPress (Gdk.Key key, char keyChar, Gdk.ModifierType modifier)
 		{
-			bool runBefore = key == Gdk.Key.Return || key == Gdk.Key.KP_Enter;
+			bool runBefore = keyChar == '}';
 			if (runBefore)
 				RunFormatter ();
 			var result = base.KeyPress (key, keyChar, modifier);
 
-			bool runAfter = keyChar == '}' || keyChar == ';';
+			bool runAfter = keyChar == ';';
 			if (runAfter)
 				RunFormatter ();
 			return result;

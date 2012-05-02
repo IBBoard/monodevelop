@@ -38,6 +38,7 @@ using MonoDevelop.Ide.Gui.Content;
 using ICSharpCode.NRefactory.TypeSystem;
 using ICSharpCode.NRefactory.Semantics;
 using MonoDevelop.CodeActions;
+using MonoDevelop.Refactoring;
 
 namespace MonoDevelop.CodeActions
 {
@@ -160,20 +161,24 @@ namespace MonoDevelop.CodeActions
 		{
 			var menu = new Gtk.Menu ();
 
-			var caretOffset = document.Editor.Caret.Offset;
 			Gtk.Menu fixMenu = menu;
-			DomRegion region;
-			var resolveResult = document.GetLanguageItem (caretOffset, out region);
-			if (resolveResult != null) {
-				var possibleNamespaces = MonoDevelop.Refactoring.ResolveCommandHandler.GetPossibleNamespaces (document, resolveResult);
+			ResolveResult resolveResult;
+			ICSharpCode.NRefactory.CSharp.AstNode node;
+			if (ResolveCommandHandler.ResolveAt (document, out resolveResult, out node)) {
+				var possibleNamespaces = MonoDevelop.Refactoring.ResolveCommandHandler.GetPossibleNamespaces (
+					document,
+					node,
+					resolveResult
+				);
 	
 				bool addUsing = !(resolveResult is AmbiguousTypeResolveResult);
 				if (addUsing) {
 					foreach (string ns_ in possibleNamespaces) {
 						string ns = ns_;
-						var menuItem = new Gtk.MenuItem (GettextCatalog.GetString ("Import Namespace {0}", ns));
+						var menuItem = new Gtk.MenuItem (string.Format ("using {0};", ns));
 						menuItem.Activated += delegate {
 							new MonoDevelop.Refactoring.ResolveCommandHandler.AddImport (document, resolveResult, ns, true).Run ();
+							menu.Destroy ();
 						};
 						menu.Add (menuItem);
 					}
@@ -182,9 +187,10 @@ namespace MonoDevelop.CodeActions
 				bool resolveDirect = !(resolveResult is UnknownMemberResolveResult);
 				if (resolveDirect) {
 					foreach (string ns in possibleNamespaces) {
-						var menuItem = new Gtk.MenuItem (GettextCatalog.GetString ("Use {0}", ns + "." + document.Editor.GetTextBetween (region.Begin, region.End)));
+						var menuItem = new Gtk.MenuItem (GettextCatalog.GetString ("{0}", ns + "." + document.Editor.GetTextBetween (node.StartLocation, node.EndLocation)));
 						menuItem.Activated += delegate {
 							new MonoDevelop.Refactoring.ResolveCommandHandler.AddImport (document, resolveResult, ns, false).Run ();
+							menu.Destroy ();
 						};
 						menu.Add (menuItem);
 					}
@@ -204,6 +210,7 @@ namespace MonoDevelop.CodeActions
 			menuPushed = true;
 			menu.Destroyed += delegate {
 				menuPushed = false;
+				Hide ();
 			};
 			var container = (TextEditorContainer)document.Editor.Parent.Parent;
 			var child = (TextEditorContainer.EditorContainerChild)container [this];

@@ -97,12 +97,15 @@ namespace MonoDevelop.CSharp.Refactoring
 			if (result == null) {
 				return null;
 			}
+
 			object valid = null;
 			if (result is MethodGroupResolveResult) {
-				valid = ((MethodGroupResolveResult)result).Methods.FirstOrDefault (m => searchedMembers.Any (member => member is IMethod && ((IMethod)member).Region == m.Region));
+				valid = ((MethodGroupResolveResult)result).Methods.FirstOrDefault (
+					m => searchedMembers.Any (member => member is IMethod && ((IMethod)member).Region == m.Region));
 			} else if (result is MemberResolveResult) {
 				var foundMember = ((MemberResolveResult)result).Member;
-				valid = searchedMembers.FirstOrDefault (member => member is IMember && ((IMember)member).Region == foundMember.Region);
+				valid = searchedMembers.FirstOrDefault (
+					member => member is IMember && ((IMember)member).Region == foundMember.Region);
 			} else if (result is NamespaceResolveResult) {
 				var ns = ((NamespaceResolveResult)result).NamespaceName;
 				valid = searchedMembers.FirstOrDefault (n => n is string && n.ToString () == ns);
@@ -114,7 +117,6 @@ namespace MonoDevelop.CSharp.Refactoring
 			} else {
 				valid = searchedMembers.FirstOrDefault ();
 			}
-
 			if (node is ConstructorInitializer)
 				return null;
 
@@ -142,6 +144,12 @@ namespace MonoDevelop.CSharp.Refactoring
 				node = ((ConstructorDeclaration)node).NameToken;
 			if (node is DestructorDeclaration)
 				node = ((DestructorDeclaration)node).NameToken;
+			if (node is NamedArgumentExpression)
+				node = ((NamedArgumentExpression)node).NameToken;
+			if (node is NamedExpression)
+				node = ((NamedExpression)node).NameToken;
+			if (node is VariableInitializer)
+				node = ((VariableInitializer)node).NameToken;
 			var region = new DomRegion (fileName, node.StartLocation, node.EndLocation);
 
 			var length = node is PrimitiveType ? keywordName.Length : node.EndLocation.Column - node.StartLocation.Column;

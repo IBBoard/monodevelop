@@ -1,6 +1,7 @@
 
 ASSEMBLY = $(top_builddir)/build/bin/MonoDevelop.Core.dll
 CONFIG = MonoDevelop.Core.dll.config
+CECIL = ../../../build/bin/Mono.Cecil.dll
 
 FILES =  \
 	AssemblyInfo.cs \
@@ -252,6 +253,7 @@ FILES =  \
 	MonoDevelop.Projects.Formats.MSBuild/RemoteProjectBuilder.cs \
 	MonoDevelop.Projects.Formats.MSBuild/SlnData.cs \
 	MonoDevelop.Projects.Formats.MSBuild/SlnFileFormat.cs \
+	MonoDevelop.Projects.Formats.MSBuild/TargetsAvailableCondition.cs \
 	MonoDevelop.Projects.Policies/DotNetNamingPolicy.cs \
 	MonoDevelop.Projects.Policies/IPolicyProvider.cs \
 	MonoDevelop.Projects.Policies/PolicyBag.cs \
@@ -318,6 +320,7 @@ FILES =  \
 	MonoDevelop.Projects/IWorkspaceObject.cs \
 	MonoDevelop.Projects/LanguageBindingService.cs \
 	MonoDevelop.Projects/PortableDotNetProject.cs \
+	MonoDevelop.Projects/PortableDotNetProjectBinding.cs \
 	MonoDevelop.Projects/Project.cs \
 	MonoDevelop.Projects/ProjectConfiguration.cs \
 	MonoDevelop.Projects/ProjectConvertTool.cs \
@@ -396,7 +399,7 @@ $(ASSEMBLY): $(build_sources) $(build_resources)
 $(ASSEMBLY).mdb: $(ASSEMBLY)
 
 assemblydir = $(MD_ASSEMBLY_DIR)
-assembly_DATA = $(ASSEMBLY) $(ASSEMBLY).mdb $(CONFIG)
+assembly_DATA = $(ASSEMBLY) $(ASSEMBLY).mdb $(CECIL) $(CECIL).mdb $(CONFIG)
 
 CLEANFILES = $(ASSEMBLY) $(ASSEMBLY).mdb
 

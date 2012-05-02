@@ -111,7 +111,7 @@ namespace MonoDevelop.NUnit
 			// Failures tree
 			failuresTreeView = new MonoDevelop.Ide.Gui.Components.PadTreeView ();
 			failuresTreeView.HeadersVisible = false;
-			failuresStore = new TreeStore (typeof(Pixbuf), typeof (string), typeof(object), typeof(string), typeof(int));
+			failuresStore = new TreeStore (typeof(Pixbuf), typeof(string), typeof(object), typeof(string), typeof(int));
 			var pr = new CellRendererPixbuf ();
 			CellRendererText tr = new CellRendererText ();
 			TreeViewColumn col = new TreeViewColumn ();
@@ -352,8 +352,8 @@ namespace MonoDevelop.NUnit
 
 			Gdk.Pixbuf stock = failuresTreeView.RenderIcon (Gtk.Stock.DialogError, Gtk.IconSize.Menu, "");
 			TreeIter testRow = failuresStore.AppendValues (stock, msg, null, null, 0);
-			failuresStore.AppendValues (testRow, null, Escape (error.GetType().Name + ": " + error.Message), null);
-			TreeIter row = failuresStore.AppendValues (testRow, null, GettextCatalog.GetString ("Stack Trace"), null, 0);
+			failuresStore.AppendValues (testRow, null, Escape (error.GetType ().Name + ": " + error.Message), null);
+			TreeIter row = failuresStore.AppendValues (testRow, null, GettextCatalog.GetString ("Stack Trace"), null, null, 0);
 			AddStackTrace (row, error.StackTrace, null);
 		}
 		
@@ -393,7 +393,7 @@ namespace MonoDevelop.NUnit
 		public void FinishTestRun ()
 		{
 			if (!Gtk.TreeIter.Zero.Equals (startMessageIter)) {
-				string msg = string.Format (GettextCatalog.GetString ("Test results for <b>{0}</b> configuration <b>{1}</b>"), rootTest.Name, configuration);
+				string msg = string.Format (GettextCatalog.GetString ("Test results for <b>{0}</b> configuration <b>{1}</b>"), rootTest != null ? rootTest.Name : "null", configuration);
 				failuresStore.SetValue (startMessageIter, 1, msg);
 				startMessageIter = Gtk.TreeIter.Zero;
 			}

@@ -73,12 +73,13 @@ namespace MonoDevelop.CodeActions
 			var editor = document.Editor;
 			if (editor == null || editor.Parent == null || !editor.Parent.IsRealized)
 				return;
-
+			if (document.ParsedDocument == null || document.ParsedDocument.IsInvalid)
+				return;
 			if (!fixes.Any ()) {
-				ICSharpCode.NRefactory.TypeSystem.DomRegion region;
-				var resolveResult = document.GetLanguageItem (editor.Caret.Offset, out region);
-				if (resolveResult != null) {
-					var possibleNamespaces = ResolveCommandHandler.GetPossibleNamespaces (document, resolveResult);
+				ICSharpCode.NRefactory.Semantics.ResolveResult resolveResult;
+				ICSharpCode.NRefactory.CSharp.AstNode node;
+				if (ResolveCommandHandler.ResolveAt (document, out resolveResult, out node)) {
+					var possibleNamespaces = ResolveCommandHandler.GetPossibleNamespaces (document, node, resolveResult);
 					if (!possibleNamespaces.Any ())
 						return;
 				} else
@@ -156,7 +157,7 @@ namespace MonoDevelop.CodeActions
 		[CommandHandler(RefactoryCommands.QuickFix)]
 		void OnQuickFixCommand ()
 		{
-			if (widget == null)
+			if (widget == null || !widget.Visible)
 				return;
 			widget.PopupQuickFixMenu ();
 		}

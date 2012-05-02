@@ -65,7 +65,7 @@ $(ASSEMBLY): $(MONOMAC_SRC) $(build_sources) $(build_resources) $(DEPS)
 	mkdir -p $(ADDIN_BUILD)
 	$(CSC) $(CSC_FLAGS) -unsafe $(REFS) $(build_deps) $(build_resources:%=/resource:%) $(build_sources) -out:$@ -target:library
 
-$(ASSEMBLY).mdb: $(ASSEMBLY)
+$(ASSEMBLY).mdb: $(ASSEMBLY) $(MONOMAC).mdb
 
 $(MONOMAC).mdb: $(MONOMAC_SRC).mdb
 	mkdir -p $(ADDIN_BUILD)
@@ -82,5 +82,7 @@ endif
 
 CLEANFILES = $(ASSEMBLY) $(ASSEMBLY).mdb $(MONOMAC) $(MONOMAC).mdb
 EXTRA_DIST = $(FILES) $(RES)
+
+.PHONY: $(MONOMAC_SRC)
 
 include $(top_srcdir)/Makefile.include

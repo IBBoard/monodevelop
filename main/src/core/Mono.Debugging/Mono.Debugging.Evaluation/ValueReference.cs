@@ -198,7 +198,7 @@ namespace Mono.Debugging.Evaluation
 		public virtual ObjectValue[] GetChildren (ObjectPath path, int index, int count, EvaluationOptions options)
 		{
 			try {
-				return ctx.Adapter.GetObjectValueChildren (GetChildrenContext (options), this, Type, Value, index, count);
+				return ctx.Adapter.GetObjectValueChildren (GetChildrenContext (options), this, Value, index, count);
 			} catch (Exception ex) {
 				Console.WriteLine (ex);
 				return new ObjectValue [] { Mono.Debugging.Client.ObjectValue.CreateFatalError ("", ex.Message, ObjectValueFlags.ReadOnly) };
@@ -247,7 +247,7 @@ namespace Mono.Debugging.Evaluation
 			if (obj == null)
 				return null;
 
-			if (ctx.Adapter.IsArray (Context, obj)) {
+			if (name[0] == '[' && ctx.Adapter.IsArray (Context, obj)) {
 				// Parse the array indices
 				string[] sinds = name.Substring (1, name.Length - 2).Split (',');
 				int[] indices = new int [sinds.Length];

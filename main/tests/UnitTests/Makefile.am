@@ -12,7 +12,11 @@ REFS =  \
 	$(GLIB_SHARP_LIBS) \
 	$(GTK_SHARP_LIBS) \
 	$(MONO_ADDINS_LIBS) \
+	-r:../../../external/ngit/bin/NGit.dll \
+	-r:../../../external/ngit/bin/NSch.dll \
+	-r:../../../external/ngit/bin/Sharpen.dll \
 	-r:../../build/AddIns/BackendBindings/MonoDevelop.CSharpBinding.dll \
+	-r:../../build/AddIns/DisplayBindings/SourceEditor/MonoDevelop.SourceEditor2.dll \
 	-r:../../build/AddIns/MonoDevelop.AspNet/MonoDevelop.AspNet.dll \
 	-r:../../build/AddIns/MonoDevelop.Autotools/MonoDevelop.Autotools.dll \
 	-r:../../build/AddIns/MonoDevelop.Deployment/MonoDevelop.Deployment.dll \
@@ -27,8 +31,6 @@ REFS =  \
 	-r:../../build/bin/MonoDevelop.Core.dll \
 	-r:../../build/bin/MonoDevelop.Ide.dll \
 	-r:../../build/bin/OldNRefactory.dll \
-	-r:../../contrib/bin/NGit.dll \
-	-r:../../contrib/bin/Sharpen.dll \
 	-r:../../src/addins/NUnit/lib/nunit.core.dll \
 	-r:../../src/addins/NUnit/lib/nunit.core.interfaces.dll \
 	-r:../../src/addins/NUnit/lib/nunit.framework.dll \
@@ -48,6 +50,7 @@ FILES =  \
 	Mono.TextEditor.Tests.DefaultEditActions/RemoveTabTests.cs \
 	Mono.TextEditor.Tests.DefaultEditActions/SelectionActionTests.cs \
 	Mono.TextEditor.Tests.DefaultEditActions/TextEditorTestBase.cs \
+	Mono.TextEditor.Tests/BlockSelectionModeTests.cs \
 	Mono.TextEditor.Tests/BufferTests.cs \
 	Mono.TextEditor.Tests/DocumentTests.cs \
 	Mono.TextEditor.Tests/FoldingTests.cs \
@@ -55,6 +58,7 @@ FILES =  \
 	Mono.TextEditor.Tests/InsertionModeTests.cs \
 	Mono.TextEditor.Tests/LineSplitterTests.cs \
 	Mono.TextEditor.Tests/RedBlackTreeTests.cs \
+	Mono.TextEditor.Tests/RtfWriterTests.cs \
 	Mono.TextEditor.Tests/SearchTests.cs \
 	Mono.TextEditor.Tests/SegmentTreeTests.cs \
 	Mono.TextEditor.Tests/SelectionTests.cs \
@@ -92,6 +96,7 @@ FILES =  \
 	MonoDevelop.Projects/TestProjectsChecks.cs \
 	MonoDevelop.Projects/TextFormatterTests.cs \
 	MonoDevelop.Projects/WorkspaceTests.cs \
+	MonoDevelop.SourceEditor/SourceEditorTests.cs \
 	MonoDevelop.VersionControl.Git/GitUtilsTests.cs \
 	MonoDevelop.VersionControl.Views/EditorCompareWidgetBaseTest.cs \
 	TestBase.cs \
