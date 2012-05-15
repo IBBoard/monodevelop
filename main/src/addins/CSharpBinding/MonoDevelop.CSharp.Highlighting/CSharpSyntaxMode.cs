@@ -137,11 +137,12 @@ namespace MonoDevelop.CSharp.Highlighting
 				if (parsedDocument != null) {
 					unit = parsedDocument.GetAst<CompilationUnit> ();
 					parsedFile = parsedDocument.ParsedFile as CSharpParsedFile;
-					compilation = guiDocument.Compilation;
-					if (guiDocument.Project != null) {
+					if (guiDocument.Project != null && guiDocument.IsCompileableInProject) {
 						src = new CancellationTokenSource ();
 						var cancellationToken = src.Token;
 						System.Threading.Tasks.Task.Factory.StartNew (delegate {
+							Thread.Sleep (100);
+							compilation = guiDocument.Compilation;
 							var newResolver = new CSharpAstResolver (compilation, unit, parsedFile);
 							var visitor = new QuickTaskVisitor (newResolver, cancellationToken);
 							unit.AcceptVisitor (visitor);
@@ -219,13 +220,6 @@ namespace MonoDevelop.CSharp.Highlighting
 						continue;
 					doc.ReparseDocument ();
 				}
-			};
-			IdeApp.Workbench.ActiveDocumentChanged += delegate {
-				var doc = IdeApp.Workbench.ActiveDocument;
-				if (doc == null || doc.Editor == null || !(doc.Editor.Document.SyntaxMode is CSharpSyntaxMode))
-					return;
-				var mode = (CSharpSyntaxMode)doc.Editor.Document.SyntaxMode;
-				mode.HandleDocumentParsed (null, EventArgs.Empty);
 			};
 		}
 		
@@ -460,6 +454,7 @@ namespace MonoDevelop.CSharp.Highlighting
 				foreach (var tag in CommentTag.SpecialCommentTags) {
 					tags.Add (tag.Tag);
 				}
+
 			}
 
 			#region IResolveVisitorNavigator implementation
@@ -508,7 +503,6 @@ namespace MonoDevelop.CSharp.Highlighting
 				var node = unit.GetNodeAt (loc, n => n is Identifier || n is AstType || n is CSharpTokenNode);
 				var word = wordbuilder.ToString ();
 				string color;
-
 				while (node != null && !(node is Statement || node is EntityDeclaration)) {
 					if (node is CSharpTokenNode || node is ICSharpCode.NRefactory.CSharp.Comment || node is PreProcessorDirective)
 						break;
@@ -1000,9 +994,7 @@ namespace MonoDevelop.CSharp.Highlighting
 			void PopCurrentIfBlock ()
 			{
 				while (spanStack.Count > 0 && (spanStack.Peek () is IfBlockSpan || spanStack.Peek () is ElseIfBlockSpan || spanStack.Peek () is ElseBlockSpan)) {
-					var poppedSpan = spanStack.Pop ();
-					if (ruleStack.Count > 1) // rulStack[1] is always syntax mode
-						ruleStack.Pop ();
+					var poppedSpan = PopSpan ();
 					if (poppedSpan is IfBlockSpan)
 						break;
 				}

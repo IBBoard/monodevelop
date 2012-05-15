@@ -129,7 +129,6 @@ namespace Mono.Debugging.Soft
 			if (!String.IsNullOrEmpty (dsi.LogMessage))
 				LogWriter (false, dsi.LogMessage + "\n");
 			
-			
 			AsyncCallback callback = null;
 			int attemptNumber = 0;
 			int maxAttempts = startArgs.MaxConnectionAttempts;
@@ -1339,8 +1338,11 @@ namespace Mono.Debugging.Soft
 				string typeName = t.FullName;
 
 				if (types.ContainsKey (typeName)) {
+					/* This can happen since we manually add entries to 'types' */
+					/*
 					if (typeName != "System.Exception" && typeName != "<Module>")
 						LoggingService.LogError ("Type '" + typeName + "' loaded more than once", null);
+					*/
 				} else {
 					ResolveBreakpoints (t);
 				}

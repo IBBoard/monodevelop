@@ -147,7 +147,7 @@ namespace MonoDevelop.Ide.TypeSystem
 	{
 		const string CurrentVersion = "1.0";
 		static List<TypeSystemParserNode> parsers;
-		
+		public static readonly HashSet<string> FilesSkippedInParseThread = new HashSet<string> ();
 		static IEnumerable<TypeSystemParserNode> Parsers {
 			get {
 				return parsers;
@@ -243,7 +243,6 @@ namespace MonoDevelop.Ide.TypeSystem
 		static object projectWrapperUpdateLock = new object ();
 		public static ParsedDocument ParseFile (Project project, string fileName, string mimeType, TextReader content)
 		{
-
 			var parser = GetParser (mimeType);
 			if (parser == null)
 				return null;
@@ -256,8 +255,9 @@ namespace MonoDevelop.Ide.TypeSystem
 					} else {
 						wrapper = null;
 					}
-					if (wrapper != null && (result.Flags & ParsedDocumentFlags.NonSerializable) != ParsedDocumentFlags.NonSerializable)
+					if (wrapper != null && (result.Flags & ParsedDocumentFlags.NonSerializable) != ParsedDocumentFlags.NonSerializable) {
 						wrapper.UpdateContent (c => c.UpdateProjectContent (c.GetFile (fileName), result.ParsedFile));
+					}
 				}
 				return result;
 			} catch (Exception e) {
@@ -644,6 +644,9 @@ namespace MonoDevelop.Ide.TypeSystem
 			public void UpdateContent (Func<IProjectContent, IProjectContent> updateFunc)
 			{
 				lock (this) {
+					if (content is LazyProjectLoader) {
+						((LazyProjectLoader)content).ContextTask.Wait ();
+					}
 					content = updateFunc (content);
 					compilation = null;
 					WasChanged = true;
@@ -657,8 +660,9 @@ namespace MonoDevelop.Ide.TypeSystem
 			
 			public ICompilation Compilation {
 				get {
-					if (compilation == null)
+					if (compilation == null) {
 						compilation = Content.CreateCompilation ();
+					}
 					return compilation;
 				}
 			}
@@ -673,7 +677,7 @@ namespace MonoDevelop.Ide.TypeSystem
 				if (project == null)
 					throw new ArgumentNullException ("project");
 				this.Project = project;
-				this.content = new LazyProjectLoader (this);
+				this.content = new LazyProjectLoader (this).Content;
 			}
 			
 			public IEnumerable<Project> ReferencedProjects {
@@ -692,7 +696,13 @@ namespace MonoDevelop.Ide.TypeSystem
 				static ConcurrentDictionary<string, IProjectContent> projectCache = new ConcurrentDictionary<string, IProjectContent> ();
 				Task<IProjectContent> contextTask;
 
-				IProjectContent Content {
+				public Task<IProjectContent> ContextTask {
+					get {
+						return contextTask;
+					}
+				}
+
+				public IProjectContent Content {
 					get {
 						return contextTask.Result;
 					}
@@ -831,6 +841,18 @@ namespace MonoDevelop.Ide.TypeSystem
 					}
 				}
 				#endregion
+
+			}
+
+			bool HasCyclicRefs (ProjectContentWrapper wrapper)
+			{
+				foreach (var referencedProject in wrapper.ReferencedProjects) {
+					ProjectContentWrapper w;
+					if (referencedProject == Project || projectContents.TryGetValue (referencedProject, out w) && HasCyclicRefs (w)) {
+						return true;
+					}
+				}
+				return false;
 			}
 
 			public void ReloadAssemblyReferences (Project project)
@@ -842,8 +864,11 @@ namespace MonoDevelop.Ide.TypeSystem
 					var contexts = new List<IAssemblyReference> ();
 					foreach (var referencedProject in ReferencedProjects) {
 						ProjectContentWrapper wrapper;
-						if (projectContents.TryGetValue (referencedProject, out wrapper))
+						if (projectContents.TryGetValue (referencedProject, out wrapper)) {
+							if (HasCyclicRefs (wrapper))
+								continue;
 							contexts.Add (new UnresolvedAssemblyDecorator (wrapper));
+						}
 					}
 					
 					AssemblyContext ctx;
@@ -1537,27 +1562,30 @@ namespace MonoDevelop.Ide.TypeSystem
 			{
 				TypeSystemParserNode node = null;
 				ITypeSystemParser parser = null;
-				foreach (var file in (FileList ?? Context.Project.Files)) {
-					if (!string.Equals (file.BuildAction, "compile", StringComparison.OrdinalIgnoreCase)) 
-						continue;
-					
-					var fileName = file.FilePath;
-					if (node == null || !node.CanParse (fileName)) {
-						node = TypeSystemService.GetTypeSystemParserNode (DesktopService.GetMimeTypeForUri (fileName));
-						parser = node != null ? node.Parser : null;
+				lock (FilesSkippedInParseThread) {
+					foreach (var file in (FileList ?? Context.Project.Files)) {
+						if (!string.Equals (file.BuildAction, "compile", StringComparison.OrdinalIgnoreCase)) 
+							continue;
+						var fileName = file.FilePath;
+						if (FilesSkippedInParseThread.Contains (fileName))
+							continue;
+						if (node == null || !node.CanParse (fileName)) {
+							node = TypeSystemService.GetTypeSystemParserNode (DesktopService.GetMimeTypeForUri (fileName));
+							parser = node != null ? node.Parser : null;
+						}
+						if (parser == null)
+							continue;
+						using (var stream = new System.IO.StreamReader (fileName)) {
+							var parsedDocument = parser.Parse (false, fileName, stream, Context.Project);
+							Context.UpdateContent (c => c.UpdateProjectContent (c.GetFile (fileName), parsedDocument.ParsedFile));
+						}
 					}
-					if (parser == null)
-						continue;
-					
-					using (var stream = new System.IO.StreamReader (fileName)) {
-						var parsedDocument = parser.Parse (false, fileName, stream, Context.Project);
-						Context.UpdateContent (c => c.UpdateProjectContent (c.GetFile (fileName), parsedDocument.ParsedFile));
-					}
-//					if (ParseCallback != null)
-//						ParseCallback (file.FilePath, monitor);
 				}
 			}
 		}
+
+		public static event EventHandler<ProjectFileEventArgs> FileParsed;
+
 		static object parseQueueLock = new object ();
 		static AutoResetEvent parseEvent = new AutoResetEvent (false);
 		static ManualResetEvent queueEmptied = new ManualResetEvent (true);

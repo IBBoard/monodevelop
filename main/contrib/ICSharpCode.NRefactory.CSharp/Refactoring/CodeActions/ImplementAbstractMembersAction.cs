@@ -1,5 +1,5 @@
 // 
-// OnTheFlyFormatterTextEditorExtension.cs
+// ImplementAbstractMembersAction.cs
 //  
 // Author:
 //       Mike Krüger <mkrueger@xamarin.com>
@@ -24,49 +24,38 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 using System;
-using MonoDevelop.Ide.Gui.Content;
-using MonoDevelop.Core;
-using Mono.TextEditor;
-using ICSharpCode.NRefactory;
+using ICSharpCode.NRefactory.TypeSystem;
+using System.Threading;
+using System.Collections.Generic;
+using System.Linq;
 
-namespace MonoDevelop.CSharp.Formatting
+namespace ICSharpCode.NRefactory.CSharp.Refactoring
 {
-	public class OnTheFlyFormatterTextEditorExtension : TextEditorExtension
+//	[ContextAction("Implement abstract members", Description = "Implements abstract members from an abstract class.")]
+	public class ImplementAbstractMembersAction : ICodeActionProvider
 	{
-		TextEditorData textEditorData {
-			get {
-				return Document.Editor;
-			}
-		}
-		
-		public static bool OnTheFlyFormatting {
-			get {
-				return PropertyService.Get ("OnTheFlyFormatting", true);
-			}
-			set {
-				PropertyService.Set ("OnTheFlyFormatting", value);
-			}
-		}
-		
-		void RunFormatter ()
+		public IEnumerable<CodeAction> GetActions(RefactoringContext context)
 		{
-			if (OnTheFlyFormatting && textEditorData != null && !(textEditorData.CurrentMode is TextLinkEditMode) && !(textEditorData.CurrentMode is InsertionCursorEditMode)) {
-				OnTheFlyFormatter.Format (Document, textEditorData.Caret.Location);
-			}
-		}
+			var type = context.GetNode<AstType>();
+			if (type == null || type.Role != Roles.BaseType)
+				yield break;
+			var state = context.GetResolverStateBefore(type);
+			if (state.CurrentTypeDefinition == null)
+				yield break;
 
-		public override bool KeyPress (Gdk.Key key, char keyChar, Gdk.ModifierType modifier)
-		{
-			bool runBefore = keyChar == '}';
-			if (runBefore)
-				RunFormatter ();
-			var result = base.KeyPress (key, keyChar, modifier);
+			var resolveResult = context.Resolve(type);
+			if (resolveResult.Type.Kind != TypeKind.Class || resolveResult.Type.GetDefinition() == null || !resolveResult.Type.GetDefinition().IsAbstract)
+				yield break;
 
-			bool runAfter = keyChar == ';';
-			if (runAfter)
-				RunFormatter ();
-			return result;
+			yield break;
+			/*
+			yield return new CodeAction(context.TranslateString("Implement abstract members"), script => {
+				script.InsertWithCursor(
+					context.TranslateString("Implement abstract members"),
+					state.CurrentTypeDefinition,
+					ImplementInterfaceAction.GenerateImplementation (context, toImplement)
+				);
+			});*/
 		}
 	}
 }
-

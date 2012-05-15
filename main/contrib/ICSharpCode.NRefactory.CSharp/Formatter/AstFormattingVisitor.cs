@@ -228,6 +228,8 @@ namespace ICSharpCode.NRefactory.CSharp
 			for (int i = 0; i < blankLines; i++) {
 				sb.Append(this.options.EolMarker);
 			}
+			if (end - start == 0 && sb.Length == 0)
+				return;
 			AddChange(start, end - start, sb.ToString());
 		}
 
@@ -235,9 +237,10 @@ namespace ICSharpCode.NRefactory.CSharp
 		{
 			if (!(usingDeclaration.PrevSibling is UsingDeclaration || usingDeclaration.PrevSibling  is UsingAliasDeclaration)) {
 				EnsureBlankLinesBefore(usingDeclaration, policy.BlankLinesBeforeUsings);
-			}
-			if (!(usingDeclaration.NextSibling is UsingDeclaration || usingDeclaration.NextSibling  is UsingAliasDeclaration)) {
+			} else if (!(usingDeclaration.NextSibling is UsingDeclaration || usingDeclaration.NextSibling  is UsingAliasDeclaration)) {
 				EnsureBlankLinesAfter(usingDeclaration, policy.BlankLinesAfterUsings);
+			} else {
+				FixIndentationForceNewLine(usingDeclaration.StartLocation);
 			}
 		}
 
@@ -245,9 +248,10 @@ namespace ICSharpCode.NRefactory.CSharp
 		{
 			if (!(usingDeclaration.PrevSibling is UsingDeclaration || usingDeclaration.PrevSibling  is UsingAliasDeclaration)) {
 				EnsureBlankLinesBefore(usingDeclaration, policy.BlankLinesBeforeUsings);
-			}
-			if (!(usingDeclaration.NextSibling is UsingDeclaration || usingDeclaration.NextSibling  is UsingAliasDeclaration)) {
+			} else if (!(usingDeclaration.NextSibling is UsingDeclaration || usingDeclaration.NextSibling  is UsingAliasDeclaration)) {
 				EnsureBlankLinesAfter(usingDeclaration, policy.BlankLinesAfterUsings);
+			} else {
+				FixIndentationForceNewLine(usingDeclaration.StartLocation);
 			}
 		}
 
@@ -850,7 +854,8 @@ namespace ICSharpCode.NRefactory.CSharp
 				rParToken = methodDeclaration.RParToken;
 				parameters = methodDeclaration.Parameters;
 			}
-			
+			if (FormattingMode == ICSharpCode.NRefactory.CSharp.FormattingMode.OnTheFly)
+				methodCallArgumentWrapping = Wrapping.DoNotChange;
 
 			bool wrapMethodCall = DoWrap(methodCallArgumentWrapping, rParToken, parameters.Count);
 			if (wrapMethodCall && parameters.Any()) {
@@ -1291,6 +1296,8 @@ namespace ICSharpCode.NRefactory.CSharp
 
 		TextReplaceAction AddChange(int offset, int removedChars, string insertedText)
 		{
+			if (removedChars == 0 && string.IsNullOrEmpty (insertedText))
+				return null;
 			var action = new TextReplaceAction (offset, removedChars, insertedText);
 			changes.Add(action);
 			return action;
@@ -1772,6 +1779,9 @@ namespace ICSharpCode.NRefactory.CSharp
 				arguments = invocationExpression.Arguments;
 			}
 
+			if (FormattingMode == ICSharpCode.NRefactory.CSharp.FormattingMode.OnTheFly)
+				methodCallArgumentWrapping = Wrapping.DoNotChange;
+
 			bool wrapMethodCall = DoWrap(methodCallArgumentWrapping, rParToken, arguments.Count);
 			if (wrapMethodCall && arguments.Any()) {
 				if (newLineAferMethodCallOpenParentheses) {
@@ -2049,14 +2059,18 @@ namespace ICSharpCode.NRefactory.CSharp
 			}
 		}
 
-		void PlaceOnNewLine(NewLinePlacement newLine, AstNode keywordNode)
+		void PlaceOnNewLine (NewLinePlacement newLine, AstNode keywordNode)
 		{
 			if (keywordNode == null || newLine == NewLinePlacement.DoNotCare) {
 				return;
 			}
+			var prev = keywordNode.GetPrevNode ();
+			Console.WriteLine ("prev:" + prev);
+			if (prev is Comment || prev is PreProcessorDirective)
+				return;
 
 			int offset = document.GetOffset(keywordNode.StartLocation);
-			
+
 			int whitespaceStart = SearchWhitespaceStart(offset);
 			string indentString = newLine == NewLinePlacement.NewLine ? this.options.EolMarker + this.curIndent.IndentString : " ";
 			AddChange(whitespaceStart, offset - whitespaceStart, indentString);

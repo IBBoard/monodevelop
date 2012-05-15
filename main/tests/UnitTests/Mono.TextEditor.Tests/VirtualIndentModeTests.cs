@@ -176,8 +176,8 @@ namespace Mono.TextEditor.Tests
 			data.Document.Text = "test\n\n\n";
 			data.Caret.Location = new DocumentLocation (2, data.IndentationTracker.GetVirtualIndentationColumn (2, 1));
 			DeleteActions.Backspace (data);
-			Assert.AreEqual (new DocumentLocation (2, 1), data.Caret.Location);
-			Assert.AreEqual ("test\n\n\n", data.Document.Text);
+			Assert.AreEqual (new DocumentLocation (2, data.IndentationTracker.GetVirtualIndentationColumn (2, 1) - 1), data.Caret.Location);
+			Assert.AreEqual ("test\n\t\n\n", data.Document.Text);
 		}
 
 		[Test()]
@@ -263,13 +263,23 @@ namespace Mono.TextEditor.Tests
 		public void TestRemoveExistingIndentWithBackspace ()
 		{
 			var data = CreateData ();
-			data.Document.Text = "\n\t\t\n\n";
-			data.Caret.Location = new DocumentLocation (2, 3);
+			data.Document.Text = "\n\t\t\t\n\n";
+			data.Caret.Location = new DocumentLocation (2, 4);
 			DeleteActions.Backspace (data);
-			Assert.AreEqual (1, data.Caret.Column);
+			Assert.AreEqual (3, data.Caret.Column);
 			Assert.AreEqual ("\n\n\n", data.Document.Text);
 		}
 
+		[Test()]
+		public void TestRemoveLastTabInLine ()
+		{
+			var data = CreateData ();
+			data.Document.Text = "\n\t\n\n";
+			data.Caret.Location = new DocumentLocation (2, 2);
+			DeleteActions.Backspace (data);
+			Assert.AreEqual ("\n\n\n", data.Document.Text);
+			Assert.AreEqual (1, data.Caret.Column);
+		}
 
 		[Test()]
 		public void TestAutoRemoveIndentNotRemovingOnCaretMove ()
@@ -348,6 +358,61 @@ namespace Mono.TextEditor.Tests
 			Assert.AreEqual ("\n\n\t\tFoo\t\tBar\n\n", data.Document.Text);
 		}
 
+		[Test()]
+		public void TestTabBehavior ()
+		{
+			var data = CreateData ();
+			data.Document.Text = "\n\n\n";
+			data.Caret.Location = new DocumentLocation (2, 3);
+			MiscActions.InsertTab (data);
+			Assert.AreEqual ("\n\t\t\t\n\n", data.Document.Text);
+		}
+
+		class SpacesIndentTracker : IIndentationTracker
+		{
+			const string indentString = "        ";
+			#region IIndentationTracker implementation
+			public string GetIndentationString (int offset)
+			{
+				return indentString;
+			}
+
+			public string GetIndentationString (int lineNumber, int column)
+			{
+				return indentString;
+			}
+
+			public int GetVirtualIndentationColumn (int offset)
+			{
+				return indentString.Length + 1;
+			}
+
+			public int GetVirtualIndentationColumn (int lineNumber, int column)
+			{
+				return indentString.Length + 1;
+			}
+			#endregion
+		}
+		TextEditorData CreateDataWithSpaces ()
+		{
+			var data = new TextEditorData ();
+			data.IndentationTracker = new SpacesIndentTracker ();
+			data.Options = new TextEditorOptions () {
+				TabsToSpaces = true,
+				IndentStyle = IndentStyle.Virtual
+			};
+			return data;
+		}
+
+		[Test()]
+		public void TestIndentWithSpaces ()
+		{
+			var data = CreateDataWithSpaces ();
+			data.Document.Text = "\n        \n\n";
+			data.Caret.Location = new DocumentLocation (2, 9);
+			MiscActions.InsertNewLine (data);
+			Assert.AreEqual ("\n\n\n\n", data.Document.Text);
+		}
 	}
 }
 
