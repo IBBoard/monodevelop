@@ -368,35 +368,25 @@ namespace Mono.TextEditor.Tests
 			Assert.AreEqual ("\n\t\t\t\n\n", data.Document.Text);
 		}
 
-		class SpacesIndentTracker : IIndentationTracker
+		/// <summary>
+		/// Bug 5067 - Selection does not respect virtual space
+		/// </summary>
+		[Test()]
+		public void TestBug5067 ()
 		{
-			const string indentString = "        ";
-			#region IIndentationTracker implementation
-			public string GetIndentationString (int offset)
-			{
-				return indentString;
-			}
+			var data = CreateData ();
+			data.Document.Text = "\n\n\t\tFoo ();\n";
+			data.Caret.Location = new DocumentLocation (2, 3);
+			SelectionActions.MoveDown (data);
+			DeleteActions.Delete (data);
 
-			public string GetIndentationString (int lineNumber, int column)
-			{
-				return indentString;
-			}
-
-			public int GetVirtualIndentationColumn (int offset)
-			{
-				return indentString.Length + 1;
-			}
-
-			public int GetVirtualIndentationColumn (int lineNumber, int column)
-			{
-				return indentString.Length + 1;
-			}
-			#endregion
+			Assert.AreEqual ("\n\t\tFoo ();\n", data.Document.Text);
 		}
+
 		TextEditorData CreateDataWithSpaces ()
 		{
 			var data = new TextEditorData ();
-			data.IndentationTracker = new SpacesIndentTracker ();
+			data.IndentationTracker = new SmartIndentModeTests.TestIndentTracker ("        ");
 			data.Options = new TextEditorOptions () {
 				TabsToSpaces = true,
 				IndentStyle = IndentStyle.Virtual
@@ -412,6 +402,48 @@ namespace Mono.TextEditor.Tests
 			data.Caret.Location = new DocumentLocation (2, 9);
 			MiscActions.InsertNewLine (data);
 			Assert.AreEqual ("\n\n\n\n", data.Document.Text);
+		}
+
+		/// <summary>
+		/// Bug 5402 - Backspace doesn't work with 1-tab virtual indent
+		/// </summary>
+		[Test()]
+		public void TestBug5402 ()
+		{
+			var data = new TextEditorData ();
+			data.IndentationTracker = new SmartIndentModeTests.TestIndentTracker ("\t");
+			data.Document.Text = "\t";
+			data.Caret.Location = new DocumentLocation (1, 2);
+			DeleteActions.Backspace (data);
+			Assert.AreEqual ("", data.Document.Text);
+			Assert.AreEqual (new DocumentLocation (1, 1), data.Caret.Location);
+		}
+
+		/// <summary>
+		/// Bug 5949 - Movement across empty line is not symmetric
+		/// </summary>
+		[Test()]
+		public void TestBug5949 ()
+		{
+			var data = CreateData ();
+			data.Document.Text = "\t\tfoo\n\n\t\tbar";
+			data.Caret.Location = new DocumentLocation (3, 1);
+			CaretMoveActions.Left (data);
+			Assert.AreEqual (new DocumentLocation (2, 3), data.Caret.Location);
+		}
+
+		/// <summary>
+		/// Bug 5956 - Backspacing ignores virtual indents
+		/// </summary>
+		[Test()]
+		public void TestBug5956 ()
+		{
+			var data = CreateData ();
+			data.Document.Text = "\t\tfoo\n\n\t\tbar";
+			data.Caret.Location = new DocumentLocation (3, 1);
+			DeleteActions.Backspace (data);
+			Assert.AreEqual (new DocumentLocation (2, 3), data.Caret.Location);
+			Assert.AreEqual ("\t\tfoo\n\t\t\t\tbar", data.Document.Text);
 		}
 	}
 }

@@ -33,10 +33,12 @@ using Mono.TextEditor.Utils;
 using System.Linq;
 using System.ComponentModel;
 using ICSharpCode.NRefactory.Editor;
+using System.Threading.Tasks;
+using System.Threading;
 
 namespace Mono.TextEditor
 {
-	public class TextDocument : AbstractAnnotatable, IBuffer, ICSharpCode.NRefactory.Editor.IDocument
+	public class TextDocument : AbstractAnnotatable, ICSharpCode.NRefactory.Editor.IDocument
 	{
 		readonly IBuffer buffer;
 		readonly ILineSplitter splitter;
@@ -140,14 +142,6 @@ namespace Mono.TextEditor
 			};
 		}
 
-		~TextDocument ()
-		{
-			if (foldSegmentWorker != null) {
-				foldSegmentWorker.Dispose ();
-				foldSegmentWorker = null;
-			}
-		}
-
 		void SplitterLineSegmentTreeLineChanged (object sender, LineEventArgs e)
 		{
 			if (LineChanged != null)
@@ -184,9 +178,9 @@ namespace Mono.TextEditor
 			}
 		}
 
-		public void Insert (int offset, string text)
+		public void Insert (int offset, string text, ICSharpCode.NRefactory.Editor.AnchorMovementType anchorMovementType = AnchorMovementType.Default)
 		{
-			Replace (offset, 0, text);
+			Replace (offset, 0, text, anchorMovementType);
 		}
 		
 		public void Remove (int offset, int count)
@@ -201,6 +195,11 @@ namespace Mono.TextEditor
 
 		public void Replace (int offset, int count, string value)
 		{
+			Replace (offset, count, value, AnchorMovementType.Default);
+		}
+
+		public void Replace (int offset, int count, string value, ICSharpCode.NRefactory.Editor.AnchorMovementType anchorMovementType = AnchorMovementType.Default)
+		{
 			if (offset < 0)
 				throw new ArgumentOutOfRangeException ("offset", "must be > 0, was: " + offset);
 			if (offset > TextLength)
@@ -211,9 +210,9 @@ namespace Mono.TextEditor
 			InterruptFoldWorker ();
 			
 			//int oldLineCount = LineCount;
-			var args = new DocumentChangeEventArgs (offset, count > 0 ? GetTextAt (offset, count) : "", value);
+			var args = new DocumentChangeEventArgs (offset, count > 0 ? GetTextAt (offset, count) : "", value, anchorMovementType);
 			OnTextReplacing (args);
-			value = args.InsertedText;
+			value = args.InsertedText.Text;
 			UndoOperation operation = null;
 			if (!isInUndo) {
 				operation = new UndoOperation (args);
@@ -550,13 +549,13 @@ namespace Mono.TextEditor
 			
 			public virtual void Undo (TextDocument doc)
 			{
-				doc.Replace (args.Offset, args.InsertionLength, args.RemovedText);
+				doc.Replace (args.Offset, args.InsertionLength, args.RemovedText.Text);
 				OnUndoDone ();
 			}
 			
 			public virtual void Redo (TextDocument doc)
 			{
-				doc.Replace (args.Offset, args.RemovalLength, args.InsertedText);
+				doc.Replace (args.Offset, args.RemovalLength, args.InsertedText.Text);
 				OnRedoDone ();
 			}
 			
@@ -803,7 +802,17 @@ namespace Mono.TextEditor
 			this.RequestUpdate (new UpdateAll ());
 			this.CommitDocumentUpdate ();
 		}
-		
+
+		public void RollbackTo (ICSharpCode.NRefactory.Editor.ITextSourceVersion version)
+		{
+			var steps = Version.CompareAge (version);
+			if (steps < 0)
+				throw new InvalidOperationException ("Invalid version");
+			while (steps-- > 0) {
+				undoStack.Pop ().Undo (this);
+			}
+		}
+
 		internal protected virtual void OnUndone (UndoOperationEventArgs e)
 		{
 			EventHandler<UndoOperationEventArgs> handler = this.Undone;
@@ -979,36 +988,46 @@ namespace Mono.TextEditor
 		}
 		
 		readonly object syncObject = new object();
-		BackgroundWorker foldSegmentWorker = null;
-		BackgroundWorker FoldSegmentWorker {
-			get {
-				if (foldSegmentWorker == null) {
-					foldSegmentWorker = new BackgroundWorker ();
-					foldSegmentWorker.WorkerSupportsCancellation = true;
-					foldSegmentWorker.DoWork += UpdateFoldSegmentWorker;
-				}
-				return foldSegmentWorker;
-			}
-		}
-		
-		public void UpdateFoldSegments (List<FoldSegment> newSegments)
-		{
-			UpdateFoldSegments (newSegments, true);
-		}
-		
 
-		public void UpdateFoldSegments (List<FoldSegment> newSegments, bool runInThread)
+		CancellationTokenSource foldSegmentSrc;
+		Task foldSegmentTask;
+
+		public void UpdateFoldSegments (List<FoldSegment> newSegments, bool startTask = false, bool useApplicationInvoke = false)
 		{
 			if (newSegments == null) {
 				return;
 			}
 			
 			InterruptFoldWorker ();
-			if (!runInThread) {
-				UpdateFoldSegmentWorker (null, new DoWorkEventArgs (newSegments));
+			bool update;
+			if (!startTask) {
+				var newFoldedSegments = UpdateFoldSegmentWorker (newSegments, out update);
+				if (useApplicationInvoke) {
+					Gtk.Application.Invoke (delegate {
+						foldedSegments = newFoldedSegments;
+						InformFoldTreeUpdated ();
+					});
+				} else {
+					foldedSegments = newFoldedSegments;
+					InformFoldTreeUpdated ();
+				}
 				return;
 			}
-			FoldSegmentWorker.RunWorkerAsync (newSegments);
+			foldSegmentSrc = new CancellationTokenSource ();
+			var token = foldSegmentSrc.Token;
+			foldSegmentTask = Task.Factory.StartNew (delegate {
+				var segments = UpdateFoldSegmentWorker (newSegments, out update, token);
+				if (token.IsCancellationRequested)
+					return;
+				Gtk.Application.Invoke (delegate {
+					if (token.IsCancellationRequested)
+						return;
+					foldedSegments = segments;
+					InformFoldTreeUpdated ();
+					if (update)
+						CommitUpdateAll ();
+				});
+			}, token);
 		}
 		
 		void RemoveFolding (FoldSegment folding)
@@ -1023,18 +1042,18 @@ namespace Mono.TextEditor
 		/// Updates the fold segments in a background worker thread. Don't call this method outside of a background worker.
 		/// Use UpdateFoldSegments instead.
 		/// </summary>
-		public void UpdateFoldSegmentWorker (object sender, DoWorkEventArgs e)
+		HashSet<FoldSegment> UpdateFoldSegmentWorker (List<FoldSegment> newSegments, out bool update, CancellationToken token = default(CancellationToken))
 		{
-			var worker = sender as BackgroundWorker;
-			var newSegments = (List<FoldSegment>)e.Argument;
 			var oldSegments = new List<FoldSegment> (FoldSegments);
 			int oldIndex = 0;
 			bool foldedSegmentAdded = false;
 			newSegments.Sort ();
 			var newFoldedSegments = new HashSet<FoldSegment> ();
 			foreach (FoldSegment newFoldSegment in newSegments) {
-				if (worker != null && worker.CancellationPending)
-					return;
+				if (token.IsCancellationRequested) {
+					update = false;
+					return null;
+				}
 				int offset = newFoldSegment.Offset;
 				while (oldIndex < oldSegments.Count && offset > oldSegments [oldIndex].Offset) {
 					RemoveFolding (oldSegments [oldIndex]);
@@ -1073,35 +1092,33 @@ namespace Mono.TextEditor
 				}
 			}
 			while (oldIndex < oldSegments.Count) {
+				if (token.IsCancellationRequested) {
+					update = false;
+					return null;
+				}
 				RemoveFolding (oldSegments [oldIndex]);
 				oldIndex++;
 			}
 			bool countChanged = foldedSegments.Count != newFoldedSegments.Count;
-			if (worker != null) {
-				Gtk.Application.Invoke (delegate {
-					foldedSegments = newFoldedSegments;
-					InformFoldTreeUpdated ();
-					if (foldedSegmentAdded || countChanged)
-						CommitUpdateAll ();
-				});
-			} else {
-				foldedSegments = newFoldedSegments;
-				InformFoldTreeUpdated ();
-			}
+			update = foldedSegmentAdded || countChanged;
+			return newFoldedSegments;
 		}
 		
 		public void WaitForFoldUpdateFinished ()
 		{
-			while (FoldSegmentWorker.IsBusy)
-				System.Threading.Thread.Sleep (10);
+			if (foldSegmentTask != null) {
+				foldSegmentTask.Wait (5000);
+				foldSegmentTask = null;
+			}
 		}
 		
 		void InterruptFoldWorker ()
 		{
-			if (!FoldSegmentWorker.IsBusy)
+			if (foldSegmentSrc == null)
 				return;
-			FoldSegmentWorker.CancelAsync ();
+			foldSegmentSrc.Cancel ();
 			WaitForFoldUpdateFinished ();
+			foldSegmentSrc = null;
 		}
 		
 		public void ClearFoldSegments ()
@@ -1419,17 +1436,11 @@ namespace Mono.TextEditor
 		}
 		
 		public static bool IsWordSeparator (char ch)
-
 		{
-
 			return Char.IsWhiteSpace (ch) || (Char.IsPunctuation (ch) && ch != '_');
-
 		}
 
-		
-
 		public bool IsWholeWordAt (int offset, int length)
-
 		{
 			return (offset == 0 || IsWordSeparator (GetCharAt (offset - 1))) &&
 				   (offset + length == TextLength || IsWordSeparator (GetCharAt (offset + length)));
@@ -1695,14 +1706,29 @@ namespace Mono.TextEditor
 			return OffsetToLocation (offset);
 		}
 
+		void ICSharpCode.NRefactory.Editor.IDocument.Insert (int offset, ITextSource text)
+		{
+			Insert (offset, text.Text);
+		}
+
+		void ICSharpCode.NRefactory.Editor.IDocument.Replace (int offset, int count, ITextSource text)
+		{
+			Replace (offset, count, text.Text);
+		}
+
 		void ICSharpCode.NRefactory.Editor.IDocument.Insert (int offset, string text)
 		{
 			Insert (offset, text);
 		}
 
-		public void Insert (int offset, string text, ICSharpCode.NRefactory.Editor.AnchorMovementType defaultAnchorMovementType)
+		void ICSharpCode.NRefactory.Editor.IDocument.Insert (int offset, ITextSource text, AnchorMovementType anchorMovementType)
 		{
-			Insert (offset, text);
+			Insert (offset, text.Text, anchorMovementType);
+		}
+
+		void ICSharpCode.NRefactory.Editor.IDocument.Insert (int offset, string text, AnchorMovementType anchorMovementType)
+		{
+			Insert (offset, text, anchorMovementType);
 		}
 
 		void ICSharpCode.NRefactory.Editor.IDocument.StartUndoableAction ()
@@ -1792,6 +1818,7 @@ namespace Mono.TextEditor
 		{
 			return new SnapshotDocument (Text, Version);
 		}
+
 		#endregion
 	}
 	

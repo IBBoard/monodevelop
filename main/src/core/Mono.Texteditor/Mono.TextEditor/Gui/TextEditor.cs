@@ -348,6 +348,12 @@ namespace Mono.TextEditor
 #if ATK
 			TextEditorAccessible.Factory.Init (this);
 #endif
+
+			if (GtkGestures.IsSupported) {
+				this.AddGestureMagnifyHandler ((sender, args) => {
+					Options.Zoom += Options.Zoom * (args.Magnification / 4d);
+				});
+			}
 		}
 
 		void HandleDocumenthandleEndUndo (object sender, TextDocument.UndoOperationEventArgs e)
@@ -1346,6 +1352,11 @@ namespace Mono.TextEditor
 		{
 			return textEditorData.LogicalToVisualLocation (location);
 		}
+
+		public DocumentLocation LogicalToVisualLocation (int line, int column)
+		{
+			return textEditorData.LogicalToVisualLocation (line, column);
+		}
 		
 		public void CenterToCaret ()
 		{
@@ -1448,12 +1459,11 @@ namespace Mono.TextEditor
 				if (this.textEditorData.VAdjustment.Upper < Allocation.Height) {
 					this.textEditorData.VAdjustment.Value = 0;
 				} else {
-					double yMargin = 3 * this.LineHeight;
 					double caretPosition = LineToY (p.Line);
 					if (this.textEditorData.VAdjustment.Value > caretPosition) {
-						this.textEditorData.VAdjustment.Value = caretPosition - yMargin;
-					} else if (this.textEditorData.VAdjustment.Value + this.textEditorData.VAdjustment.PageSize - this.LineHeight < caretPosition + yMargin) {
-						this.textEditorData.VAdjustment.Value = caretPosition - this.textEditorData.VAdjustment.PageSize + this.LineHeight + yMargin;
+						this.textEditorData.VAdjustment.Value = caretPosition;
+					} else if (this.textEditorData.VAdjustment.Value + this.textEditorData.VAdjustment.PageSize - this.LineHeight < caretPosition) {
+						this.textEditorData.VAdjustment.Value = caretPosition - this.textEditorData.VAdjustment.PageSize + this.LineHeight;
 					}
 				}
 				
@@ -1503,15 +1513,20 @@ namespace Mono.TextEditor
 			sizeHasBeenAllocated = true;
 			QueueDraw ();
 		}
-		
+
+		uint lastScrollTime;
 		protected override bool OnScrollEvent (EventScroll evnt)
 		{
 			var modifier = !Platform.IsMac? Gdk.ModifierType.ControlMask
 				//Mac window manager already uses control-scroll, so use command
 				//Command might be either meta or mod1, depending on GTK version
 				: (Gdk.ModifierType.MetaMask | Gdk.ModifierType.Mod1Mask);
-			
-			if ((evnt.State & modifier) !=0) {
+
+			var hasZoomModifier = (evnt.State & modifier) != 0;
+			if (hasZoomModifier && lastScrollTime != 0 && (evnt.Time - lastScrollTime) < 100)
+				hasZoomModifier = false;
+
+			if (hasZoomModifier) {
 				if (evnt.Direction == ScrollDirection.Up)
 					Options.ZoomIn ();
 				else if (evnt.Direction == ScrollDirection.Down)
@@ -1522,6 +1537,7 @@ namespace Mono.TextEditor
 					FireMotionEvent (mx + textViewMargin.XOffset, my, lastState);
 				return true;
 			}
+			lastScrollTime = evnt.Time;
 			return base.OnScrollEvent (evnt); 
 		}
 		

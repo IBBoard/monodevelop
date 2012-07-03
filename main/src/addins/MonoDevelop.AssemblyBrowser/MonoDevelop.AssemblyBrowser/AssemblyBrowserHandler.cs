@@ -28,6 +28,9 @@ using MonoDevelop.Components.Commands;
 using MonoDevelop.Core;
 using MonoDevelop.Projects;
 using System.IO;
+using MonoDevelop.Ide;
+using MonoDevelop.Ide.Gui;
+using System.Linq;
 
 namespace MonoDevelop.AssemblyBrowser
 {
@@ -37,7 +40,14 @@ namespace MonoDevelop.AssemblyBrowser
 		
 		protected override void Run ()
 		{
-			var assemblyBrowserView = new AssemblyBrowserViewContent ();
+			foreach (var view in IdeApp.Workbench.Documents) {
+				if (view.PrimaryView is AssemblyBrowserViewContent) {
+					view.Window.SelectWindow ();
+					return;
+				}
+			}
+			var binding = DisplayBindingService.GetBindings<AssemblyBrowserDisplayBinding> ().FirstOrDefault ();
+			var assemblyBrowserView = binding != null ? binding.GetViewContent () : new AssemblyBrowserViewContent ();
 			
 			if (Ide.IdeApp.ProjectOperations.CurrentSelectedSolution == null) {
 				foreach (var assembly in defaultAssemblies) {

@@ -100,9 +100,32 @@ namespace MonoDevelop.CSharp.Parser
 		class FoldingVisitor : DepthFirstAstVisitor<object, object>
 		{
 			public readonly List<FoldingRegion> Foldings = new List<FoldingRegion> ();
-			
+
+			void AddUsings (AstNode parent)
+			{
+				var firstChild = parent.Children.FirstOrDefault (child => child is UsingDeclaration || child is UsingAliasDeclaration);
+				var node = firstChild;
+				while (node != null) {
+					var next = node.GetNextNode ();
+					if (next is UsingDeclaration || next is UsingAliasDeclaration) {
+						node = next;
+					} else {
+						break;
+					}
+				}
+				if (firstChild != node) {
+					Foldings.Add (new FoldingRegion (new DomRegion (firstChild.StartLocation, node.EndLocation), FoldType.Undefined));
+				}
+			}
+			public override object VisitCompilationUnit (CompilationUnit unit, object data)
+			{
+				AddUsings (unit);
+				return base.VisitCompilationUnit (unit, data);
+			}
+
 			public override object VisitNamespaceDeclaration (NamespaceDeclaration namespaceDeclaration, object data)
 			{
+				AddUsings (namespaceDeclaration);
 				if (!namespaceDeclaration.RBraceToken.IsNull)
 					Foldings.Add (new FoldingRegion (new DomRegion (namespaceDeclaration.LBraceToken.GetPrevNode ().EndLocation, namespaceDeclaration.RBraceToken.EndLocation), FoldType.Undefined));
 				return base.VisitNamespaceDeclaration (namespaceDeclaration, data);
@@ -207,9 +230,9 @@ namespace MonoDevelop.CSharp.Parser
 			}
 			cmt.Region = new DomRegion (comment.Line, comment.Col, comment.EndLine, comment.EndCol);
 			result.Comments.Add (cmt);
+			var trimmedContent = comment.Content.TrimStart ();
 			foreach (string tag in tagComments) {
-				int idx = comment.Content.IndexOf (tag);
-				if (idx < 0)
+				if (!trimmedContent.StartsWith (tag))
 					continue;
 				result.Add (new MonoDevelop.Ide.TypeSystem.Tag (tag, comment.Content, cmt.Region));
 			}
@@ -298,14 +321,14 @@ namespace MonoDevelop.CSharp.Parser
 				break;
 			}
 		}
-		
-		public static CompilerSettings GetCompilerArguments (MonoDevelop.Projects.Project project)
+
+		public static ICSharpCode.NRefactory.CSharp.CompilerSettings GetCompilerArguments (MonoDevelop.Projects.Project project)
 		{
-			var compilerArguments = new CompilerSettings ();
-			compilerArguments.TabSize = 1;
+			var compilerArguments = new ICSharpCode.NRefactory.CSharp.CompilerSettings ();
+	///		compilerArguments.TabSize = 1;
 
 			if (project == null || MonoDevelop.Ide.IdeApp.Workspace == null) {
-				compilerArguments.Unsafe = true;
+				compilerArguments.AllowUnsafeBlocks = true;
 				return compilerArguments;
 			}
 
@@ -317,14 +340,14 @@ namespace MonoDevelop.CSharp.Parser
 				
 			if (!string.IsNullOrEmpty (par.DefineSymbols)) {
 				foreach (var sym in par.DefineSymbols.Split (';', ',', ' ', '\t').Where (s => !string.IsNullOrWhiteSpace (s)))
-					compilerArguments.AddConditionalSymbol (sym);
+					compilerArguments.ConditionalSymbols.Add (sym);
 			}
 			
-			compilerArguments.Unsafe = par.UnsafeCode;
-			compilerArguments.Version = ConvertLanguageVersion (par.LangVersion);
-			compilerArguments.Checked = par.GenerateOverflowChecks;
+			compilerArguments.AllowUnsafeBlocks = par.UnsafeCode;
+			compilerArguments.LanguageVersion = ConvertLanguageVersion (par.LangVersion);
+			compilerArguments.CheckForOverflow = par.GenerateOverflowChecks;
 			compilerArguments.WarningLevel = par.WarningLevel;
-			compilerArguments.EnhancedWarnings = par.TreatWarningsAsErrors;
+			compilerArguments.TreatWarningsAsErrors = par.TreatWarningsAsErrors;
 			if (!string.IsNullOrEmpty (par.NoWarnings)) {
 				foreach (var warning in par.NoWarnings.Split (';', ',', ' ', '\t')) {
 					int w;
@@ -333,24 +356,24 @@ namespace MonoDevelop.CSharp.Parser
 					} catch (Exception) {
 						continue;
 					}
-					compilerArguments.SetIgnoreWarning (w);
+					compilerArguments.DisabledWarnings.Add (w);
 				}
 			}
 			
 			return compilerArguments;
 		}
 		
-		static Mono.CSharp.LanguageVersion ConvertLanguageVersion (LangVersion ver)
+		static Version ConvertLanguageVersion (LangVersion ver)
 		{
 			switch (ver) {
 			case LangVersion.Default:
-				return Mono.CSharp.LanguageVersion.Default;
+				return new Version (4, 0, 0, 0);
 			case LangVersion.ISO_1:
-				return Mono.CSharp.LanguageVersion.ISO_1;
+				return new Version (1, 0, 0, 0);
 			case LangVersion.ISO_2:
-				return Mono.CSharp.LanguageVersion.ISO_2;
+				return new Version (2, 0, 0, 0);
 			}
-			return Mono.CSharp.LanguageVersion.Default;
+			return new Version (4, 0, 0, 0);;
 		}
 	}
 	

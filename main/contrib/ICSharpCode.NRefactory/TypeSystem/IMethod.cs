@@ -38,6 +38,24 @@ namespace ICSharpCode.NRefactory.TypeSystem
 		
 		bool IsPartialMethodDeclaration { get; }
 		bool IsPartialMethodImplementation { get; }
+		
+		/// <summary>
+		/// If this method is an accessor, returns a reference to the corresponding property/event.
+		/// Otherwise, returns null.
+		/// </summary>
+		IUnresolvedMember AccessorOwner { get; }
+		
+		/// <summary>
+		/// Resolves the member.
+		/// </summary>
+		/// <param name="context">
+		/// Context for looking up the member. The context must specify the current assembly.
+		/// A <see cref="SimpleTypeResolveContext"/> that specifies the current assembly is sufficient.
+		/// </param>
+		/// <returns>
+		/// Returns the resolved member, or <c>null</c> if the member could not be found.
+		/// </returns>
+		new IMethod Resolve(ITypeResolveContext context);
 	}
 	
 	/// <summary>
@@ -63,5 +81,16 @@ namespace ICSharpCode.NRefactory.TypeSystem
 		bool IsConstructor { get; }
 		bool IsDestructor { get; }
 		bool IsOperator { get; }
+		
+		/// <summary>
+		/// Gets whether the method is a property/event accessor.
+		/// </summary>
+		bool IsAccessor { get; }
+		
+		/// <summary>
+		/// If this method is an accessor, returns the corresponding property/event.
+		/// Otherwise, returns null.
+		/// </summary>
+		IMember AccessorOwner { get; }
 	}
 }

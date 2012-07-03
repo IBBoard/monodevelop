@@ -124,10 +124,11 @@ namespace MonoDevelop.AssemblyBrowser
 			var type = (IUnresolvedTypeDefinition)dataObject;
 			var list = new System.Collections.ArrayList ();
 			list.Add (new BaseTypeFolder (type));
-			bool publicOnly = builder.Options ["PublicApiOnly"];
-			foreach (var t in type.NestedTypes.Where (m => !m.IsSynthetic && !(publicOnly && (m.IsPublic || m.IsProtected) )))
+			bool publicOnly = Widget.PublicApiOnly;
+			foreach (var t in type.NestedTypes.Where (m => !m.IsSynthetic && (m.IsPublic || m.IsProtected || !publicOnly))) {
 				list.Add (t);
-			foreach (var m in type.Members.Where (m => !m.IsSynthetic && !(publicOnly && !(m.IsProtected || m.IsPublic || m.IsInternal))))
+			}
+			foreach (var m in type.Members.Where (m => !m.IsSynthetic && (m.IsPublic || m.IsProtected || !publicOnly)))
 				list.Add (m);
 			builder.AddChildren (list);
 		}
@@ -183,13 +184,18 @@ namespace MonoDevelop.AssemblyBrowser
 			var type = CecilLoader.GetCecilObject ((IUnresolvedTypeDefinition)navigator.DataItem);
 			if (type == null)
 				return null;
+			var types = DesktopService.GetMimeTypeInheritanceChain (data.Document.MimeType);
+			var codePolicy = MonoDevelop.Projects.Policies.PolicyService.GetDefaultPolicy<MonoDevelop.CSharp.Formatting.CSharpFormattingPolicy> (types);
 			var settings = new DecompilerSettings () {
 				AnonymousMethods = true,
 				AutomaticEvents  = true,
 				AutomaticProperties = true,
 				ForEachStatement = true,
 				LockStatement = true,
-				HideNonPublicMembers = publicOnly
+				CSharpFormattingOptions = codePolicy.CreateOptions ()
+
+				//,
+//				HideNonPublicMembers = publicOnly
 			};
 			return DomMethodNodeBuilder.Decompile (data, DomMethodNodeBuilder.GetModule (navigator), type, builder => {
 				builder.AddType (type);

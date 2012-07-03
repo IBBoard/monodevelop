@@ -18,6 +18,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace ICSharpCode.NRefactory.TypeSystem.Implementation
@@ -31,6 +32,7 @@ namespace ICSharpCode.NRefactory.TypeSystem.Implementation
 		IList<IUnresolvedAttribute> returnTypeAttributes;
 		IList<IUnresolvedTypeParameter> typeParameters;
 		IList<IUnresolvedParameter> parameters;
+		IUnresolvedMember accessorOwner;
 		
 		protected override void FreezeInternal()
 		{
@@ -124,6 +126,14 @@ namespace ICSharpCode.NRefactory.TypeSystem.Implementation
 			}
 		}
 		
+		public IUnresolvedMember AccessorOwner {
+			get { return accessorOwner; }
+			set {
+				ThrowIfFrozen();
+				accessorOwner = value;
+			}
+		}
+		
 		public override string ToString()
 		{
 			StringBuilder b = new StringBuilder("[");
@@ -147,6 +157,45 @@ namespace ICSharpCode.NRefactory.TypeSystem.Implementation
 			return new DefaultResolvedMethod(this, context);
 		}
 		
+		public override IMember Resolve(ITypeResolveContext context)
+		{
+			if (accessorOwner != null) {
+				var owner = accessorOwner.Resolve(context);
+				if (owner != null) {
+					IProperty p = owner as IProperty;
+					if (p != null) {
+						if (p.CanGet && p.Getter.Name == this.Name)
+							return p.Getter;
+						if (p.CanSet && p.Setter.Name == this.Name)
+							return p.Setter;
+					}
+					IEvent e = owner as IEvent;
+					if (e != null) {
+						if (e.CanAdd && e.AddAccessor.Name == this.Name)
+							return e.AddAccessor;
+						if (e.CanRemove && e.RemoveAccessor.Name == this.Name)
+							return e.RemoveAccessor;
+						if (e.CanInvoke && e.InvokeAccessor.Name == this.Name)
+							return e.InvokeAccessor;
+					}
+				}
+				return null;
+			}
+			
+			ITypeReference interfaceTypeReference = null;
+			if (this.IsExplicitInterfaceImplementation && this.ExplicitInterfaceImplementations.Count == 1)
+				interfaceTypeReference = this.ExplicitInterfaceImplementations[0].DeclaringTypeReference;
+			return Resolve(ExtendContextForType(context, this.DeclaringTypeDefinition),
+			               this.EntityType, this.Name, interfaceTypeReference,
+			               this.TypeParameters.Select(tp => tp.Name).ToList(),
+			               this.Parameters.Select(p => p.Type).ToList());
+		}
+		
+		IMethod IUnresolvedMethod.Resolve(ITypeResolveContext context)
+		{
+			return (IMethod)Resolve(context);
+		}
+		
 		public static DefaultUnresolvedMethod CreateDefaultConstructor(IUnresolvedTypeDefinition typeDefinition)
 		{
 			if (typeDefinition == null)
@@ -160,6 +209,31 @@ namespace ICSharpCode.NRefactory.TypeSystem.Implementation
 				Region = region,
 				ReturnType = KnownTypeReference.Void
 			};
+		}
+		
+		static readonly IUnresolvedMethod dummyConstructor = CreateDummyConstructor();
+		
+		/// <summary>
+		/// Returns a dummy constructor instance:
+		/// </summary>
+		/// <returns>
+		/// A public instance constructor with IsSynthetic=true and no declaring type.
+		/// </returns>
+		public static IUnresolvedMethod DummyConstructor {
+			get { return dummyConstructor; }
+		}
+		
+		static IUnresolvedMethod CreateDummyConstructor()
+		{
+			var m = new DefaultUnresolvedMethod {
+				EntityType = EntityType.Constructor,
+				Name = ".ctor",
+				Accessibility = Accessibility.Public,
+				IsSynthetic = true,
+				ReturnType = KnownTypeReference.Void
+			};
+			m.Freeze();
+			return m;
 		}
 	}
 }

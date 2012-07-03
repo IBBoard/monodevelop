@@ -99,13 +99,16 @@ namespace MonoDevelop.SourceEditor.QuickTasks
 			
 			protected override void DrawBar (Cairo.Context cr)
 			{
+				/*
 				if (vadjustment == null || vadjustment.Upper <= vadjustment.PageSize) 
 					return;
 				var h = Allocation.Height;
-				cr.Rectangle (1.5,
-					              h * vadjustment.Value / vadjustment.Upper + cr.LineWidth + 0.5,
-					              Allocation.Width - 2,
-					              h * (vadjustment.PageSize / vadjustment.Upper));
+
+				cr.Rectangle (
+					1.5,
+					y,
+					Allocation.Width - 2,
+					h * (vadjustment.PageSize / vadjustment.Upper));
 				Cairo.Color color = (TextEditor.ColorStyle != null) ? TextEditor.ColorStyle.Default.CairoColor : new Cairo.Color (0, 0, 0);
 				color.A = 0.5;
 				cr.Color = color;
@@ -113,9 +116,19 @@ namespace MonoDevelop.SourceEditor.QuickTasks
 				
 				color.A = 0.05;
 				cr.Color = color;
-				cr.Fill ();
+				cr.Fill ();*/
 			}
-		
+
+
+			protected override void MouseMove (double y)
+			{
+				if (button != 1)
+					return;
+				double position = (y / Allocation.Height) * vadjustment.Upper - vadjustment.PageSize / 2;
+				position = Math.Max (vadjustment.Lower, Math.Min (position, vadjustment.Upper - vadjustment.PageSize));
+				vadjustment.Value = position;
+			}
+
 			protected override void OnSizeRequested (ref Requisition requisition)
 			{
 				base.OnSizeRequested (ref requisition);
@@ -176,7 +189,7 @@ namespace MonoDevelop.SourceEditor.QuickTasks
 			{
 				DestroyBgBuffer ();
 				curWidth = Allocation.Width;
-				curHeight = Math.Max (Allocation.Height, (int)(lineHeight * TextEditor.GetTextEditorData ().VisibleLineCount));
+				curHeight = Math.Max (Allocation.Height, (int)(lineHeight * (TextEditor.GetTextEditorData ().VisibleLineCount + TextEditor.EditorLineThreshold)));
 				if (GdkWindow == null || curWidth < 1 || curHeight < 1)
 					return;
 				backgroundPixbuf = new Pixmap (GdkWindow, curWidth, curHeight);
@@ -218,7 +231,7 @@ namespace MonoDevelop.SourceEditor.QuickTasks
 						cr.Color = mode.TextEditor.ColorStyle.Default.CairoBackgroundColor;
 					cr.Fill ();
 					
-					maxLine = mode.TextEditor.GetTextEditorData ().VisibleLineCount;
+					maxLine = mode.TextEditor.GetTextEditorData ().VisibleLineCount + TextEditor.EditorLineThreshold;
 					sx = w / (double)mode.TextEditor.Allocation.Width;
 					sy = Math.Min (1, lineHeight * maxLine / (double)mode.TextEditor.GetTextEditorData ().TotalHeight );
 					cr.Scale (sx, sy);
@@ -272,7 +285,15 @@ namespace MonoDevelop.SourceEditor.QuickTasks
 					return true;
 				}
 			}
-			
+
+			int GetBufferYOffset ()
+			{
+				int h = backgroundPixbuf.ClipRegion.Clipbox.Height - Allocation.Height;
+				if (h < 0)
+					return 0;
+				return Math.Max (0, (int)(h * (vadjustment.Value) / (vadjustment.Upper - vadjustment.Lower - vadjustment.PageSize)));
+			}
+
 			protected override bool OnExposeEvent (Gdk.EventExpose e)
 			{
 				if (TextEditor == null)
@@ -280,9 +301,7 @@ namespace MonoDevelop.SourceEditor.QuickTasks
 				using (Cairo.Context cr = Gdk.CairoHelper.Create (e.Window)) {
 					cr.LineWidth = 1;
 					if (backgroundPixbuf != null) {
-						int h = backgroundPixbuf.ClipRegion.Clipbox.Height - Allocation.Height;
-						int y = (int)(h * vadjustment.Value / (vadjustment.Upper - vadjustment.Lower));
-						e.Window.DrawDrawable (Style.BlackGC, backgroundPixbuf, 0, y, 0, 0, Allocation.Width, Allocation.Height);
+						e.Window.DrawDrawable (Style.BlackGC, backgroundPixbuf, 0, GetBufferYOffset (), 0, 0, Allocation.Width, Allocation.Height);
 					} else {
 						cr.Rectangle (0, 0, Allocation.Width, Allocation.Height);
 						if (TextEditor.ColorStyle != null)
@@ -291,14 +310,18 @@ namespace MonoDevelop.SourceEditor.QuickTasks
 					}
 					
 					cr.Color = (HslColor)Style.Dark (State);
-					cr.MoveTo (0.5, 0.5);
+					cr.MoveTo (-0.5, 0.5);
 					cr.LineTo (Allocation.Width, 0.5);
+					cr.MoveTo (-0.5, Allocation.Height - 0.5);
+					cr.LineTo (Allocation.Width, Allocation.Height - 0.5);
 					cr.Stroke ();
 
 					if (backgroundPixbuf != null) {
-						int h = backgroundPixbuf.ClipRegion.Clipbox.Height - Allocation.Height;
-						int y = (int)(h * vadjustment.Value / (vadjustment.Upper - vadjustment.Lower));
-						int dy = (int)(backgroundPixbuf.ClipRegion.Clipbox.Height * vadjustment.Value / (vadjustment.Upper - vadjustment.Lower));
+						int y = GetBufferYOffset ();
+
+						int startLine = TextEditor.YToLine (vadjustment.Value);
+						double dy = TextEditor.LogicalToVisualLocation (startLine, 1).Line * lineHeight;
+
 						cr.Rectangle (0, 
 						              dy - y,
 						              Allocation.Width, 

@@ -42,13 +42,14 @@ using ICSharpCode.NRefactory.CSharp.Completion;
 using ICSharpCode.NRefactory.CSharp.TypeSystem;
 using MonoDevelop.Ide.Gui.Content;
 using MonoDevelop.Ide.TypeSystem;
+using System.Threading;
 
 namespace MonoDevelop.Refactoring
 {
 	public class ResolveCommandHandler : CommandHandler
 	{
 
-		public static bool ResolveAt (Document doc, out ResolveResult resolveResult, out AstNode node)
+		public static bool ResolveAt (Document doc, out ResolveResult resolveResult, out AstNode node, CancellationToken token = default (CancellationToken))
 		{
 			var parsedDocument = doc.ParsedDocument;
 			resolveResult = null;
@@ -60,9 +61,12 @@ namespace MonoDevelop.Refactoring
 			if (unit == null || parsedFile == null)
 				return false;
 			try {
-				resolveResult = ResolveAtLocation.Resolve (doc.Compilation, parsedFile, unit, doc.Editor.Caret.Location, out node);
+				var location = RefactoringService.GetCorrectResolveLocation (doc, doc.Editor.Caret.Location);
+				resolveResult = ResolveAtLocation.Resolve (doc.Compilation, parsedFile, unit, location, out node, token);
 				if (resolveResult == null || node is Statement)
 					return false;
+			} catch (OperationCanceledException) {
+				return false;
 			} catch (Exception e) {
 				Console.WriteLine ("Got resolver exception:" + e);
 				return false;
@@ -78,9 +82,12 @@ namespace MonoDevelop.Refactoring
 
 			ResolveResult resolveResult;
 			AstNode node;
-			if (!ResolveAt (doc, out resolveResult, out node))
-				return;
-
+			if (!ResolveAt (doc, out resolveResult, out node)) {
+				var location = RefactoringService.GetCorrectResolveLocation (doc, doc.Editor.Caret.Location);
+				resolveResult = GetHeuristicResult (doc, location, ref node);
+				if (resolveResult == null)
+					return;
+			}
 			var resolveMenu = new CommandInfoSet ();
 			resolveMenu.Text = GettextCatalog.GetString ("Resolve");
 			

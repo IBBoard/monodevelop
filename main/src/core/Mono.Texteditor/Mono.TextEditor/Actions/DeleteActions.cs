@@ -202,7 +202,11 @@ namespace Mono.TextEditor
 				data.Caret.Column = line.Length + 1;
 			} else if (data.Caret.Offset == line.Offset) {
 				DocumentLine lineAbove = data.Document.GetLine (data.Caret.Line - 1);
-				data.Remove (lineAbove.EndOffsetIncludingDelimiter - lineAbove.DelimiterLength, lineAbove.DelimiterLength);
+				if (lineAbove.Length == 0 && data.HasIndentationTracker && data.Options.IndentStyle == IndentStyle.Virtual) {
+					data.Replace (lineAbove.EndOffsetIncludingDelimiter - lineAbove.DelimiterLength, lineAbove.DelimiterLength, data.IndentationTracker.GetIndentationString (data.Caret.Line - 1, 1));
+				} else {
+					data.Remove (lineAbove.EndOffsetIncludingDelimiter - lineAbove.DelimiterLength, lineAbove.DelimiterLength);
+				}
 			} else {
 				removeCharBeforeCaret (data);
 			}
@@ -216,7 +220,9 @@ namespace Mono.TextEditor
 			int offset = data.Caret.Offset;
 			if (offset <= 0)
 				return;
+			int column = data.Caret.Column;
 			data.Remove (offset - 1, 1);
+			data.Caret.Column = column - 1;
 		}
 		
 		public static void Delete (TextEditorData data)

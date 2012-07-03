@@ -142,9 +142,13 @@ namespace Mono.TextEditor
 
 		void HandleDocTextSet (object sender, EventArgs e)
 		{
-			caret.SetDocument (document);
+			if (vadjustment != null)
+				vadjustment.Value = vadjustment.Lower;
+			if (hadjustment != null)
+				hadjustment.Value = hadjustment.Lower;
 			HeightTree.Rebuild ();
 			ClearSelection ();
+			caret.SetDocument (document);
 		}
 
 		public double GetLineHeight (DocumentLine line)
@@ -175,7 +179,7 @@ namespace Mono.TextEditor
 
 		void HandleTextReplaced (object sender, DocumentChangeEventArgs e)
 		{
-			caret.UpdateCaretPosition ();
+			caret.UpdateCaretPosition (e);
 		}
 
 
@@ -435,6 +439,7 @@ namespace Mono.TextEditor
 		{
 			if (IsDisposed)
 				return;
+			document.WaitForFoldUpdateFinished ();
 			IsDisposed = true;
 			options = options.Kill ();
 			HeightTree.Dispose ();
@@ -812,11 +817,13 @@ namespace Mono.TextEditor
 			switch (selection.SelectionMode) {
 			case SelectionMode.Normal:
 				var segment = selection.GetSelectionRange (this);
-				if (Caret.Offset > segment.Offset)
-					Caret.Offset -= System.Math.Min (segment.Length, Caret.Offset - segment.Offset);
 				int len = System.Math.Min (segment.Length, Document.TextLength - segment.Offset);
+				var loc = selection.Anchor < selection.Lead ? selection.Anchor : selection.Lead;
+				caret.Location = loc;
+				EnsureCaretIsNotVirtual ();
 				if (len > 0)
 					Remove (segment.Offset, len);
+				caret.Location = loc;
 				break;
 			case SelectionMode.Block:
 				DocumentLocation visStart = LogicalToVisualLocation (selection.Anchor);
@@ -1094,6 +1101,7 @@ namespace Mono.TextEditor
 			}
 			return 0;
 		}
+
 		#endregion
 		
 		public Stream OpenStream ()

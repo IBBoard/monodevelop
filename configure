@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 VERSION=2.1.0
 profile=default
 tests=no
@@ -45,6 +45,9 @@ usage ()
 	echo "  Shows a list of add-ins and allows selecting which ones should be"
 	echo "  included in the build. It can be used in combination with --profile"
 	echo "  to select the add-ins to be built for a specific profile."
+	echo ""
+	echo "--enable-tests"
+	echo "  Build the md test suite"
 	echo ""
 	echo "--profile=PROFILE"
 	echo ""

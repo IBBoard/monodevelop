@@ -1,7 +1,65 @@
+include $(top_srcdir)/Makefile.include
+
+MONO=mono
+HARNESS=$(top_srcdir)/external/mdtestharness/nunit-console-x86.exe -domain=multiple
+RUN_TEST=$(MD_LAUNCH_SETUP) $(MONO) $(HARNESS)
+TEST_DIR=$(top_builddir)/build/tests
+EXTERNAL=$(top_builddir)/external
+
+TEST_PROJECTS_MAC = \
+	MacPlatform.Tests/MacPlatform.Tests.csproj \
+	MonoDevelop.MacDev.Tests/MonoDevelop.MacDev.Tests.csproj
+
+TEST_PROJECTS_COMMON = \
+	UnitTests/UnitTests.csproj \
+	$(top_srcdir)/src/addins/MonoDevelop.Debugger/MonoDevelop.Debugger.Tests/MonoDevelop.Debugger.Tests.csproj \
+	$(EXTERNAL)/ngit/NGit.Test/NGit.Test.csproj
+
+TEST_ASSEMBLIES_MAC = \
+	$(TEST_DIR)/MacPlatform.Tests.dll \
+	$(TEST_DIR)/MonoDevelop.MacDev.Tests.dll
+
+TEST_ASSEMBLIES_COMMON = \
+	$(TEST_DIR)/UnitTests.dll \
+	$(TEST_DIR)/MonoDevelop.Debugger.Tests.dll \
+	$(EXTERNAL)/ngit/bin/NGit.Test.dll
+
+
+TEST_PROJECTS = $(TEST_PROJECTS_COMMON)
+TEST_ASSEMBLIES = $(TEST_ASSEMBLIES_COMMON)
+
+if ENABLE_MACPLATFORM
+TEST_PROJECTS += $(TEST_PROJECTS_MAC)
+TEST_ASSEMBLIES += $(TEST_ASSEMBLIES_MAC)
+endif
+
 if ENABLE_TESTS
 
-SUBDIRS = UnitTests
-	
+all:
+	@for csproj in $(TEST_PROJECTS); do \
+		xbuild /property:CodePage=65001 $$csproj || exit $?; \
+	done
+
+clean:
+	@for csproj in $(TEST_PROJECTS); do \
+		xbuild /property:CodePage=65001 /t:Clean $$csproj || exit $?; \
+	done
+
+test:
+	@if test -n "$(assembly)"; then \
+		for asm in $(TEST_ASSEMBLIES); do \
+			if test `basename $$asm` = $(assembly); then \
+				$(RUN_TEST) $$asm || exit $?; \
+			fi; \
+		done; \
+	fi
+
+	@if ! test -n "$(assembly)"; then \
+		for asm in $(TEST_ASSEMBLIES); do \
+			$(RUN_TEST) $$asm || exit $?; \
+		done; \
+	fi
+
 EXTRA_DIST = \
 	test-projects/resources-tester/ResourcesTester/Subfolder/FormFile2.cs \
 	test-projects/resources-tester/ResourcesTester/Subfolder/FormFile2.Designer.cs \
@@ -100,5 +158,11 @@ EXTRA_DIST = \
 	test-projects/console-project/ConsoleProject/Properties/AssemblyInfo.cs \
 	test-projects/console-project/ConsoleProject/Program.cs \
 	test-projects/console-project/ConsoleProject.sln
+
+else
+
+test:
+	@echo "md is configured without --enable-tests."
+	@exit 1
 
 endif
