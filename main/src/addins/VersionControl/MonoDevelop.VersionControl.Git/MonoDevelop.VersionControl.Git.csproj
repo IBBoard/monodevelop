@@ -35,7 +35,6 @@
     <Reference Include="gdk-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f" />
     <Reference Include="glib-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f" />
     <Reference Include="Mono.Posix" />
-    <Reference Include="pango-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f" />
     <Reference Include="System.Core" />
   </ItemGroup>
   <ItemGroup>
@@ -80,6 +79,11 @@
     <Compile Include="MonoDevelop.VersionControl.Git\FilteredStatus.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\..\core\Mono.Texteditor\Mono.TextEditor.csproj">
+      <Project>{A2329308-3751-4DBD-9A75-5F7B8B024625}</Project>
+      <Name>Mono.TextEditor</Name>
+      <Private>False</Private>
+    </ProjectReference>
     <ProjectReference Include="..\..\..\core\MonoDevelop.Core\MonoDevelop.Core.csproj">
       <Project>{7525BB88-6142-4A26-93B9-A30C6983390A}</Project>
       <Name>MonoDevelop.Core</Name>
@@ -95,21 +99,6 @@
       <Name>MonoDevelop.VersionControl</Name>
       <Private>False</Private>
     </ProjectReference>
-    <ProjectReference Include="..\..\..\core\Mono.Texteditor\Mono.TextEditor.csproj">
-      <Project>{A2329308-3751-4DBD-9A75-5F7B8B024625}</Project>
-      <Name>Mono.TextEditor</Name>
-      <Private>False</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\..\..\contrib\ICSharpCode.NRefactory\ICSharpCode.NRefactory.csproj">
-      <Project>{3B2A5653-EC97-4001-BB9B-D90F1AF2C371}</Project>
-      <Name>ICSharpCode.NRefactory</Name>
-      <Private>False</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\..\..\contrib\ICSharpCode.NRefactory.CSharp\ICSharpCode.NRefactory.CSharp.csproj">
-      <Project>{53DCA265-3C3C-42F9-B647-F72BA678122B}</Project>
-      <Name>ICSharpCode.NRefactory.CSharp</Name>
-      <Private>False</Private>
-    </ProjectReference>
     <ProjectReference Include="..\..\..\..\external\ngit\NGit\NGit.csproj">
       <Project>{E3BFF8B4-189C-496A-A817-7E8B31E22B91}</Project>
       <Name>NGit</Name>
@@ -121,6 +110,10 @@
     <ProjectReference Include="..\..\..\..\external\ngit\Sharpen\Sharpen.csproj">
       <Project>{72944A6C-45FF-4EF8-B349-8C9CABF519D4}</Project>
       <Name>Sharpen</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\..\external\ngit\Sharpen.Unix\Sharpen.Unix.csproj">
+      <Project>{849AE05D-0058-4A8C-A0E8-77DC6BB12E52}</Project>
+      <Name>Sharpen.Unix</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
@@ -139,9 +132,6 @@
     <EmbeddedResource Include="icons\tag_blue.png">
       <LogicalName>tag_blue.png</LogicalName>
     </EmbeddedResource>
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="MonoDevelop.VersionControl.Git\" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Makefile.am" />

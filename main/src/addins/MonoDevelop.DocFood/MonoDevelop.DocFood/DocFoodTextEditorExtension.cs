@@ -65,12 +65,25 @@ namespace MonoDevelop.DocFood
 			if (keyChar != '/')
 				return base.KeyPress (key, keyChar, modifier);
 			
-			DocumentLine line = textEditorData.Document.GetLine (textEditorData.Caret.Line);
+			var line = textEditorData.Document.GetLine (textEditorData.Caret.Line);
 			string text = textEditorData.Document.GetTextAt (line.Offset, line.Length);
 			
 			if (!text.EndsWith ("//"))
 				return base.KeyPress (key, keyChar, modifier);
-			
+
+			// check if there is doc comment above or below.
+			var l = line.PreviousLine;
+			while (l != null && l.Length == 0)
+				l = l.PreviousLine;
+			if (l != null && textEditorData.GetTextAt (l).TrimStart ().StartsWith ("///"))
+				return base.KeyPress (key, keyChar, modifier);
+
+			l = line.NextLine;
+			while (l != null && l.Length == 0)
+				l = l.NextLine;
+			if (l != null && textEditorData.GetTextAt (l).TrimStart ().StartsWith ("///"))
+				return base.KeyPress (key, keyChar, modifier);
+
 			var member = GetMemberToDocument ();
 			if (member == null)
 				return base.KeyPress (key, keyChar, modifier);
@@ -123,7 +136,7 @@ namespace MonoDevelop.DocFood
 			if (type == null) {
 				foreach (var t in parsedDocument.TopLevelTypeDefinitions) {
 					if (t.Region.BeginLine > textEditorData.Caret.Line) {
-						var ctx = (parsedDocument.ParsedFile as CSharpParsedFile).GetTypeResolveContext (Document.Compilation, t.Region.Begin);
+						var ctx = (parsedDocument.ParsedFile as CSharpUnresolvedFile).GetTypeResolveContext (Document.Compilation, t.Region.Begin);
 						return t.Resolve (ctx).GetDefinition ();
 					}
 				}
@@ -133,7 +146,7 @@ namespace MonoDevelop.DocFood
 			IMember result = null;
 			foreach (var member in type.Members) {
 				if (member.Region.Begin > new TextLocation (textEditorData.Caret.Line, textEditorData.Caret.Column) && (result == null || member.Region.Begin < result.Region.Begin) && IsEmptyBetweenLines (textEditorData.Caret.Line, member.Region.BeginLine)) {
-					var ctx = (parsedDocument.ParsedFile as CSharpParsedFile).GetTypeResolveContext (Document.Compilation, member.Region.Begin);
+					var ctx = (parsedDocument.ParsedFile as CSharpUnresolvedFile).GetTypeResolveContext (Document.Compilation, member.Region.Begin);
 					result = member.CreateResolved (ctx);
 				}
 			}

@@ -60,6 +60,7 @@
     <Compile Include="Mono.Debugger.Soft\ExceptionEventRequest.cs" />
     <Compile Include="Mono.Debugger.Soft\FieldInfoMirror.cs" />
     <Compile Include="Mono.Debugger.Soft\IInvokeAsyncResult.cs" />
+    <Compile Include="Mono.Debugger.Soft\ILExceptionHandler.cs" />
     <Compile Include="Mono.Debugger.Soft\ILInstruction.cs" />
     <Compile Include="Mono.Debugger.Soft\IMirror.cs" />
     <Compile Include="Mono.Debugger.Soft\InterfaceMappingMirror.cs" />
@@ -117,9 +118,10 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\external\cecil\Mono.Cecil.csproj">
+    <ProjectReference Include="..\..\external\Mono.Cecil\Mono.Cecil.csproj">
       <Project>{D68133BD-1E63-496E-9EDE-4FBDBF77B486}</Project>
       <Name>Mono.Cecil</Name>
+      <Private>False</Private>
     </ProjectReference>
   </ItemGroup>
 </Project>
