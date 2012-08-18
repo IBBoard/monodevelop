@@ -56,8 +56,8 @@ namespace MonoDevelop.Refactoring
 			node = null;
 			if (parsedDocument == null)
 				return false;
-			var unit = parsedDocument.GetAst<CompilationUnit> ();
-			var parsedFile = parsedDocument.ParsedFile as CSharpParsedFile;
+			var unit = parsedDocument.GetAst<SyntaxTree> ();
+			var parsedFile = parsedDocument.ParsedFile as CSharpUnresolvedFile;
 			if (unit == null || parsedFile == null)
 				return false;
 			try {
@@ -98,7 +98,7 @@ namespace MonoDevelop.Refactoring
 				foreach (string ns in possibleNamespaces) {
 					var info = resolveMenu.CommandInfos.Add (
 						string.Format ("using {0};", ns),
-						new System.Action (new AddImport (doc, resolveResult, ns, true).Run)
+						new System.Action (new AddImport (doc, resolveResult, ns, true, node).Run)
 					);
 					info.Icon = MonoDevelop.Ide.Gui.Stock.AddNamespace;
 				}
@@ -111,7 +111,7 @@ namespace MonoDevelop.Refactoring
 				if (node is ObjectCreateExpression)
 					node = ((ObjectCreateExpression)node).Type;
 				foreach (string ns in possibleNamespaces) {
-					resolveMenu.CommandInfos.Add (string.Format ("{0}", ns + "." + doc.Editor.GetTextBetween (node.StartLocation, node.EndLocation)), new System.Action (new AddImport (doc, resolveResult, ns, false).Run));
+					resolveMenu.CommandInfos.Add (string.Format ("{0}", ns + "." + doc.Editor.GetTextBetween (node.StartLocation, node.EndLocation)), new System.Action (new AddImport (doc, resolveResult, ns, false, node).Run));
 				}
 			}
 			
@@ -161,11 +161,11 @@ namespace MonoDevelop.Refactoring
 					wasWhitespaceAfterLetter |= isWhiteSpace;
 			}
 
-			var unit = CompilationUnit.Parse (CreateStub (doc, offset), doc.FileName);
+			var unit = SyntaxTree.Parse (CreateStub (doc, offset), doc.FileName);
 
 			return ResolveAtLocation.Resolve (
 				doc.Compilation, 
-				doc.ParsedDocument.ParsedFile as CSharpParsedFile,
+				doc.ParsedDocument.ParsedFile as CSharpUnresolvedFile,
 				unit,
 				location, 
 				out node);
@@ -202,7 +202,7 @@ namespace MonoDevelop.Refactoring
 
 		static IEnumerable<string> GetPossibleNamespaces (Document doc, AstNode node, ResolveResult resolveResult, DocumentLocation location)
 		{
-			var unit = doc.ParsedDocument.GetAst<CompilationUnit> ();
+			var unit = doc.ParsedDocument.GetAst<SyntaxTree> ();
 			if (unit == null)
 				yield break;
 
@@ -213,7 +213,7 @@ namespace MonoDevelop.Refactoring
 			var lookup = new MemberLookup (null, compilation.MainAssembly);
 			if (resolveResult is AmbiguousTypeResolveResult) {
 				var aResult = resolveResult as AmbiguousTypeResolveResult;
-				var file = doc.ParsedDocument.ParsedFile as CSharpParsedFile;
+				var file = doc.ParsedDocument.ParsedFile as CSharpUnresolvedFile;
 				var scope = file.GetUsingScope (location).Resolve (compilation);
 				while (scope != null) {
 					foreach (var u in scope.Usings) {
@@ -288,13 +288,15 @@ namespace MonoDevelop.Refactoring
 			readonly ResolveResult resolveResult;
 			readonly string ns;
 			readonly bool addUsing;
+			readonly AstNode node;
 			
-			public AddImport (Document doc, ResolveResult resolveResult, string ns, bool addUsing)
+			public AddImport (Document doc, ResolveResult resolveResult, string ns, bool addUsing, AstNode node)
 			{
 				this.doc = doc;
 				this.resolveResult = resolveResult;
 				this.ns = ns;
 				this.addUsing = addUsing;
+				this.node = node;
 			}
 			
 			public void Run ()
@@ -302,8 +304,7 @@ namespace MonoDevelop.Refactoring
 				var loc = doc.Editor.Caret.Location;
 
 				if (!addUsing) {
-					var unit = doc.ParsedDocument.GetAst<CompilationUnit> ();
-					var node = unit.GetNodeAt (loc, n => n is Expression || n is AstType);
+					var unit = doc.ParsedDocument.GetAst<SyntaxTree> ();
 					int offset = doc.Editor.LocationToOffset (node.StartLocation);
 					doc.Editor.Insert (offset, ns + ".");
 					doc.Editor.Document.CommitLineUpdate (loc.Line);

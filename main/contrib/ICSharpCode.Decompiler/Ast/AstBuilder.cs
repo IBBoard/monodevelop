@@ -52,7 +52,7 @@ namespace ICSharpCode.Decompiler.Ast
 	public class AstBuilder
 	{
 		DecompilerContext context;
-		CompilationUnit astCompileUnit = new CompilationUnit();
+		SyntaxTree astCompileUnit = new SyntaxTree();
 		Dictionary<string, NamespaceDeclaration> astNamespaces = new Dictionary<string, NamespaceDeclaration>();
 		bool transformationsHaveRun;
 		
@@ -70,7 +70,7 @@ namespace ICSharpCode.Decompiler.Ast
 			if (method != null) {
 				if (method.IsGetter || method.IsSetter || method.IsAddOn || method.IsRemoveOn)
 					return true;
-				if (settings.AnonymousMethods && method.HasGeneratedName() && method.IsCompilerGenerated())
+				if (settings.HideNonPublicMembers && !(method.IsPublic || method.IsFamily))
 					return true;
 			}
 
@@ -104,8 +104,24 @@ namespace ICSharpCode.Decompiler.Ast
 				// event-fields are not [CompilerGenerated]
 				if (settings.AutomaticEvents && field.DeclaringType.Events.Any(ev => ev.Name == field.Name))
 					return true;
+				if (settings.HideNonPublicMembers && !(field.IsPublic || field.IsFamily))
+					return true;
+			}
+
+			PropertyDefinition property = member as PropertyDefinition;
+			if (property != null) {
+				if (settings.HideNonPublicMembers && (property.GetMethod == null || !(property.GetMethod.IsPublic || property.GetMethod.IsFamily)) &&
+				    (property.SetMethod == null || !(property.SetMethod.IsPublic || property.SetMethod.IsFamily)))
+					return true;
 			}
 			
+			EventDefinition evt = member as EventDefinition;
+			if (evt != null) {
+				if (settings.HideNonPublicMembers && (evt.AddMethod == null || !(evt.AddMethod.IsPublic | evt.AddMethod.IsFamily)) && 
+				    (evt.RemoveMethod == null || !(evt.RemoveMethod.IsPublic || evt.RemoveMethod.IsFamily)))
+					return true;
+			}
+
 			return false;
 		}
 
@@ -146,7 +162,7 @@ namespace ICSharpCode.Decompiler.Ast
 		/// <summary>
 		/// Gets the abstract source tree.
 		/// </summary>
-		public CompilationUnit CompilationUnit {
+		public SyntaxTree CompilationUnit {
 			get { return astCompileUnit; }
 		}
 		
@@ -203,7 +219,7 @@ namespace ICSharpCode.Decompiler.Ast
 			}
 		}
 		
-		void AddTypeForwarderAttributes(CompilationUnit astCompileUnit, ModuleDefinition module, string target)
+		void AddTypeForwarderAttributes(SyntaxTree astCompileUnit, ModuleDefinition module, string target)
 		{
 			if (!module.HasExportedTypes)
 				return;
@@ -237,7 +253,7 @@ namespace ICSharpCode.Decompiler.Ast
 			} else {
 				// Create the namespace
 				NamespaceDeclaration astNamespace = new NamespaceDeclaration { Name = name };
-				astCompileUnit.AddChild(astNamespace, CompilationUnit.MemberRole);
+				astCompileUnit.AddChild(astNamespace, SyntaxTree.MemberRole);
 				astNamespaces[name] = astNamespace;
 				return astNamespace;
 			}
@@ -250,29 +266,29 @@ namespace ICSharpCode.Decompiler.Ast
 			if (astNS != null) {
 				astNS.AddChild(astType, NamespaceDeclaration.MemberRole);
 			} else {
-				astCompileUnit.AddChild(astType, CompilationUnit.MemberRole);
+				astCompileUnit.AddChild(astType, SyntaxTree.MemberRole);
 			}
 		}
 		
 		public void AddMethod(MethodDefinition method)
 		{
 			AstNode node = method.IsConstructor ? (AstNode)CreateConstructor(method) : CreateMethod(method);
-			astCompileUnit.AddChild(node, CompilationUnit.MemberRole);
+			astCompileUnit.AddChild(node, SyntaxTree.MemberRole);
 		}
 
 		public void AddProperty(PropertyDefinition property)
 		{
-			astCompileUnit.AddChild(CreateProperty(property), CompilationUnit.MemberRole);
+			astCompileUnit.AddChild(CreateProperty(property), SyntaxTree.MemberRole);
 		}
 		
 		public void AddField(FieldDefinition field)
 		{
-			astCompileUnit.AddChild(CreateField(field), CompilationUnit.MemberRole);
+			astCompileUnit.AddChild(CreateField(field), SyntaxTree.MemberRole);
 		}
 		
 		public void AddEvent(EventDefinition ev)
 		{
-			astCompileUnit.AddChild(CreateEvent(ev), CompilationUnit.MemberRole);
+			astCompileUnit.AddChild(CreateEvent(ev), SyntaxTree.MemberRole);
 		}
 		
 		/// <summary>
