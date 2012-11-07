@@ -1,5 +1,7 @@
 include $(top_srcdir)/xbuild.include
 
+SUBDIRS=UnitTests MacPlatform.Tests UserInterfaceTests
+
 MONO=mono
 HARNESS=$(top_srcdir)/external/mdtestharness/nunit-console-x86.exe -domain=multiple
 RUN_TEST=$(MD_LAUNCH_SETUP) $(MONO) $(HARNESS)
@@ -7,8 +9,7 @@ TEST_DIR=$(top_builddir)/build/tests
 EXTERNAL=$(top_builddir)/external
 
 TEST_PROJECTS_MAC = \
-	MacPlatform.Tests/MacPlatform.Tests.csproj \
-	MonoDevelop.MacDev.Tests/MonoDevelop.MacDev.Tests.csproj
+	MacPlatform.Tests/MacPlatform.Tests.csproj
 
 TEST_PROJECTS_COMMON = \
 	UnitTests/UnitTests.csproj \
@@ -16,8 +17,7 @@ TEST_PROJECTS_COMMON = \
 	$(EXTERNAL)/ngit/NGit.Test/NGit.Test.csproj
 
 TEST_ASSEMBLIES_MAC = \
-	$(TEST_DIR)/MacPlatform.Tests.dll \
-	$(TEST_DIR)/MonoDevelop.MacDev.Tests.dll
+	$(TEST_DIR)/MacPlatform.Tests.dll
 
 TEST_ASSEMBLIES_COMMON = \
 	$(TEST_DIR)/UnitTests.dll \
