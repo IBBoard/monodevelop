@@ -104,11 +104,15 @@ namespace MonoDevelop.Ide.FindInFiles
 		public override IEnumerable<FileProvider> GetFiles (IProgressMonitor monitor, FilterOptions filterOptions)
 		{
 			if (IdeApp.Workspace.IsOpen) {
+				var alreadyVisited = new HashSet<string> ();
 				foreach (Project project in IdeApp.Workspace.GetAllProjects ()) {
 					monitor.Log.WriteLine (GettextCatalog.GetString ("Looking in project '{0}'", project.Name));
 					foreach (ProjectFile file in project.Files.Where (f => filterOptions.NameMatches (f.Name) && File.Exists (f.Name))) {
 						if (!IncludeBinaryFiles && !DesktopService.GetMimeTypeIsText (DesktopService.GetMimeTypeForUri (file.Name)))
 							continue;
+						if (alreadyVisited.Contains (file.Name))
+							continue;
+						alreadyVisited.Add (file.Name);
 						yield return new FileProvider (file.Name, project);
 					}
 				}
@@ -144,9 +148,14 @@ namespace MonoDevelop.Ide.FindInFiles
 		{
 			if (IdeApp.Workspace.IsOpen) {
 				monitor.Log.WriteLine (GettextCatalog.GetString ("Looking in project '{0}'", project.Name));
+				var alreadyVisited = new HashSet<string> ();
 				foreach (ProjectFile file in project.Files.Where (f => filterOptions.NameMatches (f.Name) && File.Exists (f.Name))) {
 					if (!IncludeBinaryFiles && !DesktopService.GetMimeTypeIsText (DesktopService.GetMimeTypeForUri (file.Name)))
 						continue;
+
+					if (alreadyVisited.Contains (file.Name))
+						continue;
+					alreadyVisited.Add (file.Name);
 					yield return new FileProvider (file.Name, project);
 				}
 			}
@@ -214,14 +223,14 @@ namespace MonoDevelop.Ide.FindInFiles
 			foreach (string fileMask in filterOptions.FileMask.Split (',', ';')) {
 				string[] files;
 				try {
-					files = Directory.GetFiles (path, fileMask, recurse ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
+					files = Directory.GetFiles (path, "*", recurse ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
 				} catch (Exception e) {
 					LoggingService.LogError ("Can't access path " + path, e);
 					yield break;
 				}
 				
-				foreach (string fileName in files) {
-					if (fileName.StartsWith (".") && !IncludeHiddenFiles)
+				foreach (string fileName in files.Where (filterOptions.NameMatches)) {
+					if (fileName.StartsWith (".", StringComparison.Ordinal) && !IncludeHiddenFiles)
 						continue;
 					if (!IncludeBinaryFiles && !DesktopService.GetMimeTypeIsText (DesktopService.GetMimeTypeForUri (fileName))) 
 						continue;

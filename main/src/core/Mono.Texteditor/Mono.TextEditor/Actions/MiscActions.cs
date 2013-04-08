@@ -474,10 +474,17 @@ namespace Mono.TextEditor
 
 		public static void DuplicateLine (TextEditorData data)
 		{
-			DocumentLine line = data.Document.GetLine (data.Caret.Line);
-			if (line == null)
-				return;
-			data.Insert (line.Offset, data.GetTextAt (line.SegmentIncludingDelimiter));
+			if (data.IsSomethingSelected) {
+				var selectedText = data.SelectedText;
+				data.ClearSelection ();
+				data.InsertAtCaret (selectedText);
+			}
+			else {
+				DocumentLine line = data.Document.GetLine (data.Caret.Line);
+				if (line == null)
+					return;
+				data.Insert (line.Offset, data.GetTextAt (line.SegmentIncludingDelimiter));
+			}
 		}
 	}
 }

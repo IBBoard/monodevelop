@@ -110,9 +110,10 @@ namespace MonoDevelop.Ide.TypeSystem
 
 		public static IType Resolve (this IUnresolvedTypeDefinition def, Project project)
 		{
-			var pf = TypeSystemService.GetProjectContext (project).GetFile (def.Region.FileName);
-			var ctx = pf.GetTypeResolveContext (TypeSystemService.GetCompilation (project), def.Region.Begin);
-			return def.Resolve (ctx);
+			var compilation = TypeSystemService.GetCompilation (project);
+			var ctx = new SimpleTypeResolveContext (compilation.MainAssembly);
+			var resolvedType = def.Resolve (ctx);
+			return resolvedType;
 		}
 		
 		[Obsolete("Do not use this method. Use type references to resolve types. Type references from full reflection names can be got from ReflectionHelper.ParseReflectionName.")]
@@ -165,7 +166,7 @@ namespace MonoDevelop.Ide.TypeSystem
 	
 	public static class TypeSystemService
 	{
-		const string CurrentVersion = "1.1.0";
+		const string CurrentVersion = "1.1.1";
 
 		static List<TypeSystemParserNode> parsers;
 		static string[] filesSkippedInParseThread = new string[0];
@@ -231,6 +232,19 @@ namespace MonoDevelop.Ide.TypeSystem
 							CheckModifiedFile (ctx);
 					}
 				}
+
+				foreach (var content in projectContents.Values.ToArray ()) {
+					var files = new List<ProjectFile> ();
+					foreach (var file in e) {
+						var f = content.Project.GetProjectFile (file.FileName);
+						if (f == null || f.BuildAction != BuildAction.Compile)
+							continue;
+						files.Add (f);
+					}
+					if (files.Count > 0)
+						QueueParseJob (content, files);
+				}
+
 			};
 			if (IdeApp.ProjectOperations != null) {
 				IdeApp.ProjectOperations.EndBuild += HandleEndBuild;
@@ -921,6 +935,25 @@ namespace MonoDevelop.Ide.TypeSystem
 				private set;
 			}
 
+			bool inLoad;
+			public bool InLoad {
+				get {
+					return inLoad;
+				}
+				set {
+					inLoad = value;
+					OnInLoadChanged (EventArgs.Empty);
+				}
+			}
+
+			public event EventHandler InLoadChanged;
+
+			protected virtual void OnInLoadChanged (EventArgs e)
+			{
+				var handler = InLoadChanged;
+				if (handler != null)
+					handler (this, e);
+			}
 
 			[NonSerialized]
 			internal LazyAssemblyLoader OutputAssembly = null;
@@ -981,6 +1014,7 @@ namespace MonoDevelop.Ide.TypeSystem
 						}
 
 						context = new MonoDevelopProjectContent (this.wrapper.Project);
+						wrapper.InLoad = true;
 						context = context.SetLocation (this.wrapper.Project.FileName);
 						context = context.SetAssemblyName (this.wrapper.Project.Name);
 						QueueParseJob (this.wrapper);
@@ -2100,7 +2134,7 @@ namespace MonoDevelop.Ide.TypeSystem
 				TypeSystemParserNode node = null;
 				TypeSystemParser parser = null;
 				var tags = Context.GetExtensionObject <ProjectCommentTags> ();
-
+				Context.InLoad = true;
 				foreach (var file in (FileList ?? Context.Project.Files)) {
 					var fileName = file.FilePath;
 					if (filesSkippedInParseThread.Any (f => f == fileName))
@@ -2120,6 +2154,7 @@ namespace MonoDevelop.Ide.TypeSystem
 						Context.InformFileRemoved (new ParsedFileEventArgs (oldFile));
 					Context.InformFileAdded (new ParsedFileEventArgs (parsedDocument.ParsedFile));
 				}
+				Context.InLoad = false;
 			}
 		}
 

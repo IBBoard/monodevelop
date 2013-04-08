@@ -142,8 +142,7 @@ namespace Mono.TextEditor
 		protected override void OnSizeAllocated (Rectangle allocation)
 		{
 			base.OnSizeAllocated (allocation);
-			if (textArea.Allocation != allocation)
-				textArea.SizeAllocate (allocation);
+			CurrentMode.AllocateTextArea (this, textArea, allocation);
 			SetChildrenPositions (allocation);
 		}
 
@@ -523,17 +522,17 @@ namespace Mono.TextEditor
 
 		public void ClearTooltipProviders ()
 		{
-			textArea.ClearTooltipProviders ();
+			GetTextEditorData ().ClearTooltipProviders ();
 		}
 		
 		public void AddTooltipProvider (TooltipProvider provider)
 		{
-			textArea.AddTooltipProvider (provider);
+			GetTextEditorData ().AddTooltipProvider (provider);
 		}
 		
 		public void RemoveTooltipProvider (TooltipProvider provider)
 		{
-			textArea.RemoveTooltipProvider (provider);
+			GetTextEditorData ().RemoveTooltipProvider (provider);
 		}
 
 		internal void RedrawMargin (Margin margin)
@@ -846,9 +845,9 @@ namespace Mono.TextEditor
 			}
 		}
 
-		public void HideTooltip ()
+		public void HideTooltip (bool checkMouseOver = true)
 		{
-			textArea.HideTooltip ();
+			textArea.HideTooltip (checkMouseOver);
 		}
 		public Action<Gdk.EventButton> DoPopupMenu {
 			get {
@@ -884,11 +883,6 @@ namespace Mono.TextEditor
 			remove { textArea.LinkRequest -= value; }
 		}
 
-		internal List<TooltipProvider> tooltipProviders {
-			get {
-				return textArea.tooltipProviders;
-			}
-		}
 		public void ShowListWindow<T> (ListWindow<T> window, DocumentLocation loc)
 		{
 			textArea.ShowListWindow<T> (window, loc);
@@ -1223,7 +1217,11 @@ namespace Mono.TextEditor
 		{
 			textArea.SetCaretTo (line, column, highlight, centerCaret);
 		}
-		
+		public event EventHandler BeginHover {
+			add { textArea.BeginHover += value; }
+			remove { textArea.BeginHover -= value; }
+		}
+
 	}
 }
 

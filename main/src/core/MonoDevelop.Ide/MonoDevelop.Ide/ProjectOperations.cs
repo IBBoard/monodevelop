@@ -50,6 +50,7 @@ using Mono.TextEditor;
 using System.Diagnostics;
 using ICSharpCode.NRefactory.Documentation;
 using ICSharpCode.NRefactory.TypeSystem.Implementation;
+using System.Text;
 
 namespace MonoDevelop.Ide
 {
@@ -1342,13 +1343,7 @@ namespace MonoDevelop.Ide
 				if (folder.IsRoot) {
 					// Don't allow adding files to the root folder. VS doesn't allow it
 					// If there is no existing folder, create one
-					var itemsFolder = (SolutionFolder) folder.Items.Where (item => item.Name == "Solution Items").FirstOrDefault ();
-					if (itemsFolder == null) {
-						itemsFolder = new SolutionFolder ();
-						itemsFolder.Name = "Solution Items";
-						folder.AddItem (itemsFolder);
-					}
-					folder = itemsFolder;
+					folder = folder.ParentSolution.DefaultSolutionFolder;
 				}
 				
 				if (!fp.IsChildPathOf (folder.BaseDirectory)) {
@@ -1758,6 +1753,12 @@ namespace MonoDevelop.Ide
 				// Remove all files and directories under 'sourcePath'
 				foreach (var v in filesToRemove)
 					sourceProject.Files.Remove (v);
+
+				// Moving an empty folder. A new folder object has to be added to the project.
+				if (movingFolder && !sourceProject.Files.GetFilesInVirtualPath (targetPath).Any ()) {
+					var folderFile = new ProjectFile (targetPath) { Subtype = Subtype.Directory };
+					sourceProject.Files.Add (folderFile);
+				}
 			}
 			
 			var pfolder = sourcePath.ParentDirectory;
@@ -2063,7 +2064,33 @@ namespace MonoDevelop.Ide
 			
 			return new ProviderProxy (data, file.SourceEncoding, file.HadBOM);
 		}
-		
+
+		/// <summary>
+		/// Performs an edit operation on a text file regardless of it's open in the IDE or not.
+		/// </summary>
+		/// <returns><c>true</c>, if file operation was saved, <c>false</c> otherwise.</returns>
+		/// <param name="filePath">File path.</param>
+		/// <param name="operation">The operation.</param>
+		public bool EditFile (FilePath filePath, Action<TextEditorData> operation)
+		{
+			if (operation == null)
+				throw new ArgumentNullException ("operation");
+			bool hadBom;
+			Encoding encoding;
+			bool isOpen;
+			var data = GetTextEditorData (filePath, out hadBom, out encoding, out isOpen);
+			operation (data);
+			if (!isOpen) {
+				try { 
+					Mono.TextEditor.Utils.TextFileUtility.WriteText (filePath, data.Text, encoding, hadBom);
+				} catch (Exception e) {
+					LoggingService.LogError ("Error while saving changes to : " + filePath, e);
+					return false;
+				}
+			}
+			return true;
+		}
+
 		public TextEditorData GetTextEditorData (FilePath filePath)
 		{
 			bool isOpen;
@@ -2072,17 +2099,26 @@ namespace MonoDevelop.Ide
 
 		public TextEditorData GetTextEditorData (FilePath filePath, out bool isOpen)
 		{
+			bool hadBom;
+			Encoding encoding;
+			return GetTextEditorData (filePath, out hadBom, out encoding, out isOpen);
+		}
+
+		public TextEditorData GetTextEditorData (FilePath filePath, out bool hadBom, out Encoding encoding, out bool isOpen)
+		{
 			foreach (var doc in IdeApp.Workbench.Documents) {
 				if (doc.FileName == filePath) {
 					isOpen = true;
+					hadBom = false;
+					encoding = Encoding.Default;
 					return doc.Editor;
 				}
 			}
-			
-			TextFile file = TextFile.ReadFile (filePath);
+
+			var text = Mono.TextEditor.Utils.TextFileUtility.ReadAllText (filePath, out hadBom, out encoding);
 			TextEditorData data = new TextEditorData ();
 			data.Document.FileName = filePath;
-			data.Text = file.Text;
+			data.Text = text;
 			isOpen = false;
 			return data;
 		}

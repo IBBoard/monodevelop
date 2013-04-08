@@ -168,7 +168,9 @@ namespace MonoDevelop.SourceEditor
 			var caret = new Gdk.Rectangle ((int)p1.X - positionWidget.Allocation.X, (int)p2.Y - positionWidget.Allocation.Y, (int)(p2.X - p1.X), (int)editor.LineHeight);
 
 			tipWindow.ShowPopup (positionWidget, caret, PopupPosition.Top);
-			
+			tipWindow.EnterNotifyEvent += delegate {
+				editor.HideTooltip (false);
+			};
 			lastWindow = tipWindow;
 			lastNode = titem.Node;
 			return tipWindow;
@@ -273,7 +275,8 @@ namespace MonoDevelop.SourceEditor
 						false);
 					}
 				} else if (result is CSharpInvocationResolveResult) {
-					var member = ((CSharpInvocationResolveResult)result).ReducedMethod ?? (IMethod)((CSharpInvocationResolveResult)result).Member;
+					var invocationResult = (CSharpInvocationResolveResult)result;
+					var member = (IMember)invocationResult.ReducedMethod ?? invocationResult.Member;
 					return MemberCompletionData.CreateTooltipInformation (
 						doc.Compilation,
 						doc.ParsedDocument.ParsedFile as CSharpUnresolvedFile,

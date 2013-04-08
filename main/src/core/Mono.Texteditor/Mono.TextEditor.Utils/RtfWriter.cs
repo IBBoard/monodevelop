@@ -26,6 +26,7 @@
 using System;
 using System.Text;
 using System.Collections.Generic;
+using Mono.TextEditor.Highlighting;
 
 namespace Mono.TextEditor.Utils
 {
@@ -104,6 +105,10 @@ namespace Mono.TextEditor.Utils
 			bool isItalic = false;
 			bool isBold = false;
 			int curColor = -1;
+			if (mode is SyntaxMode) {
+				SyntaxModeService.StartUpdate (doc, (SyntaxMode)mode, selection.Offset, selection.EndOffset);
+				SyntaxModeService.WaitUpdate (doc);
+			}
 			foreach (var line in doc.GetLinesBetween (startLineNumber, endLineNumber)) {
 				bool appendSpace = false;
 				if (mode == null) {
@@ -115,14 +120,14 @@ namespace Mono.TextEditor.Utils
 					int end = System.Math.Min (chunk.EndOffset, selection.EndOffset);
 					var chunkStyle = style.GetChunkStyle (chunk);
 					if (start < end) {
-						if (isBold != chunkStyle.Bold) {
-							rtfText.Append (chunkStyle.Bold ? @"\b" : @"\b0");
-							isBold = chunkStyle.Bold;
+						if (isBold != (chunkStyle.FontWeight == Xwt.Drawing.FontWeight.Bold)) {
+							isBold = chunkStyle.FontWeight == Xwt.Drawing.FontWeight.Bold;
+							rtfText.Append (isBold ? @"\b" : @"\b0");
 							appendSpace = true;
 						}
-						if (isItalic != chunkStyle.Italic) {
-							rtfText.Append (chunkStyle.Italic ? @"\i" : @"\i0");
-							isItalic = chunkStyle.Italic;
+						if (isItalic != (chunkStyle.FontStyle == Xwt.Drawing.FontStyle.Italic)) {
+							isItalic = chunkStyle.FontStyle == Xwt.Drawing.FontStyle.Italic;
+							rtfText.Append (isItalic ? @"\i" : @"\i0");
 							appendSpace = true;
 						}
 						var foreground = style.GetForeground (chunkStyle);
@@ -137,33 +142,25 @@ namespace Mono.TextEditor.Utils
 						AppendRtfText (rtfText, doc, start, end, ref appendSpace);
 					}
 				}
-				rtfText.Append (@"\par");
-				rtfText.AppendLine ();
+				rtfText.AppendLine (@"\line");
 			}
 			
 			var rtf = new StringBuilder();
 
-			rtf.Append (@"{\rtf1\ansi\deff0\adeflang1025");
-			
-			// font table
-			rtf.Append (@"{\fonttbl");
-
-			rtf.Append (@"{\f0\fnil\fprq1\fcharset128 " + options.Font.Family + ";}");
-
-			rtf.Append ("}");
-			
+			rtf.AppendLine (@"{\rtf1\ansi\deff0\adeflang1025");
+			rtf.AppendLine (@"{\fonttbl");
+			rtf.AppendLine (@"{\f0\fnil\fprq1\fcharset128 " + options.Font.Family + ";}");
+			rtf.AppendLine ("}");
 			rtf.Append (CreateColorTable (colorList));
-			
-			rtf.Append (@"\viewkind4\uc1\pard");
-
-			rtf.Append (@"\f0");
+			rtf.AppendLine (@"\viewkind4\uc1\pard");
+			rtf.AppendLine (@"\f0");
 			try {
 				string fontName = options.Font.ToString ();
 				double fontSize = Double.Parse (fontName.Substring (fontName.LastIndexOf (' ')  + 1), System.Globalization.CultureInfo.InvariantCulture) * 2;
 				rtf.Append (@"\fs");
 				rtf.Append (fontSize);
 			} catch (Exception) {};
-			rtf.Append (@"\cf1");
+			rtf.AppendLine (@"\cf1");
 			rtf.Append (rtfText.ToString ());
 			rtf.Append("}");
 			return rtf.ToString ();

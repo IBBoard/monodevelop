@@ -159,6 +159,7 @@ namespace MonoDevelop.Refactoring
 			var rctx = new RefactoringOptions (null);
 			var handler = new RenameHandler (changes);
 			FileService.FileRenamed += handler.FileRename;
+			var fileNames = new HashSet<FilePath> ();
 			for (int i = 0; i < changes.Count; i++) {
 				changes[i].PerformChange (monitor, rctx);
 				var replaceChange = changes[i] as TextReplaceChange;
@@ -168,6 +169,7 @@ namespace MonoDevelop.Refactoring
 					var change = changes[j] as TextReplaceChange;
 					if (change == null)
 						continue;
+					fileNames.Add (change.FileName);
 					if (replaceChange.Offset >= 0 && change.Offset >= 0 && replaceChange.FileName == change.FileName) {
 						if (replaceChange.Offset < change.Offset) {
 							change.Offset -= replaceChange.RemovedChars;
@@ -180,6 +182,7 @@ namespace MonoDevelop.Refactoring
 					}
 				}
 			}
+			FileService.NotifyFilesChanged (fileNames);
 			FileService.FileRenamed -= handler.FileRename;
 			TextReplaceChange.FinishRefactoringOperation ();
 		}
@@ -231,7 +234,9 @@ namespace MonoDevelop.Refactoring
 						if (fresult == null)
 							continue;
 						foreach (var action in FixOperationsHandler.GetActions (doc, fresult)) {
-							result.Add (new AnalysisContextActionProvider.AnalysisCodeAction (action, r));
+							result.Add (new AnalysisContextActionProvider.AnalysisCodeAction (action, r) {
+								DocumentRegion = action.DocumentRegion
+							});
 						}
 					}
 					result.AddRange (GetValidActions (doc, loc).Result);

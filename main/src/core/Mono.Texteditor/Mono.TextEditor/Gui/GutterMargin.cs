@@ -124,8 +124,9 @@ namespace Mono.TextEditor
 				} else if (extendSelection) {
 					if (!editor.IsSomethingSelected) {
 						editor.MainSelection = new Selection (loc, loc);
-					} 
-					editor.MainSelection.Lead = loc;
+					} else {
+						editor.MainSelection = editor.MainSelection.WithLead (loc);
+					}
 				} else {
 					anchorLocation = loc;
 					editor.ClearSelection ();
@@ -197,12 +198,15 @@ namespace Mono.TextEditor
 		{
 			lineNumberBgGC = editor.ColorStyle.LineNumbers.Background;
 			lineNumberGC = editor.ColorStyle.LineNumbers.Foreground;
-			gutterFont = Gtk.Widget.DefaultStyle.FontDescription.Copy ();
-			if (Platform.IsWindows) {
+			gutterFont = editor.Options.GutterFont;
+//			gutterFont.Weight = (Pango.Weight)editor.ColorStyle.LineNumbers.FontWeight;
+//			gutterFont.Style = (Pango.Style)editor.ColorStyle.LineNumbers.FontStyle;
+
+/*			if (Platform.IsWindows) {
 				gutterFont.Size = (int)(Pango.Scale.PangoScale * 8.0 * editor.Options.Zoom);
 			} else {
 				gutterFont.Size = (int)(Pango.Scale.PangoScale * 11.0 * editor.Options.Zoom);
-			}
+			}*/
 			CalculateWidth ();
 		}
 
@@ -226,7 +230,6 @@ namespace Mono.TextEditor
 				// otherwise I get pango exceptions.
 				using (var layout = PangoUtil.CreateLayout (editor)) {
 					layout.FontDescription = gutterFont;
-
 					layout.Width = (int)Width;
 					layout.Alignment = Pango.Alignment.Right;
 					layout.SetText (line.ToString ());

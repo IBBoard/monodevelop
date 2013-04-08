@@ -26,6 +26,7 @@
 //
 
 using System;
+using System.Linq;
 using System.Diagnostics;
 using System.Collections.Generic;
 using System.IO;
@@ -45,7 +46,7 @@ namespace MonoDevelop.Projects.Formats.MSBuild
 	public static class MSBuildProjectService
 	{
 		const string ItemTypesExtensionPath = "/MonoDevelop/ProjectModel/MSBuildItemTypes";
-		public const string GenericItemGuid = "{9344bdbb-3e7f-41fc-a0dd-8665d75ee146}";
+		public const string GenericItemGuid = "{9344BDBB-3E7F-41FC-A0DD-8665D75EE146}";
 		public const string FolderTypeGuid = "{2150E333-8FDC-42A3-9474-1A3956D46DE8}";
 		
 		//NOTE: default toolsversion should match the default format.
@@ -598,6 +599,13 @@ namespace MonoDevelop.Projects.Formats.MSBuild
 				return null;
 
 			return globalGroup.GetPropertyValue ("ProjectTypeGuids");
+		}
+
+		internal static UnknownProjectTypeNode GetUnknownProjectTypeInfo (string[] guids)
+		{
+			var nodes = AddinManager.GetExtensionNodes<UnknownProjectTypeNode> ("/MonoDevelop/ProjectModel/UnknownMSBuildProjectTypes")
+				.Where (p => guids.Any (p.MatchesGuid)).ToList ();
+			return nodes.FirstOrDefault (n => !n.IsSolvable) ?? nodes.FirstOrDefault (n => n.IsSolvable);
 		}
 	}
 	
