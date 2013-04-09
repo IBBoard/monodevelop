@@ -386,7 +386,7 @@ namespace MonoDevelop.Components.MainToolbar
 		void BuildToolbar ()
 		{
 			buttonBar.Clear ();
-			var bars = AddinManager.GetExtensionNodes (ToolbarExtensionPath).Cast<ItemSetCodon> ().Where (n => visibleBars.Contains (n.Id));
+			var bars = AddinManager.GetExtensionNodes (ToolbarExtensionPath).Cast<ItemSetCodon> ().Where (n => visibleBars.Contains (n.Id)).ToList ();
 			if (!bars.Any ()) {
 				buttonBarBox.Hide ();
 				return;
@@ -465,25 +465,21 @@ namespace MonoDevelop.Components.MainToolbar
 
 		string GetActiveConfiguration ()
 		{
-			int active = configurationCombo.Active;
-			if (active < 0)
+			TreeIter iter;
+
+			if (!configurationCombo.GetActiveIter (out iter))
 				return null;
 
-			TreeIter iter;
-			if (!configurationStore.GetIterFromString (out iter, active.ToString ()))
-				return null;
-			return (string)configurationStore.GetValue (iter, 1);
+			return (string) configurationStore.GetValue (iter, 1);
 		}
 
 		ExecutionTarget GetActiveTarget ()
 		{
-			int active = runtimeCombo.Active;
-			if (active < 0)
+			TreeIter iter;
+
+			if (!runtimeCombo.GetActiveIter (out iter))
 				return null;
 
-			TreeIter iter;
-			if (!runtimeStore.GetIterFromString (out iter, active.ToString ()))
-				return null;
 			return (ExecutionTarget)runtimeStore.GetValue (iter, 2);
 		}
 
@@ -497,17 +493,16 @@ namespace MonoDevelop.Components.MainToolbar
 			NotifyConfigurationChange ();
 		}
 
-		void NotifyConfigurationChange ()
+		void UpdateBuildConfiguration ()
 		{
 			var currentConfig = GetActiveConfiguration ();
 			if (currentConfig == null)
 				return;
 
-			string fullConfig;
 			ExecutionTarget newTarget;
+			string fullConfig;
 
 			configurationMerger.ResolveConfiguration (currentConfig, GetActiveTarget (), out fullConfig, out newTarget);
-
 			settingGlobalConfig = true;
 			try {
 				IdeApp.Workspace.ActiveExecutionTarget = newTarget;
@@ -515,6 +510,15 @@ namespace MonoDevelop.Components.MainToolbar
 			} finally {
 				settingGlobalConfig = false;
 			}
+		}
+
+		void NotifyConfigurationChange ()
+		{
+			if (GetActiveConfiguration () == null)
+				return;
+
+			UpdateBuildConfiguration ();
+
 			FillRuntimes ();
 			SelectActiveRuntime ();
 		}
@@ -525,11 +529,11 @@ namespace MonoDevelop.Components.MainToolbar
 
 			configurationCombo.Changed -= HandleConfigurationChanged;
 			try {
-				string defaultConfig = name;
 				TreeIter iter;
 
 				if (configurationStore.GetIterFirst (out iter)) {
-					defaultConfig = (string) configurationStore.GetValue (iter, 1);
+					var defaultConfig = (string) configurationStore.GetValue (iter, 1);
+					bool selected = false;
 					int i = 0;
 
 					do {
@@ -537,15 +541,16 @@ namespace MonoDevelop.Components.MainToolbar
 						if (config == name) {
 							IdeApp.Workspace.ActiveConfigurationId = config;
 							configurationCombo.Active = i;
+							selected = true;
 							break;
 						}
 						i++;
 					} while (configurationStore.IterNext (ref iter));
-				}
 
-				if (configurationCombo.Active == -1) {
-					IdeApp.Workspace.ActiveConfigurationId = defaultConfig;
-					configurationCombo.Active = 0;
+					if (!selected) {
+						IdeApp.Workspace.ActiveConfigurationId = defaultConfig;
+						configurationCombo.Active = 0;
+					}
 				}
 			} finally {
 				configurationCombo.Changed += HandleConfigurationChanged;
@@ -558,11 +563,11 @@ namespace MonoDevelop.Components.MainToolbar
 		{
 			runtimeCombo.Changed -= HandleRuntimeChanged;
 			try {
-				ExecutionTarget defaultTarget = null;
 				TreeIter iter;
 
 				if (runtimeStore.GetIterFirst (out iter)) {
-					defaultTarget = (ExecutionTarget) runtimeStore.GetValue (iter, 2);
+					var defaultTarget = (ExecutionTarget) runtimeStore.GetValue (iter, 2);
+					bool selected = false;
 					int i = 0;
 
 					do {
@@ -570,15 +575,18 @@ namespace MonoDevelop.Components.MainToolbar
 						if (target.Id == IdeApp.Workspace.PreferredActiveExecutionTarget) {
 							IdeApp.Workspace.ActiveExecutionTarget = target;
 							runtimeCombo.Active = i;
+							UpdateBuildConfiguration ();
+							selected = true;
 							break;
 						}
 						i++;
 					} while (runtimeStore.IterNext (ref iter));
-				}
 
-				if (runtimeCombo.Active == -1) {
-					IdeApp.Workspace.ActiveExecutionTarget = defaultTarget;
-					runtimeCombo.Active = 0;
+					if (!selected) {
+						IdeApp.Workspace.ActiveExecutionTarget = defaultTarget;
+						runtimeCombo.Active = 0;
+						UpdateBuildConfiguration ();
+					}
 				}
 			} finally {
 				runtimeCombo.Changed += HandleRuntimeChanged;
