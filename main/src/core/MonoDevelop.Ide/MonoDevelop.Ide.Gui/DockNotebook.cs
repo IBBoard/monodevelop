@@ -1041,8 +1041,8 @@ namespace MonoDevelop.Ide.Gui
 					gr.AddColorStop (0, Styles.BreadcrumbGradientStartColor.MultiplyAlpha (tab.Opacity));
 					gr.AddColorStop (1, Styles.BreadcrumbBackgroundColor.MultiplyAlpha (tab.Opacity));
 				} else {
-					gr.AddColorStop (0, CairoExtensions.ParseColor ("f4f4f4").MultiplyAlpha (tab.Opacity));
-					gr.AddColorStop (1, CairoExtensions.ParseColor ("cecece").MultiplyAlpha (tab.Opacity));
+					gr.AddColorStop (0, Styles.TabBarGradientStartColor.MultiplyAlpha (tab.Opacity));
+					gr.AddColorStop (1, Styles.TabBarGradientEndColor.MultiplyAlpha (tab.Opacity));
 				}
 				ctx.Pattern = gr;
 			}
@@ -1055,7 +1055,7 @@ namespace MonoDevelop.Ide.Gui
 			ctx.Color = Styles.BreadcrumbBorderColor.MultiplyAlpha (tab.Opacity);
 			LayoutTabBorder (ctx, allocation, tabBounds.Width, tabBounds.X, 0, active);
 			ctx.StrokePreserve ();
-
+			/*
 			if (tab.GlowStrength > 0) {
 				Gdk.Point mouse = tracker.MousePosition;
 				using (var rg = new RadialGradient (mouse.X, tabBounds.Bottom, 0, mouse.X, tabBounds.Bottom, 100)) {
@@ -1068,6 +1068,8 @@ namespace MonoDevelop.Ide.Gui
 			} else {
 				ctx.NewPath ();
 			}
+			*/
+			ctx.NewPath ();
 
 			// Render Close Button (do this first so we can tell how much text to render)
 			
