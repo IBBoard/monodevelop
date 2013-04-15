@@ -40,7 +40,7 @@ namespace MonoDevelop.Ide.Gui
 		// Document tab bar
 
 
-		public static readonly Cairo.Color TabBarBackgroundColor = CairoExtensions.ParseColor ("c2c2c2");
+		public static readonly Cairo.Color TabBarBackgroundColor = CairoExtensions.ParseColor ("C6C6c6");
 		public static readonly Cairo.Color TabBarActiveTextColor = new Cairo.Color (0, 0, 0);
 
 		public static readonly Cairo.Color TabBarGradientStartColor = Shift (TabBarBackgroundColor, 0.92);
@@ -65,13 +65,12 @@ namespace MonoDevelop.Ide.Gui
 
 		// Dock pads
 		
-		public static readonly Cairo.Color DockTabBarGradientTop = new Cairo.Color (248d / 255d, 248d / 255d, 248d / 255d);
-		public static readonly Cairo.Color DockTabBarGradientStart = new Cairo.Color (242d / 255d, 242d / 255d, 242d / 255d);
-		public static readonly Cairo.Color DockTabBarGradientEnd = new Cairo.Color (230d / 255d, 230d / 255d, 230d / 255d);
+		public static readonly Cairo.Color DockTabBarGradientTop = new Cairo.Color (198d / 255d, 198d / 255d, 198d / 255d);
+		public static readonly Cairo.Color DockTabBarGradientStart = new Cairo.Color (198d / 255d, 198d / 255d, 198d / 255d);
+		public static readonly Cairo.Color DockTabBarGradientEnd = new Cairo.Color (180d / 255d, 180d / 255d, 180d / 255d);
 		public static readonly Cairo.Color DockTabBarShadowGradientStart = new Cairo.Color (154d / 255d, 154d / 255d, 154d / 255d, 1);
 		public static readonly Cairo.Color DockTabBarShadowGradientEnd = new Cairo.Color (154d / 255d, 154d / 255d, 154d / 255d, 0);
-
-		public static readonly Gdk.Color PadBackground = new Gdk.Color (240, 240, 240);
+		public static readonly Gdk.Color PadBackground = new Gdk.Color (198, 198, 198);
 		public static readonly Gdk.Color InactivePadBackground = ReduceLight (PadBackground, 0.9);
 		public static readonly Gdk.Color PadLabelColor = new Gdk.Color (92, 99, 102);
 		public static readonly Gdk.Color DockFrameBackground = new Gdk.Color (157, 162, 166);
@@ -84,9 +83,7 @@ namespace MonoDevelop.Ide.Gui
 		public static readonly Cairo.Color DockBarBackground2 = Shift (PadBackground.ToCairoColor (), 0.95);
 		public static readonly Cairo.Color DockBarSeparatorColorDark = new Cairo.Color (0, 0, 0, 0.2);
 		public static readonly Cairo.Color DockBarSeparatorColorLight = new Cairo.Color (1, 1, 1, 0.3);
-
-		public static readonly Cairo.Color DockBarPrelightColor = CairoExtensions.ParseColor ("ffffff");
-
+		public static readonly Cairo.Color DockBarPrelightColor = Shift (PadBackground.ToCairoColor (), 1.15);
 		// Status area
 
 		public static readonly Cairo.Color WidgetBorderColor = CairoExtensions.ParseColor ("8c8c8c");
