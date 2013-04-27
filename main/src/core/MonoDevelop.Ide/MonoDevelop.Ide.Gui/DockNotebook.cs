@@ -1048,7 +1048,7 @@ namespace MonoDevelop.Ide.Gui
 			}
 			ctx.Fill ();
 			
-			ctx.Color = new Cairo.Color (1, 1, 1, .5).MultiplyAlpha (tab.Opacity);
+			ctx.Color = Styles.BreadcrumbGradientStartColor.MultiplyAlpha (tab.Opacity);
 			LayoutTabBorder (ctx, allocation, tabBounds.Width, tabBounds.X, 1, active);
 			ctx.Stroke ();
 
